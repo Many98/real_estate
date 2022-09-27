@@ -2,6 +2,6 @@
 
 ### Team members
 
-* Hanka Nguyenová (Team leader)
+* Hanka Nguyenová (TL) 
 * Adam Šumník
 * Emanuel Frátrik
