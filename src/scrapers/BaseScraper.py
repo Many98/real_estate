@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Union
 import pandas as pd
 import os
 import glob
@@ -23,8 +24,8 @@ class BaseScraper(ABC):
         self.scraped_links = []
 
     @abstractmethod   
-    def scrape(self, driver: WebDriver, url: str) -> dict:
-        """Loads page and scrape data from loaded web pages and returns dict of data"""
+    def scrape(self, driver: WebDriver, url: str) -> Union[dict, list]:
+        """Loads page and scrape data from loaded web pages and returns dict or list of data"""
         pass
 
     def _export_tabular_data(self, out_filename: str = '', **kwargs) -> None:
@@ -88,7 +89,7 @@ class BaseScraper(ABC):
         i = 1
         with webdriver.Chrome(ChromeDriverManager().install()) as driver:  # this assumes that chrome is installed and was at least once launched
             driver.implicitly_wait(self.delay * 5)
-            if self.prepared_links:
+            if self.prepared_links:  # used for scrapers based on specific urls
                 for link in tqdm(self.prepared_links, desc='Scraping links...'):
                     if link not in self.scraped_links and link != '':
                         data = self.scrape(driver, link)
@@ -105,8 +106,9 @@ class BaseScraper(ABC):
                 if i < 10 and self.data:
                     self._export_tabular_data(**kwargs)
                     self._update_scrapped_links()
-            else:
-                pass
+            else:  # used for other scrappers which implement logic only in `scrape` method and return list of data
+                self.data = self.scrape(driver, '')
+                self._export_tabular_data(**kwargs)
     
     def run(self, **kwargs) -> None:
         """Main method used to connect whole logic"""
