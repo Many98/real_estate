@@ -18,17 +18,19 @@ class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
         print(f'Crawling breality from url: {self.main_url}')
 
         try:
+            pagination = True
+            i = 0
+            page = 1
             # create soup object of html of main url
             soup = BeautifulSoup(requests.get(self.main_url).content, 'lxml')
-            # get all links of apts
-            ap_list_elem = soup.find_all('a')
+            while pagination:
 
-            i = 0
+                # get all links of apts
+                ap_list_elem = soup.find_all('a')
 
-            # for each link, get the url from href
-            for link in ap_list_elem:
-                link_url = link.get("href")
-                if 'nemovitosti-byty-domy' in link_url:
+                links = set([i.get("href") for i in ap_list_elem if 'nemovitosti-byty-domy' in i.get('href')])
+                # for each link, get the url from href
+                for link_url in tqdm(links, desc=f'Fetching valid urls on page {page}'):
 
                     # if the link exists in the database, ignore
                     if link_url in self.existing_links:
@@ -40,9 +42,17 @@ class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
                         self.append_to_txt(link_url)
                         self.existing_links.append(link_url)
                         i += 1
-
+                try:
+                    next_page_elem = soup.find_all("a", {"class": "page-link"})
+                    href = [i.get('href') for i in next_page_elem if f'page={str(page+1)}' in i.get('href')]
+                    # create soup object of html of main url
+                    soup = BeautifulSoup(requests.get(href[0]).content, 'lxml') # if href is empty it will raise exception which is wanted
+                except:
+                    pagination = False
+                    continue
+                page += 1
             # print number of new found apts
             print(f'Found {i} apartments')
 
         except:
-            print('URL not provided.')
+            print('Something went wrong :(')
