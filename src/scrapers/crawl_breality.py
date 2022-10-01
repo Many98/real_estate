@@ -23,12 +23,21 @@ class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
             page = 1
             # create soup object of html of main url
             soup = BeautifulSoup(requests.get(self.main_url).content, 'lxml')
+            next_page_elem = soup.find_all("a", {"class": "page-link"})
+            href = [i.get('href') for i in next_page_elem if f'page={str(page + 1)}' in i.get('href')]
+            href = href[0].replace(f'page={page+1}', f'page={page}')
+            stop = 0
             while pagination:
 
                 # get all links of apts
                 ap_list_elem = soup.find_all('a')
 
                 links = set([i.get("href") for i in ap_list_elem if 'nemovitosti-byty-domy' in i.get('href')])
+
+                if not links:
+                    stop += 1
+                    if stop == 3:  # after 3 unsuccessful fetching break
+                        break
                 # for each link, get the url from href
                 for link_url in tqdm(links, desc=f'Fetching valid urls on page {page}'):
 
@@ -43,10 +52,8 @@ class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
                         self.existing_links.append(link_url)
                         i += 1
                 try:
-                    next_page_elem = soup.find_all("a", {"class": "page-link"})
-                    href = [i.get('href') for i in next_page_elem if f'page={str(page+1)}' in i.get('href')]
-                    # create soup object of html of main url
-                    soup = BeautifulSoup(requests.get(href[0]).content, 'lxml') # if href is empty it will raise exception which is wanted
+                    href = href.replace(f'page={page}', f'page={page + 1}')
+                    soup = BeautifulSoup(requests.get(href).content, 'lxml') # if href is empty it will raise exception which is wanted
                 except:
                     pagination = False
                     continue
