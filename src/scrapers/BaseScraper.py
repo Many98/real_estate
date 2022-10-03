@@ -34,7 +34,7 @@ class BaseScraper(ABC):
         df_to_be_written = pd.DataFrame(self.data)
         df_to_be_written.to_csv(path, mode='a', index=False, header=not os.path.exists(path))
 
-        print(f'All appended successfully in {path}!')
+        print(f'New data appended successfully in {path}!', end="\r", flush=True)
 
     def _update_scrapped_links(self) -> None:
         """update `already_scraped_links.txt` file"""
@@ -103,7 +103,7 @@ class BaseScraper(ABC):
                         self._update_scrapped_links()
                         self.data = []  # flush list
                         self.new_scraped_links = []
-                if i < 10 and self.data:
+                if self.data:
                     self._export_tabular_data(**kwargs)
                     self._update_scrapped_links()
             else:  # used for other scrappers which implement logic only in `scrape` method and return list of data
