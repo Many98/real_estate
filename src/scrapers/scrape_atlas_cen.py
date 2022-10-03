@@ -4,13 +4,14 @@ import os
 import numpy as np
 import requests
 from bs4 import BeautifulSoup
+import re
 import time
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
 
 from scrapers.BaseScraper import BaseScraper
 
@@ -22,30 +23,42 @@ class AtlasCenScraper(BaseScraper):
     def scrape(self, driver: WebDriver, url: str) -> list:
         """Here comes custom implementation for atlas cen
         """
-        # for prague last year
-        url = 'https://www.reas.cz/atlas?bounds=49.922051297763346%2C13.96018981933594%2C50.26608218923894%2C14.942092895507814&filters=%7B%22types%22%3A%5B%22flat%22%5D%2C%22sort%22%3A%22sales_with_photos%22%2C%22date%22%3A%7B%22selectedOption%22%3A%22last_year%22%2C%22soldAfter%22%3A%222021-9-28%22%7D%7D&search=%7B%22text%22%3A%22%22%7D&scrollPos=&listPage=1&listPerPage=30'
         data = []
 
-
         page = 1
+        # for prague last 6 months
+        url = f'https://www.reas.cz/atlas?bounds=49.88755653624285%2C13.974609375000002%2C50.23183414485175%2C14.956512451171877&filters=%7B%22types%22%3A%5B%22flat%22%5D%2C%22sort%22%3A%22sales_with_photos%22%2C%22date%22%3A%7B%22selectedOption%22%3A%22six_months%22%2C%22soldAfter%22%3A%222022-4-3%22%7D%7D&search=%7B%22text%22%3A%22Praha%22%7D&scrollPos=&listPage={page}&listPerPage=30'
         pagination = True
         driver.get(url)
-        while pagination:
-            time.sleep(5)
-            when = WebDriverWait(driver, 30).until(EC.presence_of_all_elements_located((By.XPATH,
-                            '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]/div[1]/p')))
-            area = WebDriverWait(driver, 30).until(EC.presence_of_all_elements_located((By.XPATH,
-                            '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]/a/div/div[1]/div[1]/p[1]')))
-            price = WebDriverWait(driver, 30).until(EC.presence_of_all_elements_located((By.XPATH,
-                            '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]/a/div/div[2]')))
-            href = WebDriverWait(driver, 30).until(EC.presence_of_all_elements_located((By.XPATH,
-                            '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]/a')))
+        ele = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH,
+                                    '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[1]/div/div/p')))
+        time.sleep(3)
+        page_count = int(re.sub('[^0-9]', '', ele.text)) // 30 + 1
+        while pagination:  # page <= page_count
+            time.sleep(1)
+            x = int(50 * page / page_count) + 1
+            print(f'Page {page}/{page_count} [{u"█" * x}{"." * (51 - x)}]', end="\r", flush=True)  # 30 results per page is set in query
+            try:
+                ignored_exceptions = (NoSuchElementException, StaleElementReferenceException,)
+                when = WebDriverWait(driver, 10, ignored_exceptions=ignored_exceptions).until(EC.presence_of_all_elements_located((By.XPATH,
+                                '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]/div[1]/p')))
+                area = WebDriverWait(driver, 10, ignored_exceptions=ignored_exceptions).until(EC.presence_of_all_elements_located((By.XPATH,
+                                '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]/a/div/div[1]/div[1]/p[1]')))
+                price = WebDriverWait(driver, 10, ignored_exceptions=ignored_exceptions).until(EC.presence_of_all_elements_located((By.XPATH,
+                                '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]/a/div/div[2]')))
+                href = WebDriverWait(driver, 10, ignored_exceptions=ignored_exceptions).until(EC.presence_of_all_elements_located((By.XPATH,
+                                '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]/a')))
+            except:
+                # probably pop-up screen appeared
+                self.close_pop_up(driver)
+                continue
 
-            time.sleep(2)
+            time.sleep(1)
 
-            dynamic_button = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH,
+            dynamic_button = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
                             '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[1]/button')))
-            dynamic_button.click()
+            if dynamic_button.is_displayed():
+                dynamic_button.click()
 
             #estate_items = WebDriverWait(driver, 30).until(EC.presence_of_all_elements_located((By.XPATH,
             #                '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[2]/div[*]')))
@@ -53,19 +66,66 @@ class AtlasCenScraper(BaseScraper):
             #                '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[1]/div[*]')))
             #data += [{'text': i.text, 'href': i.find_element_by_css_selector('a').get_attribute('href')} for i in
             #         estate_items2]
-            data += [{'when': i.text, 'href': j.get_attribute('href'), 'area': k.text, 'price': l.text} for i, j, k, l
-                     in zip(when, href, area, price)]
+            existing_hrefs = self.get_existing_links()
+            try:
+                data = [{'when': i.text, 'href': j.get_attribute('href'), 'area': k.text, 'price': l.text} for i, j, k, l
+                        in zip(when, href, area, price)]
+                data_out = [i for i in data if i['href'] not in existing_hrefs]
+                ll = [list(map(float, i['href'][53:89].replace('%', '').split('2C'))) for i in data_out]  # TODO implement it with regex
+                for i, j in zip(data_out, ll):
+                    i.update({'long': j[1], 'lat': j[0]})
+                # finally filter already existing data according to href attribute (kind of unique identifier)
+                self.data = data_out
+                if len(data_out) != len(data):
+                    print('Some records already exists')
+            except:
+                print('something went wrong')
+                self.close_pop_up(driver)
+                time.sleep(3)
+                continue
 
             try:
                 #next_page_elem = WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.XPATH,
                 #        '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[3]/div[1]/button[*]')))
-                next_page_elem = WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.XPATH,
+                next_page_elem = WebDriverWait(driver, 5).until(EC.presence_of_all_elements_located((By.XPATH,
                     '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[2]/div[2]/div[2]/div/div[2]/div[1]/button[*]')))
-                next_page_elem[-1].click()
+                try:
+                    next_page_elem[-1].click()
+                except:
+                    self.close_pop_up(driver)  # close pop-up
+                    next_page_elem[-1].click()  # go to next page
             except:
                 pagination = False
                 continue
 
+            """
+            try:
+                url = url.replace(f'listPage={page}', f'listPage={page+1}')
+                driver.get(url)
+            except:
+                print('next page not found')
+            """
+            self._export_tabular_data()
+            self.data = []
             page += 1
 
         return data
+
+    def close_pop_up(self, driver: WebDriver) -> None:
+        try:
+            pop_up_close = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH,
+                                                                            '/html/body/div[3]/div/i')))
+            pop_up_close.click()
+        except:
+            pass
+
+    def get_existing_links(self) -> list:
+        '''reads the file of existing data'''
+        path = os.path.join('../', 'data', f"_{self.name}_scraped.csv")  # TODO should be more robust
+        if os.path.exists(path):
+            data = pd.read_csv(path)
+
+            return data['href'].tolist()
+        else:
+            return []
+
