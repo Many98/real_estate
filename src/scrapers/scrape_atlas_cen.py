@@ -34,7 +34,8 @@ class AtlasCenScraper(BaseScraper):
                                     '//*[@id="__next"]/div/main/div[2]/div[2]/div[2]/div[1]/div/div/p')))
         time.sleep(3)
         page_count = int(re.sub('[^0-9]', '', ele.text)) // 30 + 1
-        while pagination:  # page <= page_count
+        stop = 0
+        while pagination and page <= page_count:  # page <= page_count
             time.sleep(1)
             x = int(50 * page / page_count) + 1
             print(f'Page {page}/{page_count} [{u"█" * x}{"." * (51 - x)}]', end="\r", flush=True)  # 30 results per page is set in query
@@ -51,8 +52,14 @@ class AtlasCenScraper(BaseScraper):
             except:
                 # probably pop-up screen appeared
                 self.close_pop_up(driver)
+                time.sleep(2)
+                if stop == 3:
+                    driver.refresh()
+                elif stop > 3:
+                    raise Exception('Unknown page error')
+                stop += 1
                 continue
-
+            stop = 0
             time.sleep(1)
 
             dynamic_button = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
@@ -71,17 +78,22 @@ class AtlasCenScraper(BaseScraper):
                 data = [{'when': i.text, 'href': j.get_attribute('href'), 'area': k.text, 'price': l.text} for i, j, k, l
                         in zip(when, href, area, price)]
                 data_out = [i for i in data if i['href'] not in existing_hrefs]
-                ll = [list(map(float, i['href'][53:89].replace('%', '').split('2C'))) for i in data_out]  # TODO implement it with regex
+                ll = [list(map(float, re.findall("\d+\.\d+", i['href'][:110]))) for i in data_out]
                 for i, j in zip(data_out, ll):
                     i.update({'long': j[1], 'lat': j[0]})
                 # finally filter already existing data according to href attribute (kind of unique identifier)
                 self.data = data_out
                 if len(data_out) != len(data):
-                    print('Some records already exists')
+                    print('Some records already exists', end="\r", flush=True)
             except:
                 print('something went wrong')
                 self.close_pop_up(driver)
                 time.sleep(3)
+                if stop == 3:
+                    driver.refresh()
+                elif stop > 3:
+                    raise Exception('Unknown page error')
+                stop += 1
                 continue
 
             try:
@@ -93,7 +105,11 @@ class AtlasCenScraper(BaseScraper):
                     next_page_elem[-1].click()
                 except:
                     self.close_pop_up(driver)  # close pop-up
-                    next_page_elem[-1].click()  # go to next page
+                    try:
+                        next_page_elem[-1].click()  # go to next page
+                    except:
+                        pagination = False
+                        continue
             except:
                 pagination = False
                 continue
