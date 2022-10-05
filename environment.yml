@@ -103,4 +103,7 @@ dependencies:
     - wsproto==1.1.0
     - xgboost==1.6.2
     - zipp==3.8.1
+    - plotly==5.10.0
+    - matplotlib==3.6.0
+    - jupyter==1.0.0
 
