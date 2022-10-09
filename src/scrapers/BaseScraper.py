@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Union
 import pandas as pd
 import os
 import glob
@@ -23,21 +24,22 @@ class BaseScraper(ABC):
         self.scraped_links = []
 
     @abstractmethod   
-    def scrape(self, driver: WebDriver, url: str) -> dict:
-        """Loads page and scrape data from loaded web pages and returns dict of data"""
+    def scrape(self, driver: WebDriver, url: str) -> Union[dict, list]:
+        """Loads page and scrape data from loaded web pages and returns dict or list of data"""
         pass
 
     def _export_tabular_data(self, out_filename: str = '', **kwargs) -> None:
-        """method to export(append) tabular data to .csv file
-            it also update `already_scraped_links.txt` file"""
+        """method to export(append) tabular data to .csv file"""
         path = os.path.join('../', 'data', f"{out_filename}_{self.name}_scraped.csv")
         df_to_be_written = pd.DataFrame(self.data)
         df_to_be_written.to_csv(path, mode='a', index=False, header=not os.path.exists(path))
 
+        print(f'New data appended successfully in {path}!', end="\r", flush=True)
+
+    def _update_scrapped_links(self) -> None:
+        """update `already_scraped_links.txt` file"""
         with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'a') as f:
             f.writelines(['\n' + i for i in self.new_scraped_links])
-
-        print(f'All appended successfully in {path}!')
 
     def _save_image(self, img_url: str, web_url: str) -> None:
         """Method to save image from `img_url`"""
@@ -73,7 +75,7 @@ class BaseScraper(ABC):
         """read .txt file with links"""
         if in_filename != '':
             with open(os.path.join('../', 'data', in_filename), 'r') as f:
-                self.prepared_links = [line.rstrip() for line in f.readlines()][18:23]  # TODO remove filter on first 3
+                self.prepared_links = [line.rstrip() for line in f.readlines()]
 
             if not glob.glob(os.path.join('../', 'data', 'already_scraped_links.txt')):
                 with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'w') as f:
@@ -87,7 +89,7 @@ class BaseScraper(ABC):
         i = 1
         with webdriver.Chrome(ChromeDriverManager().install()) as driver:  # this assumes that chrome is installed and was at least once launched
             driver.implicitly_wait(self.delay * 5)
-            if self.prepared_links:
+            if self.prepared_links:  # used for scrapers based on specific urls
                 for link in tqdm(self.prepared_links, desc='Scraping links...'):
                     if link not in self.scraped_links and link != '':
                         data = self.scrape(driver, link)
@@ -98,12 +100,15 @@ class BaseScraper(ABC):
                             i += 1
                     if i % 10 == 0:  # append to csv every 10 new rows
                         self._export_tabular_data(**kwargs)
+                        self._update_scrapped_links()
                         self.data = []  # flush list
                         self.new_scraped_links = []
-                if i < 10 and self.data:
+                if self.data:
                     self._export_tabular_data(**kwargs)
-            else:
-                pass
+                    self._update_scrapped_links()
+            else:  # used for other scrappers which implement logic only in `scrape` method and return list of data
+                self.data = self.scrape(driver, '')
+                self._export_tabular_data(**kwargs)
     
     def run(self, **kwargs) -> None:
         """Main method used to connect whole logic"""
