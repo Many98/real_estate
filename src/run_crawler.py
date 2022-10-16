@@ -4,6 +4,7 @@ from scrapers.scrape_sreality import SRealityScraper
 from scrapers.scrape_breality import BezRealitkyScraper
 import argparse
 
+
 # TODO: async scrapers?
 
 if __name__ == "__main__":
