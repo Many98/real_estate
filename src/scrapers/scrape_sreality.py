@@ -45,7 +45,83 @@ class SRealityScraper(BaseScraper):
              to dictionary as we need reference where are stored images and text for specific url
                 for particular `url`
         """
+        out = {  # basic sort of required info
+            'header': None,  # text description of disposition e.g. 3 + kk
+            'price': None,  # Celková cena
+            'note': None,  # poznamka (k cene) sometimes can have valid info like
+                # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
+            'usable_area': None,  # Užitná plocha
+            'floor_area': None,  # Plocha podlahová
+            'floor': None,  # podlazie
+            'energy_effeciency': None,  # Energetická náročnost (letters A-G) A=best, G=shitty
+            'ownership': None,  # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
+            'long': None,
+            'lat': None,
+            'hash': None,
 
+            # binary civic amenities (obcanska vybavenost binarne info)
+            'bus_station': None,
+            'train_station': None,
+            'post_office': None,
+            'atm': None, # bankomat according to google translate :D
+            'doctor': None,
+            'vet': None,
+            'primary_school': None,
+            'kindergarten': None,
+            'supermarket_grocery': None,
+            'restaurant_pub': None,
+            'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
+            'subway': None,
+            'tram': None,
+            # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
+            'theatre_cinema': None,
+
+            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti)
+
+            'bus_station_dist': None,
+            'train_station_dist': None,
+            'post_office_dist': None,
+            'atm_dist': None,  # bankomat according to google translate :D
+            'doctor_dist': None,
+            'vet_dist': None,
+            'primary_school_dist': None,
+            'kindergarten_dist': None,
+            'supermarket_grocery_dist': None,
+            'restaurant_pub_dist': None,
+            'playground_gym_pool_dist': None,  # or similar kind of leisure amenity probably OSM would be better
+            'subway_dist': None,
+            'tram_dist': None,
+            # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
+            'theatre_cinema_dist': None,
+
+            # other
+            'gas': None,  # Plyn
+            'waste': None,  # Odpad:
+            'equipment': None,  # Vybavení:
+            'state': None,  # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
+            'construction_type': None,  # Stavba (3 states possible ) panel, cihla, ostatni
+            'place': None,  # Umístění objektu
+            'electricity': None,  # elektrina
+            'heating': None,  # topeni
+            'transport': None,  # doprava
+            'year_reconstruction': None,  # rok rekonstrukce
+            'telecomunication': None,  # telekomunikace
+
+            # binary info
+            'has_lift': None,  # Výtah: True, False
+            'has_garage': None,  # garaz
+            'has_cellar': None,  # sklep presence or  m2 ???
+            'no_barriers': None,  # ci je bezbarierovy bezbarierovy
+            'has_loggia': None,  # lodzie m2
+            'has_balcony': None,  # balkon
+            'has_garden': None, # zahrada,
+            'has_parking': None,
+
+            # additional info
+            'cellar_area': None, # plocha sklepu (if provided)
+            'loggia_area': None,
+            'balcony_area': None
+        }
         if 'sreality' not in url:  # ensures correct link
             return {}
         else:
@@ -89,7 +165,7 @@ class SRealityScraper(BaseScraper):
                     price = soup.find('span', attrs={'class': 'ng-binding ng-scope'})
                     price = str(price)
                     price = price[price.find(">") + 1:]
-                    price = price[:price.find("Kč")+2]
+                    price = price[:price.find("Kč") + 2]
 
                     # scrape description
                     description = soup.find('div', attrs={'class': 'description ng-binding'})
@@ -101,15 +177,15 @@ class SRealityScraper(BaseScraper):
                     retezec = retezec.replace("</div>", "")
                     description = retezec
                     # del retezec
-                    #price = a.find('div', attrs={'class': '_1vC4OE _2rQ-NK'})
-                    #rating = a.find('div', attrs={'class': 'hGSR34 _2beYZw'})
-                    #products.append(name.text)
-                    #prices.append(price.text)
-                    #ratings.append(rating.text)
-                    #resp = http.request('GET', url)
-                    #data = resp.data.decode('utf-8')
+                    # price = a.find('div', attrs={'class': '_1vC4OE _2rQ-NK'})
+                    # rating = a.find('div', attrs={'class': 'hGSR34 _2beYZw'})
+                    # products.append(name.text)
+                    # prices.append(price.text)
+                    # ratings.append(rating.text)
+                    # resp = http.request('GET', url)
+                    # data = resp.data.decode('utf-8')
                     # print(description)
-                #self._save_text(str(data), url)
+                # self._save_text(str(data), url)
             except:
                 print("")
             test_dict = {'header': 'Prodej bytu 4+kk • 123 m² bez realitky',
