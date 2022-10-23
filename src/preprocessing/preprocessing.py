@@ -3,6 +3,8 @@ import numpy as np
 
 import re
 import itertools
+import py7zr
+import os
 
 import geopandas as gpd
 import osmnx as ox
@@ -137,6 +139,60 @@ def osmnx_nearest(long: float, lat: float, dist: int) -> gpd.GeoDataFrame:
     # TODO filter obtained dataset to left only nearest amenities/geometries
 
     return gdf
+
+
+def prepare_rasters(path: str) -> tuple:
+    """
+    prepares raster data
+    Parameters
+    ----------
+    path : str
+        Path to directory with geodata (rasters/csv/.7z)
+    Returns
+    -------
+
+    """
+    if not os.path.isdir(os.path.join(path, 'geodata')):
+        if os.path.isfile(os.path.join(path, 'geodata.7z')):
+            with py7zr.SevenZipFile(os.path.join(path, 'geodata.7z'), mode='r') as z:
+                z.extractall(path=path)
+        else:
+            raise Exception('Geodata not found !')
+
+    # prague air quality
+    #   5 levels 1 best 5 worse / 0 nodata
+    if os.path.isfile(os.path.join(path, 'geodata', 'prague_air_quality.tif')):
+        air = rioxarray.open_rasterio(os.path.join(path, 'geodata', 'prague_air_quality.tif'))
+    else:
+        raise Exception('Air quality data not found')
+
+    # prague built up density
+    #   5 levels 1 best 5 worse / 0 nodata
+    if os.path.isfile(os.path.join(path, 'geodata', 'prague_built_up.tif')):
+        built = rioxarray.open_rasterio(os.path.join(path, 'geodata', 'prague_built_up.tif'))
+    else:
+        raise Exception('Built up data not found')
+
+    # prague day noise data (2016)
+    if os.path.isfile(os.path.join(path, 'geodata', 'prague_noise_map_day_2016.tif')):
+        noise_day = rioxarray.open_rasterio(os.path.join(path, 'geodata', 'prague_noise_map_day_2016.tif'))
+    else:
+        raise Exception('Daily noise level data not found')
+
+    # prague night noise data (2016)
+    if os.path.isfile(os.path.join(path, 'geodata', 'prague_noise_map_night_2016.tif')):
+        noise_night = rioxarray.open_rasterio(os.path.join(path, 'geodata', 'prague_noise_map_night_2016.tif'))
+    else:
+        raise Exception('Nightly noise level data not found')
+
+    # prague sun glare data
+    #   5 levels 1 best 5 worse / 0 nodata
+    if os.path.isfile(os.path.join(path, 'geodata', 'prague_sun_glare.tif')):
+        sun = rioxarray.open_rasterio(os.path.join(path, 'geodata', 'prague_sun_glare.tif'))
+    else:
+        raise Exception('Nightly noise level data not found')
+
+    return air, built, sun, noise_day, noise_night
 
 
 # ###### NLP preprocessing
