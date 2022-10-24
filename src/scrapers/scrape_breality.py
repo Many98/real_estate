@@ -10,6 +10,7 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
 from bs4 import BeautifulSoup
 import re
+import json
 import urllib3
 from scrapers.BaseScraper import BaseScraper
 
@@ -52,8 +53,16 @@ class BezRealitkyScraper(BaseScraper):
             driver.get(url)
             content = driver.page_source
             soup = BeautifulSoup(content)
+
+            script = soup.find('script', text=re.compile('{"props":{"pageProps"'))
+            json_feed = str(script).split('<script id="__NEXT_DATA__" type="application/json">')[1].split('</script>')[0]
+            data = json.loads(json_feed) # Contains all relevant data we need in very convenient json format ALSO FOR ALREADY NOT EXISTENT ADVERTS
+            # TODO process json `data` extract all relevant info including osm data about nearby features and travel distance
+            #   and map extracted attributes to ours `out` dict
+
+
             # scrape header
-            header = soup.find('h1', attrs={'class': 'mb-3 mb-lg-10 h2'})
+            header = soup.find('h1', attrs={'class': 'mb-3 mb-lg-10 h2'})[1].split('</script>')[0]
             header = str(header.text)
             usable_area = header.split(" ")[4] #in m^2
             header = header.split(" ")[2]
