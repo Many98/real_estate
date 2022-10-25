@@ -65,7 +65,8 @@ def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path:
     Performs prediction using pickled model
     Parameters
     ----------
-    X :
+    X : Union[np.ndarray, pd.DataFrame]
+        shape of array should be N x 2 where N is number of entries / GPS locations
     model_path :
     data_path:
     Returns
@@ -79,7 +80,7 @@ def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path:
 
     data = prepare_atlas_cen_data(data_path)
 
-    X, y = data[['long', 'lat']].to_numpy(), data['price/m2'].to_numpy()
+    _, y = data[['long', 'lat']].to_numpy(), data['price/m2'].to_numpy()
 
     mean_pred, std_pred = gp_model.predict(X, return_std=True)
 
