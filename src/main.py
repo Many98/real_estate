@@ -1,8 +1,13 @@
+import pandas as pd
+
 from preprocessing.enrichment import Enricher
 from scrapers.crawl_sreality import KindOfCrawlerForSReality
 from scrapers.crawl_breality import KindOfCrawlerForBezRealitky
 from scrapers.scrape_sreality import SRealityScraper
 from scrapers.scrape_breality import BezRealitkyScraper
+from scrapers.scrape_atlas_cen import AtlasCenScraper
+from models.gaussian_process import gp_train
+
 import argparse
 
 
@@ -33,9 +38,73 @@ class ETL(object):
     ---------------------------------
 
     """
+    def __init__(self):
+        # TODO make url for crawler input
+        self.breality_crawler = KindOfCrawlerForBezRealitky(out_filename='prodej_links.txt',
+                                                       url='https://www.bezrealitky.cz/vyhledat?offerType=PRODEJ&estateType=BYT&page=1&order=TIMEORDER_DESC&regionOsmIds=R435541&osm_value=Praha%2C+%C4%8Cesko')
+        self.sreality_crawler = KindOfCrawlerForBezRealitky(out_filename='prodej_links.txt',
+                                                       url='https://www.sreality.cz/hledani/prodej/byty/praha')
 
-    def __call__(self, *args, **kwargs):
-        # TODO here call all instances of crawlers, scrapers, enricher etc.
+        self.atlas_cen_scrapper = AtlasCenScraper()
+        self.breality_scraper = BezRealitkyScraper()
+        self.sreality_scraper = SRealityScraper()
+
+        self.enricher = Enricher(df=pd.DataFrame())  # TODO not ideal init with emty dataframe
+
+    def __call__(self, links_filename: str = '', update_price_map: bool = False,  *args, **kwargs) -> pd.DataFrame:
+        """
+        call all instances of crawlers, scrapers, enricher etc.
+        Parameters
+        ----------
+        links_filename: str
+            Filename of .txt file with link to be scrapped. empty string means run crawlers
+        update_price_map: bool
+            whether to update price map
+        Returns
+        -------
+        pd.DataFrame
+        """
+        data = None
+
+        if update_price_map:
+            pass
+
+        # ### OBTAIN RAW DATA
+        if not links_filename:
+            # links firstly obtained by crawlers
+            self.sreality_crawler.crawl()
+            self.breality_crawler.crawl()
+            self.sreality_scraper.run(in_filename='prodej_links.txt', out_filename='prodej')
+            self.breality_scraper.run(in_filename='prodej_links.txt', out_filename='prodej')
+            #  ### Data are now scrapped in two separate files
+            #           ../data/prodej_breality.csv and ../data/prodej_sreality.csv so synchronization is needed
+            #            to get one csv with same sets of attributes
+
+            # ### SYNCHRONIZE DATA
+
+            #  ### Data are now synchronized in one ../data/prodej_synchronized.csv (TRAIN)
+            data = pd.read_csv('../data/prodej_synchronized.csv')  # TODO dtypes specification be nice to have
+        else:
+            # input from user | used in inference
+            self.sreality_scraper.run(in_filename=links_filename, out_filename='predict')
+            self.breality_scraper.run(in_filename=links_filename, out_filename='predict')
+            #  ### Data are now scrapped in two separate files
+            #           ../data/predict_breality.csv and ../data/predict_sreality.csv so synchronization is needed
+            #            to get one csv with same sets of attributes
+
+            # ### SYNCHRONIZE DATA
+
+            #  ### Data are now synchronized in one ../data/predict_synchronized.csv (INFERENCE)
+            data = pd.read_csv('../data/predict_synchronized.csv')  # TODO dtypes specification be nice to have
+
+        if data is None:
+            raise Exception('Something went wrong. Data not obtained !')
+
+        # ### ENRICH DATA
+        self.enricher.df = data  # TODO not ideal
+        enriched_data = self.enricher()
+
+        # ### Data are now enriched with new geospatial attributes etc. now feature engineering is needed
         pass
 
     def update_price_map(self):
