@@ -11,6 +11,7 @@ from selenium import webdriver
 from bs4 import BeautifulSoup
 import json
 import re
+import json
 import urllib3
 from scrapers.BaseScraper import BaseScraper
 
@@ -53,6 +54,7 @@ class BezRealitkyScraper(BaseScraper):
             driver.get(url)
             content = driver.page_source
             soup = BeautifulSoup(content)
+<<<<<<< HEAD
             # JSON file scraping
             script = soup.find('script', attrs={'type': 'application/json'})
             string = script.text
@@ -74,6 +76,21 @@ class BezRealitkyScraper(BaseScraper):
                 if 'bus' in dict_2['public_transport']['properties']['category_ids']['605']['category_name']:
                     bus = True
                     bus_dist = dict_2['public_transport']['properties']['walkDistance']
+=======
+
+            script = soup.find('script', text=re.compile('{"props":{"pageProps"'))
+            json_feed = str(script).split('<script id="__NEXT_DATA__" type="application/json">')[1].split('</script>')[0]
+            data = json.loads(json_feed) # Contains all relevant data we need in very convenient json format ALSO FOR ALREADY NOT EXISTENT ADVERTS
+            # TODO process json `data` extract all relevant info including osm data about nearby features and travel distance
+            #   and map extracted attributes to ours `out` dict
+
+
+            # scrape header
+            header = soup.find('h1', attrs={'class': 'mb-3 mb-lg-10 h2'})[1].split('</script>')[0]
+            header = str(header.text)
+            usable_area = header.split(" ")[4] #in m^2
+            header = header.split(" ")[2]
+>>>>>>> 7222de27ea06a7c61412f3473ac8a2a3c17815ba
 
                 if 'metro' in dict_2['public_transport']['properties']['category_ids']['605']['category_name']:
                     metro = True  # todo, if is it metro or subway!
