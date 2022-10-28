@@ -15,6 +15,7 @@ import json
 import urllib3
 from scrapers.BaseScraper import BaseScraper
 
+
 class BezRealitkyScraper(BaseScraper):
     def __init__(self, delay: float = 0.5, name: str = 'breality') -> None:
         super().__init__(name, delay)
@@ -54,143 +55,164 @@ class BezRealitkyScraper(BaseScraper):
             driver.get(url)
             content = driver.page_source
             soup = BeautifulSoup(content)
-<<<<<<< HEAD
+
             # JSON file scraping
-            script = soup.find('script', attrs={'type': 'application/json'})
-            string = script.text
-            dict = json.loads(string)
-            # print(type(res)) is dict
-            dict_2 = None
             try:
-                dict_2 = json.loads(dict['props']['pageProps']['origAdvert']['poiData'])
-                '''
-                bus = False
-                bus_dist = 0
-                tram = False
-                tram_dist = 0
-                metro = False
-                metro_dist = 0
-                if 'tram' in dict_2['public_transport']['properties']['category_ids']['605']['category_name']:
-                    tram = True
-                    tram_dist = dict_2['public_transport']['properties']['walkDistance']
-                if 'bus' in dict_2['public_transport']['properties']['category_ids']['605']['category_name']:
-                    bus = True
-                    bus_dist = dict_2['public_transport']['properties']['walkDistance']
-=======
+                script = soup.find('script', attrs={'type': 'application/json'})
+                string = script.text
+                dict_ = json.loads(string)
+                if 'origAdvert' not in list(
+                        dict_['props']['pageProps'].keys()):  # advert was really deleted / status code 404
+                    return {}
+                dict_ = dict_['props']['pageProps']['origAdvert']
+            except:
+                print('Json loading failed')
+            try:
+                kk = dict_.get('poiData', None)
+                dict_2 = json.loads(kk) if kk is not None else None
 
-            script = soup.find('script', text=re.compile('{"props":{"pageProps"'))
-            json_feed = str(script).split('<script id="__NEXT_DATA__" type="application/json">')[1].split('</script>')[0]
-            data = json.loads(json_feed) # Contains all relevant data we need in very convenient json format ALSO FOR ALREADY NOT EXISTENT ADVERTS
-            # TODO process json `data` extract all relevant info including osm data about nearby features and travel distance
-            #   and map extracted attributes to ours `out` dict
+                out = {
+                    'header': dict_['imageAltText'],
+                    # text description of disposition e.g. 3 + kk
+                    'price': dict_['price'],  # Celková cena
+                    'note': None,
+                    # poznamka (k cene) sometimes can have valid info like
+                    # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
+                    'usable_area': dict_['surface'],  # Užitná plocha
+                    'floor_area': None,  # Plocha podlahová (?)
+                    'floor': dict_['etage'],  # podlazie
+                    'energy_effeciency': dict_['penb'],
+                    # Energetická náročnost (letters A-G) A=best, G=shitty
+                    'ownership': dict_['ownership'],
+                    # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
+                    'description': dict_['description'],
+                    'long': dict_['gps']['lng'],
+                    'lat': dict_['gps']['lat'],
+                    'hash': None,
+
+                    # other - done
+                    'gas': None,  # Plyn
+                    'waste': None,  # Odpad
+                    'equipment': dict_['equipped'],  # Vybavení
+                    'state': dict_['reconstruction'],
+                    # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
+                    'construction_type': dict_['construction'],
+                    # Stavba (3 states possible ) panel, cihla, ostatni
+                    'place': dict_['address'],  # Umístění objektu
+                    'electricity': None,  # elektrina
+                    'heating': dict_['heating'],  # topeni
+                    'transport': None,  # doprava
+                    'year_reconstruction': None,  # rok rekonstrukce
+                    'telecomunication': None,  # telekomunikace
+
+                    # binary info - done
+                    'has_lift': dict_['lift'],  # Výtah: True, False
+                    'has_garage': dict_['garage'],  # garaz
+                    'has_cellar': dict_['cellar'],  # sklep presence or  m2 ???
+                    'no_barriers': None,  # ci je bezbarierovy bezbarierovy
+                    'has_loggia': dict_['loggia'],  # lodzie m2
+                    'has_balcony': dict_['balcony'],  # balkon
+                    'has_garden': dict_['frontGarden'],  # zahrada,  # TODO sometimes there is mistake and key `frontGarden` has numeric values instead of bool -> needs preprocess
+                    'has_parking': dict_['parking'],
+
+                    # additional info - sometimes
+                    'cellar_area': dict_['cellarSurface'],
+                    # plocha sklepu (if provided)
+                    'loggia_area': dict_['loggiaSurface'],
+                    'balcony_area': dict_['balconySurface'],
 
 
-            # scrape header
-            header = soup.find('h1', attrs={'class': 'mb-3 mb-lg-10 h2'})[1].split('</script>')[0]
-            header = str(header.text)
-            usable_area = header.split(" ")[4] #in m^2
-            header = header.split(" ")[2]
->>>>>>> 7222de27ea06a7c61412f3473ac8a2a3c17815ba
+                    # what has b reality in addition
+                    'tags': '_'.join(dict_.get('tags', [])),
+                    'disposition': dict_['disposition'],
+                    'age': dict_['age'],
+                    'condition': dict_['condition'],
+                    'is_new': dict_['newBuilding'],
 
-                if 'metro' in dict_2['public_transport']['properties']['category_ids']['605']['category_name']:
-                    metro = True  # todo, if is it metro or subway!
-                    metro_dist = dict_2['public_transport']['properties']['walkDistance'] '''
+                    # binary civic amenities (obcanska vybavenost binarne info) - done
+                    'MHD': None,
+                    'train_station': None,
+                    'post_office': None,
+                    'atm': None,  # bankomat according to google translate :D
+                    'bank': None,
+                    'doctor': None,
+                    'vet': None,
+                    'school': None,
+                    'kindergarten': None,
+                    'supermarket_grocery': None,
+                    'restaurant_pub': None,
+                    'playground': None,
+                    'sports_field': None,
+                    # or similar kind of leisure amenity probably OSM would be better
+                    'subway': None,
+                    'tram': None,
+                    'bus': None,
+                    # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
+                    'theatre_cinema': None,
+                    'pharmacy': None,
 
-                # print(dict['props']['pageProps']['origAdvert']['poiData'])
-                out = {'header': dict['props']['pageProps']['origAdvert']['imageAltText'],
-                       # text description of disposition e.g. 3 + kk
-                       'price': dict['props']['pageProps']['origAdvert']['price'],  # Celková cena
-                       'note': dict['props']['pageProps']['origAdvert']['description'],
-                       # poznamka (k cene) sometimes can have valid info like
-                       # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
-                       'usable_area': dict['props']['pageProps']['origAdvert']['surface'],  # Užitná plocha
-                       'floor_area': None,  # Plocha podlahová (?)
-                       'floor': dict['props']['pageProps']['origAdvert']['etage'],  # podlazie
-                       'energy_effeciency': dict['props']['pageProps']['origAdvert']['penb'],
-                       # Energetická náročnost (letters A-G) A=best, G=shitty
-                       'ownership': dict['props']['pageProps']['origAdvert']['ownership'],
-                       # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
-                       'description': dict['props']['pageProps']['origAdvert']['description'],
-                       'long': dict['props']['pageProps']['origAdvert']['gps']['lng'],
-                       'lat': dict['props']['pageProps']['origAdvert']['gps']['lat'],
-                       'hash': None,
+                    # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
+                    'bus_station_dist': None,
+                    'train_station_dist': None,
+                    'subway_station_dist': None,
+                    'tram_station_dist': None,
+                    'MHD_dist': None,
+                    'post_office_dist': None,
+                    'atm_dist': None,
+                    'bank_dist': None,
+                    'doctor_dist': None,
+                    'vet_dist': None,
+                    'primary_school_dist': None,
+                    'kindergarten_dist': None,
+                    'supermarket_grocery_dist': None,
+                    'restaurant_pub_dist': None,
+                    'playground_dist': None,
+                    'sports_field_dist': None,
+                    # or similar kind of leisure amenity probably OSM would be better
+                    # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
+                    'theatre_cinema_dist': None,
+                    'pharmacy_dist': None
 
-                       # binary civic amenities (obcanska vybavenost binarne info) - done
-                       'MHD': 1,  # spíš MHD
-                       'train_station': None,
-                       'post_office': 1,
-                       'atm': 1,  # bankomat according to google translate :D
-                       'doctor': None,
-                       'vet': None,
-                       'primary_school': 1,
-                       'kindergarten': 1,
-                       'supermarket_grocery': 1,
-                       'restaurant_pub': 1,
-                       'playground': 1,
-                       'sports_field': 1,
-                       # or similar kind of leisure amenity probably OSM would be better
-                       'subway': None,
-                       'tram': None,
-                       'bus': None,
-                       # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-                       'theatre_cinema': None,
-                       'pharmacy': 1,
+                }
 
-                       # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) - TODO (?)
-                       'bus_station_dist': None,
-                       'train_station_dist': None,
-                       'subway_station_dist': None,
-                       'tram_station_dist': None,
-                       'MHD_dist': dict_2['public_transport']['properties']['walkDistance'],
-                       'post_office_dist': dict_2['post']['properties']['walkDistance'],
-                       'atm_dist': dict_2['bank']['properties']['walkDistance'],
-                       # bankomat according to google translate :D
-                       'doctor_dist': None,
-                       'vet_dist': None,
-                       'primary_school_dist': dict_2['school']['properties']['walkDistance'],
-                       'kindergarten_dist': dict_2['kindergarten']['properties']['walkDistance'],
-                       'supermarket_grocery_dist': dict_2['shop']['properties']['walkDistance'],
-                       'restaurant_pub_dist': dict_2['restaurant']['properties']['walkDistance'],
-                       'playground_dist': dict_2['playground']['properties']['walkDistance'],
-                       'sports_field_dist': dict_2['sports_field']['properties']['walkDistance'],
-                       # or similar kind of leisure amenity probably OSM would be better
-                       # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-                       'theatre_cinema_dist': None,
-                       'pharmacy_dist': dict_2['pharmacy']['properties']['walkDistance'],
+                dj = dict_.get('dataJson', None)
+                estim_price = json.loads(dj) if dj is not None else None
 
-                       # other - done
-                       'gas': None,  # Plyn
-                       'waste': None,  # Odpad
-                       'equipment': dict['props']['pageProps']['origAdvert']['equipped'],  # Vybavení
-                       'state': dict['props']['pageProps']['origAdvert']['reconstruction'],
-                       # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
-                       'construction_type': dict['props']['pageProps']['origAdvert']['construction'],
-                       # Stavba (3 states possible ) panel, cihla, ostatni
-                       'place': dict['props']['pageProps']['origAdvert']['address'],  # Umístění objektu
-                       'electricity': None,  # elektrina
-                       'heating': dict['props']['pageProps']['origAdvert']['heating'],  # topeni
-                       'transport': None,  # doprava
-                       'year_reconstruction': None,  # rok rekonstrukce
-                       'telecomunication': None,  # telekomunikace
+                if estim_price is not None:
+                    out.update({'estimated_sale_price': estim_price.get('estimationSale', {}).get('price', None)})
+                    out.update({'estimated_rent_price': estim_price.get('estimationRent', {}).get('price', None)})
+                geo_data = {}
+                if dict_2 is not None and dict_2 != []:
+                    # TODO cannot be hardcoded as 1
+                    geo_data = {
+                        # binary civic amenities (obcanska vybavenost binarne info) - done
+                        'MHD': True if 'public_transport' in list(dict_2.keys()) else None,  # spíš MHD  TODO this way it is more robust than hardcoded
+                        'post_office': 1,
+                        'bank': 1,
+                        'school': 1,
+                        'kindergarten': 1,
+                        'supermarket_grocery': 1,
+                        'restaurant_pub': 1,
+                        'playground': 1,
+                        'sports_field': 1,
+                        'pharmacy': 1,
 
-                       # binary info - done
-                       'has_lift': dict['props']['pageProps']['origAdvert']['balcony'],  # Výtah: True, False
-                       'has_garage': dict['props']['pageProps']['origAdvert']['garage'],  # garaz
-                       'has_cellar': dict['props']['pageProps']['origAdvert']['cellar'],  # sklep presence or  m2 ???
-                       'no_barriers': None,  # ci je bezbarierovy bezbarierovy
-                       'has_loggia': dict['props']['pageProps']['origAdvert']['loggia'],  # lodzie m2
-                       'has_balcony': dict['props']['pageProps']['origAdvert']['balcony'],  # balkon
-                       'has_garden': dict['props']['pageProps']['origAdvert']['frontGarden'],  # zahrada,
-                       'has_parking': dict['props']['pageProps']['origAdvert']['parking'],
+                        # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
+                        'MHD_dist': dict_2.get('public_transport', {}).get('properties', {}).get('walkDistance', None),  # TODO using `get` method it is more robust see https://www.w3schools.com/python/ref_dictionary_get.asp
+                        'post_office_dist': dict_2['post']['properties']['walkDistance'],
+                        'bank_dist': dict_2['bank']['properties']['walkDistance'],
 
-                       # additional info - sometimes
-                       'cellar_area': dict['props']['pageProps']['origAdvert']['cellarSurface'],
-                       # plocha sklepu (if provided)
-                       'loggia_area': dict['props']['pageProps']['origAdvert']['loggiaSurface'],
-                       'balcony_area': dict['props']['pageProps']['origAdvert']['balconySurface']}
+                        'primary_school_dist': dict_2['school']['properties']['walkDistance'],
+                        'kindergarten_dist': dict_2['kindergarten']['properties']['walkDistance'],
+                        'supermarket_grocery_dist': dict_2['shop']['properties']['walkDistance'],
+                        'restaurant_pub_dist': dict_2['restaurant']['properties']['walkDistance'],
+                        'playground_dist': dict_2['playground']['properties']['walkDistance'],
+                        'sports_field_dist': dict_2['sports_field']['properties']['walkDistance'],
+                        'pharmacy_dist': dict_2['pharmacy']['properties']['walkDistance']
 
-                with open("data_brealitky.json", "a") as outfile:
-                    json.dump(out, outfile)
+                    }
+
+                out.update(geo_data)
                 return out
             except KeyError:
                 pass
