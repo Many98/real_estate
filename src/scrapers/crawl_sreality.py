@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 import time
 from scrapers.BaseKindOfCrawler import BaseKindOfCrawler
 from tqdm import tqdm
+#from fake_useragent import UserAgent
 
 
 class KindOfCrawlerForSReality(BaseKindOfCrawler):
@@ -30,6 +31,10 @@ class KindOfCrawlerForSReality(BaseKindOfCrawler):
             #options.add_argument('--disable-dev-shm-usage')
             #options.add_argument('--no-sandbox')
             #options.add_argument('--remote-debugging-port=9222')
+
+            #ua = UserAgent()
+            #user_agent = ua.random
+            #options.add_argument(f'user-agent={user_agent}')
 
             print('Running webdriver...')
 
@@ -68,23 +73,12 @@ class KindOfCrawlerForSReality(BaseKindOfCrawler):
 
                     # else: 1. add to database; 2. append to new apts list; 3. append to existing links list
                     else:
-                        try:  # TODO implement faster way of retrieving urls without checking of validity
-                            driver.get(link_url)
-                        except:
-                            print(f'Not valid advertisement url {link_url}')
-                        time.sleep(3)
-                        soup = BeautifulSoup(driver.page_source, 'lxml')
-                        #driver.quit()
+                        time.sleep(0.5)
 
-                        if 'Je mi líto, inzerát neexistuje.' not in str(soup.body):
-                            self.reality_links.append(link_url)
-                            self.append_to_txt(link_url)
-                            self.existing_links.append(link_url)
-                            i += 1
-
-                        else:
-
-                            print(f'Link {link_url} is non-existing! SHAME!')
+                        self.reality_links.append(link_url)
+                        self.append_to_txt(link_url)
+                        self.existing_links.append(link_url)
+                        i += 1
 
                 try:
                     next_page_elem = page_soup.find("a", {"class": "btn-paging-pn icof icon-arr-right paging-next"})
