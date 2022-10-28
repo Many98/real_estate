@@ -70,6 +70,10 @@ class BezRealitkyScraper(BaseScraper):
             try:
                 kk = dict_.get('poiData', None)
                 dict_2 = json.loads(kk) if kk is not None else None
+                garden = False
+                if dict_['frontGarden'] != 'null':
+                    garden = True
+
 
                 out = {
                     'header': dict_['imageAltText'],
@@ -79,7 +83,7 @@ class BezRealitkyScraper(BaseScraper):
                     # poznamka (k cene) sometimes can have valid info like
                     # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
                     'usable_area': dict_['surface'],  # Užitná plocha
-                    'floor_area': None,  # Plocha podlahová (?)
+                    'floor_area': None,  # Plocha podlahová
                     'floor': dict_['etage'],  # podlazie
                     'energy_effeciency': dict_['penb'],
                     # Energetická náročnost (letters A-G) A=best, G=shitty
@@ -108,11 +112,11 @@ class BezRealitkyScraper(BaseScraper):
                     # binary info - done
                     'has_lift': dict_['lift'],  # Výtah: True, False
                     'has_garage': dict_['garage'],  # garaz
-                    'has_cellar': dict_['cellar'],  # sklep presence or  m2 ???
+                    'has_cellar': dict_['cellar'],  # sklep presence
                     'no_barriers': None,  # ci je bezbarierovy bezbarierovy
-                    'has_loggia': dict_['loggia'],  # lodzie m2
+                    'has_loggia': dict_['loggia'],  # lodzie
                     'has_balcony': dict_['balcony'],  # balkon
-                    'has_garden': dict_['frontGarden'],  # zahrada,  # TODO sometimes there is mistake and key `frontGarden` has numeric values instead of bool -> needs preprocess
+                    'has_garden': garden,  # zahrada
                     'has_parking': dict_['parking'],
 
                     # additional info - sometimes
@@ -186,29 +190,30 @@ class BezRealitkyScraper(BaseScraper):
                     # TODO cannot be hardcoded as 1
                     geo_data = {
                         # binary civic amenities (obcanska vybavenost binarne info) - done
-                        'MHD': True if 'public_transport' in list(dict_2.keys()) else None,  # spíš MHD  TODO this way it is more robust than hardcoded
-                        'post_office': 1,
-                        'bank': 1,
-                        'school': 1,
-                        'kindergarten': 1,
-                        'supermarket_grocery': 1,
-                        'restaurant_pub': 1,
-                        'playground': 1,
-                        'sports_field': 1,
-                        'pharmacy': 1,
+                        'MHD': True if 'public_transport' in list(dict_2.keys()) else None,  # spíš MHD
+                        'post_office': True if 'post' in list(dict_2.keys()) else None,
+                        'bank': True if 'bank' in list(dict_2.keys()) else None,
+                        'school': True if 'school' in list(dict_2.keys()) else None,
+                        'kindergarten': True if 'kindergarten' in list(dict_2.keys()) else None,
+                        'supermarket_grocery': True if 'shop' in list(dict_2.keys()) else None,
+                        'restaurant_pub': True if 'restaurant' in list(dict_2.keys()) else None,
+                        'playground': True if 'playground' in list(dict_2.keys()) else None,
+                        'sports_field': True if 'sports_field' in list(dict_2.keys()) else None,
+                        'pharmacy': True if 'pharmacy' in list(dict_2.keys()) else None,
 
                         # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
-                        'MHD_dist': dict_2.get('public_transport', {}).get('properties', {}).get('walkDistance', None),  # TODO using `get` method it is more robust see https://www.w3schools.com/python/ref_dictionary_get.asp
-                        'post_office_dist': dict_2['post']['properties']['walkDistance'],
-                        'bank_dist': dict_2['bank']['properties']['walkDistance'],
+                        'MHD_dist': dict_2.get('public_transport', {}).get('properties', {}).get('walkDistance', None),
+                        # using `get` method it is more robust see https://www.w3schools.com/python/ref_dictionary_get.asp
+                        'post_office_dist': dict_2.get('post', {}).get('properties', {}).get('walkDistance', None),
+                        'bank_dist': dict_2.get('bank', {}).get('properties', {}).get('walkDistance', None),
 
-                        'primary_school_dist': dict_2['school']['properties']['walkDistance'],
-                        'kindergarten_dist': dict_2['kindergarten']['properties']['walkDistance'],
-                        'supermarket_grocery_dist': dict_2['shop']['properties']['walkDistance'],
-                        'restaurant_pub_dist': dict_2['restaurant']['properties']['walkDistance'],
-                        'playground_dist': dict_2['playground']['properties']['walkDistance'],
-                        'sports_field_dist': dict_2['sports_field']['properties']['walkDistance'],
-                        'pharmacy_dist': dict_2['pharmacy']['properties']['walkDistance']
+                        'primary_school_dist': dict_2.get('school', {}).get('properties', {}).get('walkDistance', None),
+                        'kindergarten_dist': dict_2.get('kindergartne', {}).get('properties', {}).get('walkDistance', None),
+                        'supermarket_grocery_dist': dict_2.get('shop', {}).get('properties', {}).get('walkDistance', None),
+                        'restaurant_pub_dist': dict_2.get('restaurant', {}).get('properties', {}).get('walkDistance', None),
+                        'playground_dist': dict_2.get('playground', {}).get('properties', {}).get('walkDistance', None),
+                        'sports_field_dist': dict_2.get('sports_field', {}).get('properties', {}).get('walkDistance', None),
+                        'pharmacy_dist': dict_2.get('pharmacy', {}).get('properties', {}).get('walkDistance', None)
 
                     }
 
