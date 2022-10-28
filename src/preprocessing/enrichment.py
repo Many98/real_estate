@@ -69,8 +69,8 @@ class Enricher(object):
         air, built, sun, noise_day, noise_night = prepare_rasters(path)
 
         # query points
-        x_coords = xr.DataArray(self.df['x'].to_list(), dims="points")
-        y_coords = xr.DataArray(self.df['x'].to_list(), dims="points")
+        x_coords = xr.DataArray(self.df['long'].to_list(), dims="points")
+        y_coords = xr.DataArray(self.df['lat'].to_list(), dims="points")
 
         air_query = air.sel(x_coords, y_coords, method='nearest')
         built_query = built.sel(x_coords, y_coords, method='nearest')
