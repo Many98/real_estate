@@ -1,6 +1,7 @@
 import pandas as pd
 import csv
 import os
+import re
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -71,25 +72,42 @@ class SRealityScraper(BaseScraper):
                     #     table_data.append(li)
 
                     table_data = soup.find('div', attrs={'class': 'params clear'})
-                    table_data = table_data.text
-                    table = re.split('\n\n\n\n\n|\n\n\n\n', table_data)
-                    table[0] = table[0][2:]
-                    print(str(table[0]))
-                    for i in range(len(table)):
-                        table[i] = str(table[i].replace("\xa0", ""))
-                        table[i] = table[i].split(":\n\n")
-                    slovnik = {}
-                    for i in range(len(table)):
-                        if len(table[i]) == 2:
-                            slovnik[str(table[i][0])] = [str(table[i][1])]
-                    dataframe = pd.DataFrame.from_dict(slovnik)
-                    print(dataframe)
+                    table_data_str = str(table_data)
+                    r = re.compile(r'\bICON-OK\b | \bICON-CROSS\b', flags=re.I | re.X)
+                    crosses_and_ticks = r.findall(table_data_str)
+                    yes_no = []
+                    for item in crosses_and_ticks:
+                        if item == "icon-ok":
+                            yes_no.append("ano")
+                        else:
+                            yes_no.append("ne")
+                    retezec = table_data.text
+                    retezec = retezec.replace("\n", " ")
+                    three_spaces_in_retezec = retezec.find("   ")
+                    retezec = retezec.replace("\xa0", "")
+                    while three_spaces_in_retezec >= 0:
+                        retezec = retezec.replace("   ", "  ")
+                        three_spaces_in_retezec = retezec.find("   ")
 
-                    # scrape price
-                    price = soup.find('span', attrs={'class': 'ng-binding ng-scope'})
-                    price = str(price)
-                    price = price[price.find(">") + 1:]
-                    price = price[:price.find("Kč")+2]
+                    table = re.split('  ', retezec)
+                    table = [value for value in table if value != ""]
+                    size_of_table = len(table)
+                    i = 0
+                    j = 0
+                    while i < size_of_table:
+                        if i != size_of_table - 1:
+                            if table[i][-1] == ":" and table[i+1][-1] == ":":
+                                table.insert(i+1, yes_no[j])
+                                j += 1
+                                size_of_table = len(table)
+                        elif i == size_of_table - 1 and table[i][-1] == ":":
+                            table.append(yes_no[j])
+                            size_of_table = len(table)
+                        i+=1
+                    slovnik = {}
+                    for i in range(int(len(table)/2)):
+                        i *= 2
+                        slovnik[table[i]] = table[i+1]
 
                     # scrape description
                     description = soup.find('div', attrs={'class': 'description ng-binding'})
@@ -99,8 +117,29 @@ class SRealityScraper(BaseScraper):
                     retezec = retezec.replace("<p>", "")
                     retezec = retezec.replace("</p>", " ")
                     retezec = retezec.replace("</div>", "")
+                    retezec = retezec.replace("\xa0", "")
                     description = retezec
-                    # del retezec
+                    slovnik["description"] = description
+                    del retezec
+
+
+                    # scrape position
+                    position = soup.find('a', attrs={'class': 'print'})
+                    position = str(position)
+                    index = position.find("x=")
+                    position = position[index:]
+                    index = position.find("style=")
+                    position = position[:index]
+                    position = re.split('&amp;', position)
+                    slovnik["position"] = position
+
+
+
+                    # public equipment scraping
+                    public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
+                    public_equipment = public_equipment.text
+
+
                     #price = a.find('div', attrs={'class': '_1vC4OE _2rQ-NK'})
                     #rating = a.find('div', attrs={'class': 'hGSR34 _2beYZw'})
                     #products.append(name.text)
