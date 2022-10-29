@@ -70,9 +70,6 @@ class BezRealitkyScraper(BaseScraper):
             try:
                 kk = dict_.get('poiData', None)
                 dict_2 = json.loads(kk) if kk is not None else None
-                garden = False
-                if dict_['frontGarden'] != 'null':
-                    garden = True
 
 
                 out = {
@@ -116,7 +113,7 @@ class BezRealitkyScraper(BaseScraper):
                     'no_barriers': None,  # ci je bezbarierovy bezbarierovy
                     'has_loggia': dict_['loggia'],  # lodzie
                     'has_balcony': dict_['balcony'],  # balkon
-                    'has_garden': garden,  # zahrada
+                    'has_garden': dict_['frontGarden'],  # zahrada
                     'has_parking': dict_['parking'],
 
                     # additional info - sometimes
