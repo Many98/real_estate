@@ -70,65 +70,65 @@ class BezRealitkyScraper(BaseScraper):
             try:
                 kk = dict_.get('poiData', None)
                 dict_2 = json.loads(kk) if kk is not None else None
-
+                dict_3 = dict_2.get('gps', None)
 
                 out = {
-                    'header': dict_['imageAltText'],
+                    'header': dict_.get('imageAltText', None),
                     # text description of disposition e.g. 3 + kk
-                    'price': dict_['price'],  # Celková cena
+                    'price': dict_.get('price', None),  # Celková cena
                     'note': None,
                     # poznamka (k cene) sometimes can have valid info like
                     # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
-                    'usable_area': dict_['surface'],  # Užitná plocha
+                    'usable_area': dict_.get('surface', None),  # Užitná plocha
                     'floor_area': None,  # Plocha podlahová
-                    'floor': dict_['etage'],  # podlazie
-                    'energy_effeciency': dict_['penb'],
+                    'floor': dict_.get('etage', None),  # podlazie
+                    'energy_effeciency': dict_.get('penb', None),
                     # Energetická náročnost (letters A-G) A=best, G=shitty
-                    'ownership': dict_['ownership'],
+                    'ownership': dict_.get('ownership', None),
                     # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
-                    'description': dict_['description'],
-                    'long': dict_['gps']['lng'],
-                    'lat': dict_['gps']['lat'],
+                    'description': dict_.get('description', None),
+                    'long': dict_3.get('lng', None),
+                    'lat': dict_3.get('lat', None),
                     'hash': None,
 
                     # other - done
                     'gas': None,  # Plyn
                     'waste': None,  # Odpad
-                    'equipment': dict_['equipped'],  # Vybavení
-                    'state': dict_['reconstruction'],
+                    'equipment': dict_.get('equipped', None),  # Vybavení
+                    'state': dict_.get('reconstruction', None),
                     # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
-                    'construction_type': dict_['construction'],
+                    'construction_type': dict_.get('construction', None),
                     # Stavba (3 states possible ) panel, cihla, ostatni
-                    'place': dict_['address'],  # Umístění objektu
+                    'place': dict_.get('address', None),  # Umístění objektu
                     'electricity': None,  # elektrina
-                    'heating': dict_['heating'],  # topeni
+                    'heating': dict_.get('heating', None),  # topeni
                     'transport': None,  # doprava
                     'year_reconstruction': None,  # rok rekonstrukce
                     'telecomunication': None,  # telekomunikace
 
                     # binary info - done
-                    'has_lift': dict_['lift'],  # Výtah: True, False
-                    'has_garage': dict_['garage'],  # garaz
-                    'has_cellar': dict_['cellar'],  # sklep presence
+                    'has_lift': dict_.get('lift', None),  # Výtah: True, False
+                    'has_garage': dict_.get('garage', None),  # garaz
+                    'has_cellar': dict_.get('cellar', None),  # sklep presence
                     'no_barriers': None,  # ci je bezbarierovy bezbarierovy
-                    'has_loggia': dict_['loggia'],  # lodzie
-                    'has_balcony': dict_['balcony'],  # balkon
-                    'has_garden': dict_['frontGarden'],  # zahrada
-                    'has_parking': dict_['parking'],
+                    'has_loggia': dict_.get('loggia', None),  # lodzie
+                    'has_balcony': dict_.get('balcony', None),  # balkon
+                    'has_garden': dict_.get('frontGarden', None),  # zahrada
+                    'has_parking': dict_.get('parking', None),
 
                     # additional info - sometimes
-                    'cellar_area': dict_['cellarSurface'],
+                    'cellar_area': dict_.get('cellarSurface', None),
                     # plocha sklepu (if provided)
-                    'loggia_area': dict_['loggiaSurface'],
-                    'balcony_area': dict_['balconySurface'],
+                    'loggia_area': dict_.get('loggiaSurface', None),
+                    'balcony_area': dict_.get('balconySurface', None),
 
 
                     # what has b reality in addition
                     'tags': '_'.join(dict_.get('tags', [])),
-                    'disposition': dict_['disposition'],
-                    'age': dict_['age'],
-                    'condition': dict_['condition'],
-                    'is_new': dict_['newBuilding'],
+                    'disposition': dict_.get('disposition', None),
+                    'age': dict_.get('age', None),
+                    'condition': dict_.get('condition', None),
+                    'is_new': dict_.get('newBuilding', None),
 
                     # binary civic amenities (obcanska vybavenost binarne info) - done
                     'MHD': None,
