@@ -1,4 +1,5 @@
 import pandas as pd
+import time
 import csv
 import os
 import re
@@ -130,24 +131,28 @@ class SRealityScraper(BaseScraper):
             #                  'https://d18-a.sdn.cz/d_18/c_img_gU_o/YBJSIh.jpeg?fl=res,749,562,3|wrm,/watermark/sreality.png,10|shr,,20|jpg,90',
             #                  url)
             # # to get data
-            try:
-                driver.get(url)
-                content = driver.page_source
-                soup = BeautifulSoup(content)
+            driver.get(url)
+            content = driver.page_source
+            time.sleep(0.5)
+            soup = BeautifulSoup(content)
+            time.sleep(0.5)
+            error_page = soup.find('div', attrs={'class': 'error-page ng-scope'})
+            if error_page is None:
+                slovnik = {}
                 # scrape header
                 header = soup.find('span', attrs={'class': 'name ng-binding'})
-                header = str(header)
-                if header is not None and header != "None":
+                if header is not None:
+                    header = str(header)
                     header = header[header.find(">") + 1:]
                     header = header[:header.find("<")]
-                    print(header)
+                    slovnik["header"] = header
+                else:
+                    print("Header for this page does not exist.")
 
-                    # tabularni data
-                    table_data = []
-                    # for li in soup.findAll('li', href=True, attrs={'class': 'param ng_scope'}):
-                    #     table_data.append(li)
 
-                    table_data = soup.find('div', attrs={'class': 'params clear'})
+                # tabularni data
+                table_data = soup.find('div', attrs={'class': 'params clear'})
+                if table_data is not None:
                     table_data_str = str(table_data)
                     r = re.compile(r'\bICON-OK\b | \bICON-CROSS\b', flags=re.I | re.X)
                     crosses_and_ticks = r.findall(table_data_str)
@@ -180,13 +185,17 @@ class SRealityScraper(BaseScraper):
                             table.append(yes_no[j])
                             size_of_table = len(table)
                         i+=1
-                    slovnik = {}
                     for i in range(int(len(table)/2)):
                         i *= 2
                         slovnik[table[i]] = table[i+1]
 
-                    # scrape description
-                    description = soup.find('div', attrs={'class': 'description ng-binding'})
+                else:
+                    print("No tabular data on this page")
+
+
+                # scrape description
+                description = soup.find('div', attrs={'class': 'description ng-binding'})
+                if description is not None:
                     retezec = str(description)
                     index_paragraph = retezec.find("<p>")
                     retezec = retezec[index_paragraph:]
@@ -197,10 +206,13 @@ class SRealityScraper(BaseScraper):
                     description = retezec
                     slovnik["description"] = description
                     del retezec
+                else:
+                    print("No description on this webpage.")
 
 
-                    # scrape position
-                    position = soup.find('a', attrs={'class': 'print'})
+                # scrape position
+                position = soup.find('a', attrs={'class': 'print'})
+                if position is not None:
                     position = str(position)
                     index = position.find("x=")
                     position = position[index:]
@@ -208,25 +220,32 @@ class SRealityScraper(BaseScraper):
                     position = position[:index]
                     position = re.split('&amp;', position)
                     slovnik["position"] = position
+                else:
+                    print("No position on this web page.")
 
 
 
-                    # public equipment scraping
-                    public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
+                # public equipment scraping
+                public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
+                time.sleep(0.5)
+                if public_equipment is not None:
                     public_equipment = public_equipment.text
+                    seznam = public_equipment.split(")")
+                    seznam = [item + ")" for item in seznam]
+                    seznam = seznam[:-1]
+                    for i in range(len(seznam)):
+                        seznam[i] = seznam[i].split(":")
+                    retezec = seznam[0][0]
+                    words = re.findall('[A-Z][^A-Z]*', retezec)
+                    seznam[0][0] = words[-1]
+                    for i in range(len(seznam)):
+                        slovnik[seznam[i][0]] = seznam[i][1]
 
 
-                    #price = a.find('div', attrs={'class': '_1vC4OE _2rQ-NK'})
-                    #rating = a.find('div', attrs={'class': 'hGSR34 _2beYZw'})
-                    #products.append(name.text)
-                    #prices.append(price.text)
-                    #ratings.append(rating.text)
-                    #resp = http.request('GET', url)
-                    #data = resp.data.decode('utf-8')
-                    # print(description)
-                # self._save_text(str(data), url)
-            except:
-                print("")
+
+
+
+
             test_dict = {'header': 'Prodej bytu 4+kk • 123 m² bez realitky',
                          'price': 17850000,
                          'plocha': 123,
@@ -235,9 +254,3 @@ class SRealityScraper(BaseScraper):
                          'lat': 15.5,
                          'hash': 'asdafqwf6sadasew6'}
             return test_dict
-
-# if __name__ == "__main__":
-#     s = SRealityScraper()
-#     s.run(in_filename='prodej_links.txt', out_filename='prodej')
-# projdi = SRealityScraper()
-# print(projdi.scrape("https://sreality.cz/detail/prodej/byt/2+kk/praha-zizkov-seifertova/1535174476"))
