@@ -1,7 +1,12 @@
+import time
+
 import requests
 from bs4 import BeautifulSoup
 from scrapers.BaseKindOfCrawler import BaseKindOfCrawler
 from tqdm import tqdm
+
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
@@ -22,7 +27,10 @@ class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
             i = 0
             page = 1
             # create soup object of html of main url
-            soup = BeautifulSoup(requests.get(self.main_url).content, 'lxml')
+            driver = webdriver.Chrome(ChromeDriverManager().install())
+            driver.get(self.main_url)
+            time.sleep(5)
+            soup = BeautifulSoup(driver.page_source, 'lxml')
             next_page_elem = soup.find_all("a", {"class": "page-link"})
             href = [i.get('href') for i in next_page_elem if f'page={str(page + 1)}' in i.get('href')]
             href = href[0].replace(f'page={page+1}', f'page={page}')
@@ -53,7 +61,9 @@ class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
                         i += 1
                 try:
                     href = href.replace(f'page={page}', f'page={page + 1}')
-                    soup = BeautifulSoup(requests.get(href).content, 'lxml') # if href is empty it will raise exception which is wanted
+                    driver.get(href)
+                    time.sleep(4.5)
+                    soup = BeautifulSoup(driver.page_source, 'lxml') # if href is empty it will raise exception which is wanted
                 except:
                     pagination = False
                     continue
