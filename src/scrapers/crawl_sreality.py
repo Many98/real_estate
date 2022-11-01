@@ -85,6 +85,7 @@ class KindOfCrawlerForSReality(BaseKindOfCrawler):
                     driver.get('https://www.sreality.cz/' + next_page_elem.get('href'))
                 except:
                     try:
+                        time.sleep(10)
                         next_page_elem = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH,
                                         '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[3]/div/div[25]/ul[2]/li[7]/a')))
                         driver.get(next_page_elem.get_attribute('href'))
