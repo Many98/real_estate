@@ -98,6 +98,7 @@ class Enricher(object):
         # TODO firstly needs write scraper to get all geojsons from https://kriminalita.policie.cz/download
         #  just needs easy loop using requests library on https://kriminalita.policie.cz/api/v2/downloads/201406.geojson
         #   where will be used always another year and month ... there are data from 2012
+        pass
 
     def add_osm_data(self):
         """
@@ -111,6 +112,7 @@ class Enricher(object):
         """
         # TODO probably we will need loop through self.df and call `osmnx_nearest` func which will not be
         #  very effecient on large df
+        pass
 
     def add_embeddings(self):
         pass
