@@ -127,9 +127,9 @@ class SRealityScraper(BaseScraper):
         if 'sreality' not in url:  # ensures correct link
             return {}
         else:
-            # self._save_image(
-            #                  'https://d18-a.sdn.cz/d_18/c_img_gU_o/YBJSIh.jpeg?fl=res,749,562,3|wrm,/watermark/sreality.png,10|shr,,20|jpg,90',
-            #                  url)
+            self._save_image(
+                              'https://d18-a.sdn.cz/d_18/c_img_gU_o/YBJSIh.jpeg?fl=res,749,562,3|wrm,/watermark/sreality.png,10|shr,,20|jpg,90',
+                              url)
             # # to get data
             driver.get(url)
             content = driver.page_source
@@ -219,6 +219,7 @@ class SRealityScraper(BaseScraper):
                     index = position.find("style=")
                     position = position[:index]
                     position = re.split('&amp;', position)
+                    position = position[:-1]
                     slovnik["position"] = position
                 else:
                     print("No position on this web page.")
