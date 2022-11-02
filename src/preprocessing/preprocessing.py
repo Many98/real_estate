@@ -103,6 +103,7 @@ def osmnx_call(long: float, lat: float, dist: int, tags: dict) -> gpd.GeoDataFra
 
     # merge names to one attribute
     gdf['what'] = gdf[list(tags.keys())].agg("&".join, axis=1)
+    gdf['what'] = gdf['what'].apply(lambda x: re.sub(r'^&+|&+$', '', x))
 
     gdf.drop(list(tags.keys()), 1, inplace=True)
 
@@ -116,30 +117,47 @@ def osmnx_call(long: float, lat: float, dist: int, tags: dict) -> gpd.GeoDataFra
     return gdf
 
 
-def osmnx_nearest(long: float, lat: float, dist: int) -> pd.DataFrame:
+def osmnx_nearest(long_query: float, lat_query: float, long: float, lat: float, dist: int,
+                  dist_type: str = 'great_circle') -> pd.DataFrame:
     """
     Finds nearest features (bus station, metro, park etc) from point of interest
     Parameters
     ----------
+    long_query: float
+        query longitude
+    lat_query: float
+        query latitude
     long : float
-        longitude of point of interest
+        longitude of point of interest (e.g. middle of prague)
     lat : float
-        longitude of point of interest
+        longitude of point of interest (e.g. middle of prague)
     dist : int
-        Maximal (bbox) distance from point of interest in metres
+        Maximal distance from point of interest in metres
+    dist_type: str:
+        Type of distance to be processed:
+            'great_circle' = great circle distance
+            'network' = process street/road network and find nearest nodes in graph
     Returns
     -------
 
     """
-    # TODO prepare it to be run asynchronously / once a month update json with geometries
-    tags = {'leisure': ['park', 'dog_park', 'fitness_centre', 'playground', 'stadium',
-                        'swimming_pool', 'sports_centre', 'pitch'],
-            'amenity': ['university', 'college', 'school', 'kindergarten',
+    # TODO prepare it to be run fast asynchronously / once a month update json with geometries
+    # TODO add doctor etc ... same as in sreality
+    tags = {'leisure': ['park', 'dog_park',
+                        'playground',
+                        'fitness_centre', 'stadium', 'swimming_pool', 'sports_centre', 'pitch'],
+            'amenity': ['school',
+                        'kindergarten',
                         'cafe', 'pub', 'restaurant',
-                        'atm', 'bank', 'post_office'
-                        'clinic', 'dentist', 'hospital', 'pharmacy',
-                        'cinema', 'theatre', 'library',
-                        'marketplace'],
+                        'atm',
+                        'bank',
+                        'post_office'
+                        'clinic', 'hospital',
+                        'pharmacy', #'dentist',
+                        'cinema',
+                        'theatre', #'library',
+                        #'marketplace'
+                        ],
             'building': ['supermarket'],
             'shop': ['supermarket', 'mall', 'general'],
             'highway': ['bus_stop'], 'railway': ['tram_stop'],
@@ -147,17 +165,27 @@ def osmnx_nearest(long: float, lat: float, dist: int) -> pd.DataFrame:
 
     gdf = osmnx_call(long, lat, dist, tags)
 
-    # process street network
-    graph = ox.graph_from_point((lat, long), dist)
-    #ox.plot_graph(graph)
-    orig_nn = ox.nearest_nodes(graph, long, lat)  # nearest node in graph network to ours point of interest
+    # TODO fix network for df if needed
+    # TODO prepare version for bezrealitky (all tags) and sreality (only parks)
+    # TODO https://geopandas.org/en/stable/docs/user_guide/geometric_manipulations.html
+    #  https://gis.stackexchange.com/questions/349637/given-list-of-points-lat-long-how-to-find-all-points-within-radius-of-a-give
+    if dist_type == 'network':
+        # process street network
+        graph = ox.graph_from_point((lat, long), dist)
+        #ox.plot_graph(graph)
+        orig_nn = ox.nearest_nodes(graph, long, lat)  # nearest node in graph network to ours point of interest
 
-    dest_nns = ox.nearest_nodes(graph, gdf['geometry'].x.values,
-                                gdf['geometry'].y.values)  # nearest nodes to all relevant geometries
-    orig_nns = [orig_nn] * len(dest_nns)
-    edges = ox.shortest_path(graph, orig_nns, dest_nns)
-    lengths = [ox.utils_graph.get_route_edge_attributes(graph, edge, 'length') for edge in edges]
-    distances = [sum(x) for x in lengths]
+        dest_nns = ox.nearest_nodes(graph, gdf['geometry'].x.values,
+                                    gdf['geometry'].y.values)  # nearest nodes to all relevant geometries
+        orig_nns = [orig_nn] * len(dest_nns)
+        edges = ox.shortest_path(graph, orig_nns, dest_nns)
+        lengths = [ox.utils_graph.get_route_edge_attributes(graph, edge, 'length') for edge in edges]
+        distances = [sum(x) for x in lengths]
+    elif dist_type == 'great_circle':
+        distances = ox.distance.great_circle_vec(np.array([lat_query] * gdf.shape[0]), np.array([long_query] * gdf.shape[0]),
+                                                 gdf['geometry'].y.values, gdf['geometry'].x.values)
+    else:
+        raise Exception(f'`dist_type` {dist_type} not supported')
 
     # TODO filter obtained dataset to left only nearest amenities/geometries
     #  do we want filter only nearest because e.g. bigger park can be few metres away and still good enough (depends on preferences)
@@ -166,7 +194,7 @@ def osmnx_nearest(long: float, lat: float, dist: int) -> pd.DataFrame:
 
     gdfc = gdf.groupby('what', as_index=False).agg({'dist': 'min', 'geometry': 'first', 'name': 'first'})
 
-    return pd.DataFrame(gdf.drop(columns='geometry'))
+    return pd.DataFrame(gdfc.drop(columns='geometry'))
 
 
 def prepare_rasters(path: str) -> tuple:
@@ -232,4 +260,4 @@ def generate_embeddings(text: str) -> np.array:
 
 if __name__ == '__main__':
 
-    osmnx_nearest(long=14.43809, lat=50.06851, dist=500)
+    osmnx_nearest(long_query=14.43809, lat_query=50.06851, long=14.432222758734174, lat=50.07463538361094, dist=18000)
