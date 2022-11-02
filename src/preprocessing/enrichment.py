@@ -6,9 +6,10 @@ import geopandas as gpd
 import rioxarray
 import xarray as xr
 
+from tqdm import tqdm
 
 from src.models.gaussian_process import gp_inference
-from src.preprocessing.preprocessing import prepare_rasters
+from src.preprocessing.preprocessing import prepare_rasters, osmnx_nearest
 
 
 class Enricher(object):
@@ -112,7 +113,9 @@ class Enricher(object):
         """
         # TODO probably we will need loop through self.df and call `osmnx_nearest` func which will not be
         #  very effecient on large df
-        pass
+        # TODO prepare gdf here
+        for _, row in tqdm(self.df.iterrows(), desc='Processing OSM data'):
+            pass
 
     def add_embeddings(self):
         pass
