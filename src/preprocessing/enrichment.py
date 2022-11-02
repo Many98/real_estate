@@ -9,7 +9,7 @@ import xarray as xr
 from tqdm import tqdm
 
 from src.models.gaussian_process import gp_inference
-from src.preprocessing.preprocessing import prepare_rasters, osmnx_nearest
+from src.preprocessing.utils import prepare_rasters, osmnx_nearest
 
 
 class Enricher(object):
