@@ -173,6 +173,29 @@ class SRealityScraper(BaseScraper):
                 else:
                     print("Header for this page does not exist.")
 
+                # price
+                price = None
+                try:
+                    time.sleep(1)
+                    price = soup.find('span', attrs={'class': 'norm-price ng-binding'})
+                    if price is None:
+                        raise Exception('header not found')
+                except:
+                    try:
+                        time.sleep(5)
+                        header = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                 '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/h1/span/span[1]')))
+                        price = price.text
+                    except:
+                        pass
+                if price is not None:
+                    price = str(price)
+                    price = price[price.find(">") + 1:]
+                    price = price[:price.find("<")]
+                    slovnik["price"] = price
+                else:
+                    print("Price for this page does not exist.")
+
                 # tabular data
                 time.sleep(1)
                 table_data = soup.find('div', attrs={'class': 'params clear'})
