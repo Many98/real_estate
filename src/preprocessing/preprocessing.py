@@ -6,7 +6,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 
 class Preprocessor(object):
     """
-    Class handling missing values, one-hot encoding, standardization.
+    Class handling missing values, categorization, categorical encodings & standardization.
     Input dataframe is required to have "synchronized" values (two data sources needs to be unified/synchronized)
 
     TODO consider using decorators as it would be probably more elegant solution
@@ -31,6 +31,7 @@ class Preprocessor(object):
             floor ???? how to define unknown, => maybe ordinal encoding with `unknown` level
             <>_area (all `area` features) it seems they will be very sparse => use of corresponding
                 binary features will be probably enough
+        # TODO probably <>_area features should be removed from scraping
 
         * not required binary/bool (categorical) features:
             has_<> (all `has` features) => missing = False
@@ -77,6 +78,15 @@ class Preprocessor(object):
 
         """
 
+        pass
+
+    def categorize(self):
+        """
+        method to categorize some numeric features
+        Returns
+        -------
+
+        """
         pass
 
     def encode(self):
