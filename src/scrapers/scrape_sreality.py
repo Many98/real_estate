@@ -127,20 +127,22 @@ class SRealityScraper(BaseScraper):
         if 'sreality' not in url:  # ensures correct link
             return {}
         else:
-            self._save_image(
-                              'https://d18-a.sdn.cz/d_18/c_img_gU_o/YBJSIh.jpeg?fl=res,749,562,3|wrm,/watermark/sreality.png,10|shr,,20|jpg,90',
-                              url)
+            # self._save_image(
+            #                   'https://d18-a.sdn.cz/d_18/c_img_gU_o/YBJSIh.jpeg?fl=res,749,562,3|wrm,/watermark/sreality.png,10|shr,,20|jpg,90',
+            #                   url)
             # # to get data
             driver.get(url)
+            time.sleep(1)
             content = driver.page_source
-            time.sleep(0.5)
+            time.sleep(1)
             soup = BeautifulSoup(content)
-            time.sleep(0.5)
+            time.sleep(1)
             error_page = soup.find('div', attrs={'class': 'error-page ng-scope'})
             if error_page is None:
                 slovnik = {}
                 # scrape header
                 header = soup.find('span', attrs={'class': 'name ng-binding'})
+                time.sleep(1)
                 if header is not None:
                     header = str(header)
                     header = header[header.find(">") + 1:]
@@ -152,6 +154,7 @@ class SRealityScraper(BaseScraper):
 
                 # tabularni data
                 table_data = soup.find('div', attrs={'class': 'params clear'})
+                time.sleep(1)
                 if table_data is not None:
                     table_data_str = str(table_data)
                     r = re.compile(r'\bICON-OK\b | \bICON-CROSS\b', flags=re.I | re.X)
@@ -195,6 +198,7 @@ class SRealityScraper(BaseScraper):
 
                 # scrape description
                 description = soup.find('div', attrs={'class': 'description ng-binding'})
+                time.sleep(1)
                 if description is not None:
                     retezec = str(description)
                     index_paragraph = retezec.find("<p>")
@@ -212,6 +216,7 @@ class SRealityScraper(BaseScraper):
 
                 # scrape position
                 position = soup.find('a', attrs={'class': 'print'})
+                time.sleep(1)
                 if position is not None:
                     position = str(position)
                     index = position.find("x=")
@@ -228,7 +233,7 @@ class SRealityScraper(BaseScraper):
 
                 # public equipment scraping
                 public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
-                time.sleep(0.5)
+                time.sleep(1)
                 if public_equipment is not None:
                     public_equipment = public_equipment.text
                     seznam = public_equipment.split(")")
@@ -242,16 +247,185 @@ class SRealityScraper(BaseScraper):
                     for i in range(len(seznam)):
                         slovnik[seznam[i][0]] = seznam[i][1]
 
+                # filling out dictionary from slovnik
+                out["header"] = slovnik["header"]
+                del slovnik["header"]
+                if "Celková cena:" in slovnik:
+                    out["price"] = slovnik["Celková cena:"]
+                    del slovnik["Celková cena:"]
+                if "Cena:" in slovnik:
+                    out["price"] = slovnik["Cena:"]
+                    del slovnik["Cena:"]
+                if "Poznámka k ceně:" in slovnik:
+                    out["note"] = slovnik["Poznámka k ceně:"]
+                    del slovnik["Poznámka k ceně:"]
+                if "Užitná plocha:" in slovnik:
+                    out["usable_area"] = slovnik["Užitná plocha:"]
+                    del slovnik["Užitná plocha:"]
+                if "Podlahová plocha:" in slovnik:
+                    out["floor_area"] = slovnik["Podlahová plocha:"]
+                    del slovnik["Podlahová plocha:"]
+                if "Podlaží:" in slovnik:
+                    out["floor"] = slovnik["Podlaží:"]
+                    del slovnik["Podlaží:"]
+                if "Energetická náročnost:" in slovnik:
+                    out["energy_effeciency"] = slovnik["Energetická náročnost:"]
+                    del slovnik["Energetická náročnost:"]
+                if "Energetická náročnost budovy:" in slovnik:
+                    out["energy_effeciency"] = slovnik["Energetická náročnost budovy:"]
+                    del slovnik["Energetická náročnost budovy:"]
+                if "Vlastnictví:" in slovnik:
+                    out["ownership"] = slovnik["Vlastnictví:"]
+                    del slovnik["Vlastnictví:"]
+                if "position" in slovnik:
+                    out["long"] = slovnik["position"][0]
+                    out["lat"] = slovnik["position"][1]
+                    del slovnik["position"]
+                out["description"] = slovnik["description"]
+                del slovnik["description"]
+                if "Bus MHD" in slovnik:
+                    out["bus_station"] = "yes"
+                    out['bus_station_dist'] = slovnik["Bus MHD"]
+                    del slovnik["Bus MHD"]
+                if "Bus" in slovnik:
+                    out["bus_station"] = "yes"
+                    out['bus_station_dist'] = slovnik["Bus"]
+                    del slovnik["Bus"]
+                if "Vlak" in slovnik:
+                    out["train_station"] = "yes"
+                    out["train_station_dist"] = slovnik["Vlak"]
+                    del slovnik["Vlak"]
+                if "Pošta" in slovnik:
+                    out["post_office"] = "yes"
+                    out["post_office_dist"] = slovnik["Pošta"]
+                    del slovnik["Pošta"]
+                if "Bankomat" in slovnik:
+                    out["atm"] = "yes"
+                    out["atm_dist"] = slovnik["Bankomat"]
+                    del slovnik["Bankomat"]
+                if "Lékař" in slovnik:
+                    out["doctor"] = "yes"
+                    out["doctor_dist"] = slovnik["Lékař"]
+                    del slovnik["Lékař"]
+                if "Veterinář" in slovnik:
+                    out["vet"] = "yes"
+                    out["vet_dist"] = slovnik["Veterinář"]
+                    del slovnik["Veterinář"]
+                if "Škola" in slovnik:
+                    out["primary_school"] = "yes"
+                    out["primary_school_dist"] = slovnik["Škola"]
+                    del slovnik["Škola"]
+                if "Školka" in slovnik:
+                    out["kindergarten"] = "yes"
+                    out["kindergarten_dist"] = slovnik["Školka"]
+                    del slovnik["Školka"]
+                if "Večerka" in slovnik:
+                    out["supermarket_grocery"] = "yes"
+                    out["supermarket_grocery_dist"] = slovnik["Večerka"]
+                    del slovnik["Večerka"]
+                elif "Obchod" in slovnik:
+                    out["supermarket_grocery"] = "yes"
+                    out["supermarket_grocery_dist"] = slovnik["Obchod"]
+                    del slovnik["Obchod"]
+                if "Restaurace" in slovnik:
+                    out["restaurant_pub"] = "yes"
+                    out["restaurant_pub_dist"] = slovnik["Restaurace"]
+                    del slovnik["Restaurace"]
+                elif "Hospoda" in slovnik:
+                    out["retaurant_pub"] = "yes"
+                    out["restaurant_pub_dist"] = slovnik["Hospoda"]
+                    del slovnik["Hospoda"]
+                if "Sportoviště" in slovnik:
+                    out['playground_gym_pool'] = "yes"
+                    out['playground_gym_pool_dist'] = slovnik["Sportoviště"]
+                    del slovnik["Sportoviště"]
+                if "Metro" in slovnik:
+                    out["subway"] = "yes"
+                    out["subway_dist"] = slovnik["Metro"]
+                    del slovnik["Metro"]
+                if "Tram" in slovnik:
+                    out["tram"] = "yes"
+                    out["tram_dist"] = slovnik["Tram"]
+                    del slovnik["Tram"]
+                if "Divadlo" in slovnik:
+                    out["theatre_cinema"] = "yes"
+                    out["theatre_cinema_dist"] = slovnik["Divadlo"]
+                    del slovnik["Divadlo"]
+                elif "Kino" in slovnik:
+                    out["theatre_cinema"] = "yes"
+                    out["theatre_cinema_dist"] = slovnik["Kino"]
+                    del slovnik["Kino"]
+                if "Plyn:" in slovnik:
+                    out["gas"] = slovnik["Plyn:"]
+                    del slovnik["Plyn:"]
+                if "Odpad:" in slovnik:
+                    out["waste"] = slovnik["Odpad:"]
+                    del slovnik["Odpad:"]
+                if "Vybavení:" in slovnik:
+                    out["equipment"] = slovnik["Vybavení:"]
+                    del slovnik["Vybavení:"]
+                if "Stav objektu:" in slovnik:
+                    out["state"] = slovnik["Stav objektu:"]
+                    del slovnik["Stav objektu:"]
+                if "Stavba:" in slovnik:
+                    out["construction_type"] = slovnik["Stavba:"]
+                    del slovnik["Stavba:"]
+                if "Umístění objektu:" in slovnik:
+                    out["place"] = slovnik["Umístění objektu:"]
+                    del slovnik["Umístění objektu:"]
+                if "Elektřina:" in slovnik:
+                    out["electricity"] = slovnik["Elektřina:"]
+                    del slovnik["Elektřina:"]
+                if "Topení:" in slovnik:
+                    out["heating"] = slovnik["Topení:"]
+                    del slovnik["Topení:"]
+                if "Doprava:" in slovnik:
+                    out["transport"] = slovnik["Doprava:"]
+                    del slovnik["Doprava:"]
+                if "Rok rekonstrukce:" in slovnik:
+                    out["year_reconstruction"] = slovnik["Rok rekonstrukce:"]
+                    del slovnik["Rok rekonstrukce:"]
+                if "Telekomunikace:" in slovnik:
+                    out["telecomunication"] = slovnik["Telekomunikace:"]
+                    del slovnik["Telekomunikace:"]
+                if "Výtah:" in slovnik:
+                    out["has_lift"] = slovnik["Výtah:"]
+                    del slovnik["Výtah:"]
+                if "Garáž:" in slovnik:
+                    out["has_garage"] = slovnik["Garáž:"]
+                    del slovnik["Garáž:"]
+                if "Sklep:" in slovnik:
+                    out["has_cellar"] = slovnik["Sklep:"]
+                    del slovnik["Sklep:"]
+                if "Bezbariérový přístup:" in slovnik:
+                    out["no_barriers"] = slovnik["Bezbariérový přístup:"]
+                    del slovnik["Bezbariérový přístup:"]
+                if "Lodžie:" in slovnik:
+                    out["has_loggia"] = slovnik["Lodžie:"]
+                    del slovnik["Lodžie:"]
+                if "Balkón:" in slovnik:
+                    out["has_balcony"] = slovnik["Balkón:"]
+                    del slovnik["Balkón:"]
+                if "Zahrada:" in slovnik:
+                    out["has_garden"] = slovnik["Zahrada:"]
+                    del slovnik["Zahrada:"]
+                if "Parkoviště:" in slovnik:
+                    out["has_parking"] = slovnik["Parkoviště:"]
+                    del slovnik["Parkoviště:"]
+
+                for k, v in slovnik.items():
+                    out["description"] = out["description"] + k + ":" + v + ". "
+
+                return out
 
 
 
 
-
-            test_dict = {'header': 'Prodej bytu 4+kk • 123 m² bez realitky',
-                         'price': 17850000,
-                         'plocha': 123,
-                         'stav_objektu': 'Před rekonstrukcí',
-                         'long': 45.1,
-                         'lat': 15.5,
-                         'hash': 'asdafqwf6sadasew6'}
-            return test_dict
+            # test_dict = {'header': 'Prodej bytu 4+kk • 123 m² bez realitky',
+            #              'price': 17850000,
+            #              'plocha': 123,
+            #              'stav_objektu': 'Před rekonstrukcí',
+            #              'long': 45.1,
+            #              'lat': 15.5,
+            #              'hash': 'asdafqwf6sadasew6'}
+            # # return test_dict
