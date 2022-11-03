@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 
 
 class Synchronizer(object):
@@ -9,18 +10,43 @@ class Synchronizer(object):
      ensure correct dtypes (string, floats, bool) within columns # TODO define exact dtypes for columns
 
     """
-    def __init__(self, sreality_csv_path: str, breality_csv_path: str):
+    def __init__(self, from_row: tuple[int, int]):
+        """
+
+        Parameters
+        ----------
+        from_row : tuple[int, int]
+            Indices of row from which start. from_row[0] -> sreality
+                                             from_row[1] -> breality TODO make this more robust
+        """
+        self.from_row = from_row
+        self.final_df = None
+
+    def __call__(self, sreality_csv_path: str, breality_csv_path: str, *args, **kwargs) -> pd.DataFrame:
+        """
+
+        Parameters
+        ----------
+        sreality_csv_path : str
+            Path of sreality csv
+        breality_csv_path : str
+            Path of breality csv
+
+        Returns
+        -------
+
+        """
         try:
-            self.sreality_df = pd.read_csv(sreality_csv_path)
-            self.breality_df = pd.read_csv(breality_csv_path)  # dataframes to be synchronized
-            self.final_df = None
+            self.sreality_df = pd.read_csv(sreality_csv_path).iloc[self.from_row[0]:, :]
+            self.breality_df = pd.read_csv(breality_csv_path).iloc[self.from_row[1]:, :]  # dataframes to be synchronized
         except Exception as e:
             print(e)
 
-    def __call__(self, *args, **kwargs) -> pd.DataFrame:
         self.check_dtypes()  # checks dtypes on both dataframes
         self.unify()
         self.merge_text()
+
+        self.final_df.to_csv('../data/tmp_synchronized.csv', mode='w', index=False)
 
         return self.final_df
 
