@@ -18,6 +18,9 @@ class Preprocessor(object):
         self.impute()
         self.encode()
         self.scale()
+
+        self.df.to_csv('../data/tmp_preprocessed.csv', mode='w', index=False)
+
         return self.df
 
     def impute(self):
@@ -29,9 +32,6 @@ class Preprocessor(object):
 
         * not required numeric (float) features:
             floor ???? how to define unknown, => maybe ordinal encoding with `unknown` level
-            <>_area (all `area` features) it seems they will be very sparse => use of corresponding
-                binary features will be probably enough
-        # TODO probably <>_area features should be removed from scraping
 
         * not required binary/bool (categorical) features:
             has_<> (all `has` features) => missing = False
@@ -65,7 +65,6 @@ class Preprocessor(object):
             tags (from bezrealitky data) => NLP
             place (from bezrealitky data) => NLP
             ----
-            TODO all these textual columns will be somewhere merged into one text / probably in synchronize phase
         * others
             some will be removed
             some columns will be added by `enricher`
