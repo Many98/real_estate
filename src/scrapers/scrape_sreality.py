@@ -46,87 +46,42 @@ class SRealityScraper(BaseScraper):
             * finally update dictionary  e.g. result.update({'hash': base64(url)}) (it will append particular hash (filename))
              to dictionary as we need reference where are stored images and text for specific url
                 for particular `url`
+        TODO update docstring
         """
-        out = {
-            'header': None,
-            # text description of disposition e.g. 3 + kk
+        out = {  # basic sort of required info
+            'header': None,  # text description of disposition e.g. 3 + kk
             'price': None,  # Celková cena
-            'note': None,
-            # poznamka (k cene) sometimes can have valid info like
-            # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
+            'note': None,  # poznamka (k cene) sometimes can have valid info like
+                # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
             'usable_area': None,  # Užitná plocha
             'floor_area': None,  # Plocha podlahová
             'floor': None,  # podlazie
-            'energy_effeciency': None,
-            # Energetická náročnost (letters A-G) A=best, G=shitty
-            'ownership': None,
-            # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
+            'energy_effeciency': None,  # Energetická náročnost (letters A-G) A=best, G=shitty
+            'ownership': None,  # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
             'description': None,
             'long': None,
             'lat': None,
             'hash': None,
 
-            # other - done
-            'gas': None,  # Plyn
-            'waste': None,  # Odpad
-            'equipment': None,  # Vybavení
-            'state': None,
-            # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
-            'construction_type': None,
-            # Stavba (3 states possible ) panel, cihla, ostatni
-            'place': None,  # Umístění objektu
-            'electricity': None,  # elektrina
-            'heating': None,  # topeni
-            'transport': None,  # doprava
-            'year_reconstruction': None,  # rok rekonstrukce
-            'telecomunication': None,  # telekomunikace
-
-            # binary info - done
-            'has_lift': None,  # Výtah: True, False
-            'has_garage': None,  # garaz
-            'has_cellar': None,  # sklep presence
-            'no_barriers': None,  # ci je bezbarierovy bezbarierovy
-            'has_loggia': None,  # lodzie
-            'has_balcony': None,  # balkon
-            'has_garden': None,  # zahrada
-            'has_parking': None,
-
-            # additional info - sometimes
-            'cellar_area': None,
-            # plocha sklepu (if provided)
-            'loggia_area': None,
-            'balcony_area': None,
-
-            # what has b reality in addition
-            'tags': None,
-            'disposition': None,
-            'age': None,
-            'condition': None,
-            'is_new': None,
-
-            # binary civic amenities (obcanska vybavenost binarne info) - done
-            'MHD': None,
-            'train_station': None,
-            'post_office': None,
-            'atm': None,  # bankomat according to google translate :D
-            'bank': None,
-            'doctor': None,
-            'vet': None,
-            'school': None,
-            'kindergarten': None,
-            'supermarket_grocery': None,
-            'restaurant_pub': None,
-            'playground': None,
-            'sports_field': None,
-            # or similar kind of leisure amenity probably OSM would be better
-            'subway': None,
-            'tram': None,
-            'bus': None,
+            # binary civic amenities (obcanska vybavenost binarne info)
+            # TODO DEPRECATED (DIST attributes are enough) -> csv needs updates
+            #'bus_station': None,
+            #'train_station': None,
+            #'post_office': None,
+            #'atm': None, # bankomat according to google translate :D
+            #'doctor': None,
+            #'vet': None,
+            #'primary_school': None,
+            #'kindergarten': None,
+            #'supermarket_grocery': None,
+            #'restaurant_pub': None,
+            #'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
+            #'subway': None,
+            #'tram': None,
             # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-            'theatre_cinema': None,
-            'pharmacy': None,
+            #'theatre_cinema': None,
 
-            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
+            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti)
             'bus_station_dist': None,
             'train_station_dist': None,
             'subway_station_dist': None,
@@ -134,7 +89,6 @@ class SRealityScraper(BaseScraper):
             'MHD_dist': None,
             'post_office_dist': None,
             'atm_dist': None,
-            'bank_dist': None,
             'doctor_dist': None,
             'vet_dist': None,
             'primary_school_dist': None,
@@ -142,20 +96,51 @@ class SRealityScraper(BaseScraper):
             'supermarket_grocery_dist': None,
             'restaurant_pub_dist': None,
             'playground_dist': None,
-            'sports_field_dist': None,
             # or similar kind of leisure amenity probably OSM would be better
+            'sports_field_dist': None,
             # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
             'theatre_cinema_dist': None,
-            'pharmacy_dist': None
+            'pharmacy_dist': None,
 
+            # other
+            'gas': None,  # Plyn
+            'waste': None,  # Odpad:
+            'equipment': None,  # Vybavení:
+            'state': None,  # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
+            'construction_type': None,  # Stavba (3 states possible ) panel, cihla, ostatni
+            'place': None,  # Umístění objektu
+            'electricity': None,  # elektrina
+            'heating': None,  # topeni
+            'transport': None,  # doprava
+            'year_reconstruction': None,  # rok rekonstrukce
+            'telecomunication': None,  # telekomunikace
+
+            # what has b reality in addition
+            'tags': None,
+            'disposition': None,
+
+            # binary info
+            'has_lift': None,  # Výtah: True, False
+            'has_garage': None,  # garaz
+            'has_cellar': None,  # sklep presence or  m2 ???
+            'no_barriers': None,  # ci je bezbarierovy bezbarierovy
+            'has_loggia': None,  # lodzie m2
+            'has_balcony': None,  # balkon
+            'has_garden': None, # zahrada,
+            'has_parking': None,
+
+            # additional info # TODO DEPRECATED (HAS-like attributes are enough) -> needs update csv
+            #'cellar_area': None, # plocha sklepu (if provided)
+            #'loggia_area': None,
+            #'bank_dist': None,
+            #'age': dict_.get('age', None),
+            #'condition': dict_.get('condition', None),
+            #'is_new': dict_.get('newBuilding', None),
+            #'balcony_area': None
         }
         if 'sreality' not in url:  # ensures correct link
             return {}
         else:
-            # self._save_image(
-            #                   'https://d18-a.sdn.cz/d_18/c_img_gU_o/YBJSIh.jpeg?fl=res,749,562,3|wrm,/watermark/sreality.png,10|shr,,20|jpg,90',
-            #                   url)
-            # # to get data
             driver.get(url)
             time.sleep(1)
             content = driver.page_source
@@ -166,8 +151,20 @@ class SRealityScraper(BaseScraper):
             if error_page is None:
                 slovnik = {}
                 # scrape header
-                header = soup.find('span', attrs={'class': 'name ng-binding'})
-                time.sleep(1)
+                header = None
+                try:
+                    time.sleep(1)
+                    header = soup.find('span', attrs={'class': 'name ng-binding'})
+                    if header is None:
+                        raise Exception('header not found')
+                except:
+                    try:
+                        time.sleep(5)
+                        header = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
+                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/h1/span/span[1]')))
+                        header = header.text
+                    except:
+                        pass
                 if header is not None:
                     header = str(header)
                     header = header[header.find(">") + 1:]
@@ -176,10 +173,9 @@ class SRealityScraper(BaseScraper):
                 else:
                     print("Header for this page does not exist.")
 
-
-                # tabularni data
-                table_data = soup.find('div', attrs={'class': 'params clear'})
+                # tabular data
                 time.sleep(1)
+                table_data = soup.find('div', attrs={'class': 'params clear'})
                 if table_data is not None:
                     table_data_str = str(table_data)
                     r = re.compile(r'\bICON-OK\b | \bICON-CROSS\b', flags=re.I | re.X)
@@ -220,7 +216,6 @@ class SRealityScraper(BaseScraper):
                 else:
                     print("No tabular data on this page")
 
-
                 # scrape description
                 description = soup.find('div', attrs={'class': 'description ng-binding'})
                 time.sleep(1)
@@ -238,7 +233,6 @@ class SRealityScraper(BaseScraper):
                 else:
                     print("No description on this webpage.")
 
-
                 # scrape position
                 position = soup.find('a', attrs={'class': 'print'})
                 time.sleep(1)
@@ -253,8 +247,6 @@ class SRealityScraper(BaseScraper):
                     slovnik["position"] = position
                 else:
                     print("No position on this web page.")
-
-
 
                 # public equipment scraping
                 public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
@@ -272,21 +264,13 @@ class SRealityScraper(BaseScraper):
                     for i in range(len(seznam)):
                         slovnik[seznam[i][0]] = seznam[i][1]
 
-
-
-
-
-
-
-
-
                 # filling out dictionary from slovnik
                 out["header"] = slovnik["header"]
                 del slovnik["header"]
                 if "Celková cena:" in slovnik:
                     out["price"] = slovnik["Celková cena:"]
                     del slovnik["Celková cena:"]
-                if "Cena:" in slovnik:
+                elif "Cena:" in slovnik:
                     out["price"] = slovnik["Cena:"]
                     del slovnik["Cena:"]
                 if "Poznámka k ceně:" in slovnik:
@@ -317,57 +301,64 @@ class SRealityScraper(BaseScraper):
                 out["description"] = slovnik["description"]
                 del slovnik["description"]
                 if "Bus MHD" in slovnik:
-                    out["bus_station"] = "yes"
+                    #out["bus_station"] = "yes"
                     out['bus_station_dist'] = slovnik["Bus MHD"]
                     del slovnik["Bus MHD"]
                 if "Bus" in slovnik:
-                    out["bus_station"] = "yes"
+                    #out["bus_station"] = "yes"
                     out['bus_station_dist'] = slovnik["Bus"]
                     del slovnik["Bus"]
                 if "Vlak" in slovnik:
-                    out["train_station"] = "yes"
+                    #out["train_station"] = "yes"
                     out["train_station_dist"] = slovnik["Vlak"]
                     del slovnik["Vlak"]
                 if "Pošta" in slovnik:
-                    out["post_office"] = "yes"
+                    #out["post_office"] = "yes"
                     out["post_office_dist"] = slovnik["Pošta"]
                     del slovnik["Pošta"]
                 if "Bankomat" in slovnik:
-                    out["atm"] = "yes"
+                    #out["atm"] = "yes"
                     out["atm_dist"] = slovnik["Bankomat"]
                     del slovnik["Bankomat"]
                 if "Lékař" in slovnik:
-                    out["doctor"] = "yes"
+                    #out["doctor"] = "yes"
                     out["doctor_dist"] = slovnik["Lékař"]
                     del slovnik["Lékař"]
+                if "Lékárna" in slovnik:
+                    out["pharmacy_dist"] = slovnik["Lékárna"]
+                    del slovnik["Lékař"]
                 if "Veterinář" in slovnik:
-                    out["vet"] = "yes"
+                    #out["vet"] = "yes"
                     out["vet_dist"] = slovnik["Veterinář"]
                     del slovnik["Veterinář"]
                 if "Škola" in slovnik:
-                    out["primary_school"] = "yes"
+                    #out["primary_school"] = "yes"
                     out["primary_school_dist"] = slovnik["Škola"]
                     del slovnik["Škola"]
                 if "Školka" in slovnik:
-                    out["kindergarten"] = "yes"
+                    #out["kindergarten"] = "yes"
                     out["kindergarten_dist"] = slovnik["Školka"]
                     del slovnik["Školka"]
                 if "Večerka" in slovnik:
-                    out["supermarket_grocery"] = "yes"
+                    #out["supermarket_grocery"] = "yes"
                     out["supermarket_grocery_dist"] = slovnik["Večerka"]
                     del slovnik["Večerka"]
                 elif "Obchod" in slovnik:
-                    out["supermarket_grocery"] = "yes"
+                    #out["supermarket_grocery"] = "yes"
                     out["supermarket_grocery_dist"] = slovnik["Obchod"]
                     del slovnik["Obchod"]
                 if "Restaurace" in slovnik:
-                    out["restaurant_pub"] = "yes"
+                    #out["restaurant_pub"] = "yes"
                     out["restaurant_pub_dist"] = slovnik["Restaurace"]
                     del slovnik["Restaurace"]
                 elif "Hospoda" in slovnik:
-                    out["retaurant_pub"] = "yes"
+                    #out["retaurant_pub"] = "yes"
                     out["restaurant_pub_dist"] = slovnik["Hospoda"]
                     del slovnik["Hospoda"]
+                if "Hřiště" in slovnik:
+                    #out['playground_gym_pool'] = "yes"
+                    out['playground_dist'] = slovnik["Hřiště"]
+                    del slovnik["Hřiště"]
                 if "Sportoviště" in slovnik:
                     out['sports_field'] = "yes"
                     out['sports_field_dist'] = slovnik["Sportoviště"]
@@ -377,19 +368,19 @@ class SRealityScraper(BaseScraper):
                     out["playground_dist"] = slovnik["Hřiště"]
                     del slovnik["Hřiště"]
                 if "Metro" in slovnik:
-                    out["subway"] = "yes"
-                    out["subway_dist"] = slovnik["Metro"]
+                    #out["subway"] = "yes"
+                    out["subway_station_dist"] = slovnik["Metro"]
                     del slovnik["Metro"]
                 if "Tram" in slovnik:
-                    out["tram"] = "yes"
-                    out["tram_dist"] = slovnik["Tram"]
+                    #out["tram"] = "yes"
+                    out["tram_station_dist"] = slovnik["Tram"]
                     del slovnik["Tram"]
                 if "Divadlo" in slovnik:
-                    out["theatre_cinema"] = "yes"
+                    #out["theatre_cinema"] = "yes"
                     out["theatre_cinema_dist"] = slovnik["Divadlo"]
                     del slovnik["Divadlo"]
                 elif "Kino" in slovnik:
-                    out["theatre_cinema"] = "yes"
+                    #out["theatre_cinema"] = "yes"
                     out["theatre_cinema_dist"] = slovnik["Kino"]
                     del slovnik["Kino"]
                 if "Plyn:" in slovnik:
@@ -458,15 +449,3 @@ class SRealityScraper(BaseScraper):
                     out["description"] = out["description"] + k + ":" + v + ". "
 
                 return out
-
-
-
-
-            # test_dict = {'header': 'Prodej bytu 4+kk • 123 m² bez realitky',
-            #              'price': 17850000,
-            #              'plocha': 123,
-            #              'stav_objektu': 'Před rekonstrukcí',
-            #              'long': 45.1,
-            #              'lat': 15.5,
-            #              'hash': 'asdafqwf6sadasew6'}
-            # # return test_dict
