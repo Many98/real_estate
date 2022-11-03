@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+import os
 
 import geopandas as gpd
 import rioxarray
@@ -17,6 +17,7 @@ class Enricher(object):
     Class handling overall enrichment of scrapped dataset by noise data, geospatial data, embeddings
     TODO consider using decorators as it would be probably more elegant solution
     """
+
     def __init__(self, df: pd.DataFrame):
         self.df = df  # dataframe to be enriched
 
@@ -26,6 +27,8 @@ class Enricher(object):
         self.add_criminality_data()
         self.add_osm_data()
         self.add_embeddings()
+
+        self.df.to_csv('../data/tmp_enriched.csv', mode='w', index=False)
 
         return self.df
 
@@ -132,7 +135,8 @@ class Generator(object):
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
 
-        pass
+        self.df.to_csv('../data/tmp_final.csv', mode='w', index=False)
+
         return self.df
 
 
