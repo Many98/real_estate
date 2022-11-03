@@ -14,8 +14,7 @@ from src.preprocessing.utils import prepare_rasters, osmnx_nearest
 
 class Enricher(object):
     """
-    Class handling overall enrichment of scrapped dataset by noise data, geospatial data, embeddings and probably
-    aggregated features
+    Class handling overall enrichment of scrapped dataset by noise data, geospatial data, embeddings
     TODO consider using decorators as it would be probably more elegant solution
     """
     def __init__(self, df: pd.DataFrame):
@@ -119,6 +118,22 @@ class Enricher(object):
 
     def add_embeddings(self):
         pass
+
+
+class Generator(object):
+    """
+        Class handling generation of new aggregated features from existing features
+        Some research is required prior to defining relevant aggregated features
+        TODO consider using decorators as it would be probably more elegant solution
+        """
+
+    def __init__(self, df: pd.DataFrame):
+        self.df = df  # dataframe to be enriched
+
+    def __call__(self, *args, **kwargs) -> pd.DataFrame:
+
+        pass
+        return self.df
 
 
 if __name__ == '__main__':
