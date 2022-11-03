@@ -47,61 +47,33 @@ class SRealityScraper(BaseScraper):
              to dictionary as we need reference where are stored images and text for specific url
                 for particular `url`
         """
-        out = {  # basic sort of required info
-            'header': None,  # text description of disposition e.g. 3 + kk
+        out = {
+            'header': None,
+            # text description of disposition e.g. 3 + kk
             'price': None,  # Celková cena
-            'note': None,  # poznamka (k cene) sometimes can have valid info like
-                # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
+            'note': None,
+            # poznamka (k cene) sometimes can have valid info like
+            # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
             'usable_area': None,  # Užitná plocha
             'floor_area': None,  # Plocha podlahová
             'floor': None,  # podlazie
-            'energy_effeciency': None,  # Energetická náročnost (letters A-G) A=best, G=shitty
-            'ownership': None,  # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
+            'energy_effeciency': None,
+            # Energetická náročnost (letters A-G) A=best, G=shitty
+            'ownership': None,
+            # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
+            'description': None,
             'long': None,
             'lat': None,
             'hash': None,
 
-            # binary civic amenities (obcanska vybavenost binarne info)
-            'bus_station': None,
-            'train_station': None,
-            'post_office': None,
-            'atm': None, # bankomat according to google translate :D
-            'doctor': None,
-            'vet': None,
-            'primary_school': None,
-            'kindergarten': None,
-            'supermarket_grocery': None,
-            'restaurant_pub': None,
-            'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
-            'subway': None,
-            'tram': None,
-            # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-            'theatre_cinema': None,
-
-            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti)
-
-            'bus_station_dist': None,
-            'train_station_dist': None,
-            'post_office_dist': None,
-            'atm_dist': None,  # bankomat according to google translate :D
-            'doctor_dist': None,
-            'vet_dist': None,
-            'primary_school_dist': None,
-            'kindergarten_dist': None,
-            'supermarket_grocery_dist': None,
-            'restaurant_pub_dist': None,
-            'playground_gym_pool_dist': None,  # or similar kind of leisure amenity probably OSM would be better
-            'subway_dist': None,
-            'tram_dist': None,
-            # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-            'theatre_cinema_dist': None,
-
-            # other
+            # other - done
             'gas': None,  # Plyn
-            'waste': None,  # Odpad:
-            'equipment': None,  # Vybavení:
-            'state': None,  # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
-            'construction_type': None,  # Stavba (3 states possible ) panel, cihla, ostatni
+            'waste': None,  # Odpad
+            'equipment': None,  # Vybavení
+            'state': None,
+            # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
+            'construction_type': None,
+            # Stavba (3 states possible ) panel, cihla, ostatni
             'place': None,  # Umístění objektu
             'electricity': None,  # elektrina
             'heating': None,  # topeni
@@ -109,20 +81,73 @@ class SRealityScraper(BaseScraper):
             'year_reconstruction': None,  # rok rekonstrukce
             'telecomunication': None,  # telekomunikace
 
-            # binary info
+            # binary info - done
             'has_lift': None,  # Výtah: True, False
             'has_garage': None,  # garaz
-            'has_cellar': None,  # sklep presence or  m2 ???
+            'has_cellar': None,  # sklep presence
             'no_barriers': None,  # ci je bezbarierovy bezbarierovy
-            'has_loggia': None,  # lodzie m2
+            'has_loggia': None,  # lodzie
             'has_balcony': None,  # balkon
-            'has_garden': None, # zahrada,
+            'has_garden': None,  # zahrada
             'has_parking': None,
 
-            # additional info
-            'cellar_area': None, # plocha sklepu (if provided)
+            # additional info - sometimes
+            'cellar_area': None,
+            # plocha sklepu (if provided)
             'loggia_area': None,
-            'balcony_area': None
+            'balcony_area': None,
+
+            # what has b reality in addition
+            'tags': None,
+            'disposition': None,
+            'age': None,
+            'condition': None,
+            'is_new': None,
+
+            # binary civic amenities (obcanska vybavenost binarne info) - done
+            'MHD': None,
+            'train_station': None,
+            'post_office': None,
+            'atm': None,  # bankomat according to google translate :D
+            'bank': None,
+            'doctor': None,
+            'vet': None,
+            'school': None,
+            'kindergarten': None,
+            'supermarket_grocery': None,
+            'restaurant_pub': None,
+            'playground': None,
+            'sports_field': None,
+            # or similar kind of leisure amenity probably OSM would be better
+            'subway': None,
+            'tram': None,
+            'bus': None,
+            # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
+            'theatre_cinema': None,
+            'pharmacy': None,
+
+            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
+            'bus_station_dist': None,
+            'train_station_dist': None,
+            'subway_station_dist': None,
+            'tram_station_dist': None,
+            'MHD_dist': None,
+            'post_office_dist': None,
+            'atm_dist': None,
+            'bank_dist': None,
+            'doctor_dist': None,
+            'vet_dist': None,
+            'primary_school_dist': None,
+            'kindergarten_dist': None,
+            'supermarket_grocery_dist': None,
+            'restaurant_pub_dist': None,
+            'playground_dist': None,
+            'sports_field_dist': None,
+            # or similar kind of leisure amenity probably OSM would be better
+            # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
+            'theatre_cinema_dist': None,
+            'pharmacy_dist': None
+
         }
         if 'sreality' not in url:  # ensures correct link
             return {}
@@ -247,6 +272,14 @@ class SRealityScraper(BaseScraper):
                     for i in range(len(seznam)):
                         slovnik[seznam[i][0]] = seznam[i][1]
 
+
+
+
+
+
+
+
+
                 # filling out dictionary from slovnik
                 out["header"] = slovnik["header"]
                 del slovnik["header"]
@@ -336,9 +369,13 @@ class SRealityScraper(BaseScraper):
                     out["restaurant_pub_dist"] = slovnik["Hospoda"]
                     del slovnik["Hospoda"]
                 if "Sportoviště" in slovnik:
-                    out['playground_gym_pool'] = "yes"
-                    out['playground_gym_pool_dist'] = slovnik["Sportoviště"]
+                    out['sports_field'] = "yes"
+                    out['sports_field_dist'] = slovnik["Sportoviště"]
                     del slovnik["Sportoviště"]
+                if "Hřiště" in slovnik:
+                    out["playground"] = "yes"
+                    out["playground_dist"] = slovnik["Hřiště"]
+                    del slovnik["Hřiště"]
                 if "Metro" in slovnik:
                     out["subway"] = "yes"
                     out["subway_dist"] = slovnik["Metro"]
@@ -412,6 +449,10 @@ class SRealityScraper(BaseScraper):
                 if "Parkoviště:" in slovnik:
                     out["has_parking"] = slovnik["Parkoviště:"]
                     del slovnik["Parkoviště:"]
+                if "Lékárna" in slovnik:
+                    out["pharmacy"] = "yes"
+                    out["pharmacy_dist"] = slovnik["Lékárna"]
+                    del slovnik["Lékárna"]
 
                 for k, v in slovnik.items():
                     out["description"] = out["description"] + k + ":" + v + ". "
