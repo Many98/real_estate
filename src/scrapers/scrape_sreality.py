@@ -155,11 +155,12 @@ class SRealityScraper(BaseScraper):
                 try:
                     time.sleep(1)
                     header = soup.find('span', attrs={'class': 'name ng-binding'})
+                    time.sleep(1)
                     if header is None:
                         raise Exception('header not found')
                 except:
                     try:
-                        time.sleep(5)
+                        #time.sleep(5)
                         header = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
                             '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/h1/span/span[1]')))
                         header = header.text
@@ -183,22 +184,31 @@ class SRealityScraper(BaseScraper):
                 except:
                     try:
                         time.sleep(5)
-                        header = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
-                                                                                                 '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/h1/span/span[1]')))
-                        price = price.text
+                        price = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
+                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/span/span[2]')))
                     except:
                         pass
                 if price is not None:
-                    price = str(price)
-                    price = price[price.find(">") + 1:]
-                    price = price[:price.find("<")]
+                    price = price.text
                     slovnik["price"] = price
                 else:
                     print("Price for this page does not exist.")
 
                 # tabular data
-                time.sleep(1)
-                table_data = soup.find('div', attrs={'class': 'params clear'})
+                table_data = None
+                try:
+                    time.sleep(1)
+                    table_data = soup.find('div', attrs={'class': 'params clear'})
+                    if table_data is None:
+                        raise Exception('table data not found')
+                except:
+                    try:
+                        #time.sleep(5)
+                        table_data = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
+                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[7]')))
+                    except:
+                        pass
+                # table_data = soup.find('div', attrs={'class': 'params clear'})
                 if table_data is not None:
                     table_data_str = str(table_data)
                     r = re.compile(r'\bICON-OK\b | \bICON-CROSS\b', flags=re.I | re.X)
@@ -222,8 +232,8 @@ class SRealityScraper(BaseScraper):
                     size_of_table = len(table)
                     i = 0
                     j = 0
-                    while i < size_of_table:
-                        if i != size_of_table - 1:
+                    while i < size_of_table and j < len(yes_no):
+                        if i < size_of_table - 1:
                             if table[i][-1] == ":" and table[i+1][-1] == ":":
                                 table.insert(i+1, yes_no[j])
                                 j += 1
@@ -240,8 +250,19 @@ class SRealityScraper(BaseScraper):
                     print("No tabular data on this page")
 
                 # scrape description
-                description = soup.find('div', attrs={'class': 'description ng-binding'})
-                time.sleep(1)
+                description = None
+                try:
+                    time.sleep(1)
+                    description = soup.find('div', attrs={'class': 'description ng-binding'})
+                    if description is None:
+                        raise Exception('description not found')
+                except:
+                    try:
+                        #time.sleep(5)
+                        description = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
+                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[6]')))
+                    except:
+                        pass
                 if description is not None:
                     retezec = str(description)
                     index_paragraph = retezec.find("<p>")
@@ -257,8 +278,20 @@ class SRealityScraper(BaseScraper):
                     print("No description on this webpage.")
 
                 # scrape position
-                position = soup.find('a', attrs={'class': 'print'})
-                time.sleep(1)
+                position = None
+                try:
+                    time.sleep(1)
+                    position = soup.find('a', attrs={'class': 'print'})
+                    if position is None:
+                        raise Exception('position not found')
+                except:
+                    try:
+                        #time.sleep(5)
+                        position = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
+                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[2]/div[2]/div/a')))
+                    except:
+                        pass
+
                 if position is not None:
                     position = str(position)
                     index = position.find("x=")
@@ -272,11 +305,24 @@ class SRealityScraper(BaseScraper):
                     print("No position on this web page.")
 
                 # public equipment scraping
-                public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
-                time.sleep(1)
+                public_equipment = None
+                try:
+                    time.sleep(1)
+                    public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
+                    if public_equipment is None:
+                        raise Exception('public equipment not found')
+                except:
+                    try:
+                        #time.sleep(5)
+                        position = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
+                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact')))
+                    except:
+                        pass
+                #public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
+                #time.sleep(1)
                 if public_equipment is not None:
                     public_equipment = public_equipment.text
-                    seznam = public_equipment.split(")")
+                    seznam = public_equipment.split("m)")
                     seznam = [item + ")" for item in seznam]
                     seznam = seznam[:-1]
                     for i in range(len(seznam)):
@@ -288,8 +334,9 @@ class SRealityScraper(BaseScraper):
                         slovnik[seznam[i][0]] = seznam[i][1]
 
                 # filling out dictionary from slovnik
-                out["header"] = slovnik["header"]
-                del slovnik["header"]
+                if "header" in slovnik:
+                    out["header"] = slovnik["header"]
+                    del slovnik["header"]
                 if "Celková cena:" in slovnik:
                     out["price"] = slovnik["Celková cena:"]
                     del slovnik["Celková cena:"]
@@ -321,8 +368,9 @@ class SRealityScraper(BaseScraper):
                     out["long"] = slovnik["position"][0]
                     out["lat"] = slovnik["position"][1]
                     del slovnik["position"]
-                out["description"] = slovnik["description"]
-                del slovnik["description"]
+                if "description" in slovnik:
+                    out["description"] = slovnik["description"]
+                    del slovnik["description"]
                 if "Bus MHD" in slovnik:
                     #out["bus_station"] = "yes"
                     out['bus_station_dist'] = slovnik["Bus MHD"]
@@ -349,7 +397,7 @@ class SRealityScraper(BaseScraper):
                     del slovnik["Lékař"]
                 if "Lékárna" in slovnik:
                     out["pharmacy_dist"] = slovnik["Lékárna"]
-                    del slovnik["Lékař"]
+                    del slovnik["Lékárna"]
                 if "Veterinář" in slovnik:
                     #out["vet"] = "yes"
                     out["vet_dist"] = slovnik["Veterinář"]
@@ -460,15 +508,18 @@ class SRealityScraper(BaseScraper):
                 if "Zahrada:" in slovnik:
                     out["has_garden"] = slovnik["Zahrada:"]
                     del slovnik["Zahrada:"]
-                if "Parkoviště:" in slovnik:
-                    out["has_parking"] = slovnik["Parkoviště:"]
-                    del slovnik["Parkoviště:"]
+                if "Parkování:" in slovnik:
+                    out["has_parking"] = slovnik["Parkování:"]
+                    del slovnik["Parkování:"]
                 if "Lékárna" in slovnik:
                     out["pharmacy"] = "yes"
                     out["pharmacy_dist"] = slovnik["Lékárna"]
                     del slovnik["Lékárna"]
+                if out["description"] is None:
+                    out["description"] = ""
 
                 for k, v in slovnik.items():
                     out["description"] = out["description"] + k + ":" + v + ". "
+
 
                 return out
