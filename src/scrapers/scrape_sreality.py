@@ -182,6 +182,8 @@ class SRealityScraper(BaseScraper):
                                                                                                 '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/span/span[2]')))
                     except:
                         price = None
+                        with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
+                            f.write(url + ' price ' + '\n')
                 if price is not None:
                     slovnik["price"] = price.text.replace("\xa0", "")
                 else:
@@ -199,6 +201,8 @@ class SRealityScraper(BaseScraper):
                                                                                                      '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[7]')))
                     except:
                         table_data = None
+                        with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
+                            f.write(url + ' tabular_data ' + '\n')
 
                 if table_data is not None:
                     table_data_str = str(table_data)
@@ -252,6 +256,8 @@ class SRealityScraper(BaseScraper):
                                                                                                       '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[6]')))
                     except:
                         description = None
+                        with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
+                            f.write(url + ' description ' + '\n')
                 if description is not None:
                     slovnik["description"] = description.text.replace("\xa0", "")
                 else:
@@ -270,6 +276,8 @@ class SRealityScraper(BaseScraper):
                         position = position.get_attribute('href')
                     except:
                         position = None
+                        with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
+                            f.write(url + ' position ' + '\n')
 
                 if position is not None:
                     position = str(position)
@@ -289,9 +297,15 @@ class SRealityScraper(BaseScraper):
                     try:
                         # time.sleep(5)
                         public_equipment = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
-                                                                                                           '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact')))
+                                                                                                           '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact[1]')))
                     except:
-                        public_equipment = None
+                        try:
+                            public_equipment = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                               '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact')))
+                        except:
+                            public_equipment = None
+                            with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
+                                f.write(url + ' public_equip ' + '\n')
 
                 if public_equipment is not None:
                     public_equipment = public_equipment.text
