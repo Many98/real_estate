@@ -343,6 +343,9 @@ class SRealityScraper(BaseScraper):
                 elif "Cena:" in slovnik:
                     out["price"] = slovnik["Cena:"]
                     del slovnik["Cena:"]
+                elif "price" in slovnik:
+                    out["price"] = slovnik["price"]
+                    del slovnik["price"]
                 if "Poznámka k ceně:" in slovnik:
                     out["note"] = slovnik["Poznámka k ceně:"]
                     del slovnik["Poznámka k ceně:"]
@@ -520,6 +523,6 @@ class SRealityScraper(BaseScraper):
 
                 for k, v in slovnik.items():
                     out["description"] = out["description"] + k + ":" + v + ". "
-
+                del slovnik
 
                 return out
