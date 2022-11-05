@@ -2,7 +2,7 @@ import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic
 from sklearn.model_selection import train_test_split, GridSearchCV
-from src.preprocessing.preprocessing import prepare_atlas_cen_data
+from src.preprocessing.utils import prepare_atlas_cen_data
 import numpy as np
 from typing import Union
 import os
