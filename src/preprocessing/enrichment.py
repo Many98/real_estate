@@ -9,7 +9,7 @@ import xarray as xr
 from tqdm import tqdm
 
 from src.models.gaussian_process import gp_inference
-from src.preprocessing.utils import prepare_rasters, osmnx_nearest
+from src.preprocessing.utils import prepare_rasters, osmnx_nearest, osmnx_call
 
 
 class Enricher(object):
@@ -75,21 +75,17 @@ class Enricher(object):
         x_coords = xr.DataArray(self.df['long'].to_list(), dims="points")
         y_coords = xr.DataArray(self.df['lat'].to_list(), dims="points")
 
-        air_query = air.sel(x_coords, y_coords, method='nearest')
-        built_query = built.sel(x_coords, y_coords, method='nearest')
-        sun_query = sun.sel(x_coords, y_coords, method='nearest')
-        noise_day_query = noise_day.sel(x_coords, y_coords, method='nearest')
-        noise_night_query = noise_night.sel(x_coords, y_coords, method='nearest')
+        air_query = air.sel(x=x_coords, y=y_coords, method='nearest').values.flatten()
+        built_query = built.sel(x=x_coords, y=y_coords, method='nearest').values.flatten()
+        sun_query = sun.sel(x=x_coords, y=y_coords, method='nearest').values.flatten()
+        noise_day_query = noise_day.sel(x=x_coords, y=y_coords, method='nearest').values.flatten()
+        noise_night_query = noise_night.sel(x=x_coords, y=y_coords, method='nearest').values.flatten()
 
-        # TODO update `self.df` and replace 0 (nodata) with nan probably
-
-        """
-        rds = rioxarray.open_rasterio("input.tif")
-        rds.name = "data"
-        df = rds.squeeze().to_dataframe().reset_index()
-        geometry = gpd.points_from_xy(df.x, df.y)
-        gdf = gpd.GeoDataFrame(df, crs=rds.rio.crs, geometry=geometry)
-        """
+        self.df['air_quality'] = np.where(air_query == 0, np.nan, air_query)
+        self.df['built_density'] = np.where(built_query == 0, np.nan, air_query)
+        self.df['sun_glare'] = np.where(sun_query == 0, np.nan, air_query)
+        self.df['daily_noise'] = noise_day_query
+        self.df['nightly_noise'] = noise_night_query
 
     def add_criminality_data(self):
         """
@@ -103,21 +99,74 @@ class Enricher(object):
         #   where will be used always another year and month ... there are data from 2012
         pass
 
-    def add_osm_data(self):
+    def add_osm_data(self, dist: int = 1500):
         """
         adds geospatial data retrieved from OSM
         Parameters
         ----------
-
+        dist: int
+            Max distance to process amenities
         Returns
         -------
 
         """
-        # TODO probably we will need loop through self.df and call `osmnx_nearest` func which will not be
-        #  very effecient on large df
         # TODO prepare gdf here
-        for _, row in tqdm(self.df.iterrows(), desc='Processing OSM data'):
-            pass
+        # TODO add new column to sreality and breality scraper
+
+        tags = {'leisure': ['park', 'dog_park',  # park
+                            'playground',  # hriste
+                            'fitness_centre', 'stadium', 'swimming_pool', 'sports_centre', 'pitch'],  # sportoviste
+                'amenity': ['school',  # skola
+                            'kindergarten',  # skolka
+                            'cafe', 'pub', 'restaurant',  # restaurace/krcma
+                            'atm',  # bankomat
+                            'post_office'  # posta
+                            'clinic', 'hospital',  # doktory
+                            'veterinary',  # veterinar
+                            'pharmacy',  # lekarna
+                            'cinema', 'theatre',  # kino/divadlo
+                            ],
+                'shop': ['supermarket', 'mall', 'general'],  # obchod
+                'highway': ['bus_stop'],  # bus
+                'railway': ['tram_stop', 'station'],  # tram / train station
+                'station': ['subway']}  # metro
+
+        # TODO make this more robust
+        gdf = osmnx_call(14.43809, 50.06851, 18000, tags)  # prepare big geodataframe for whole prague
+
+        gdf_from_df = gpd.GeoDataFrame(self.df,
+                                       geometry=gpd.points_from_xy(
+                                           self.df.long,
+                                           self.df.lat,
+                                       ),
+                                       crs=gdf.crs,
+                                       )
+        # reproject to projected coordinate system UTM 33N (to get "proper" metres)
+        gdf_from_df = gdf_from_df.to_crs('epsg:32633')
+        # create buffer of 1500m
+        buffer = gdf_from_df.buffer(dist)
+        buffer = buffer.to_crs(gdf.crs)
+        buf = gpd.GeoDataFrame(geometry=buffer)
+
+        # perform spatial join
+        joined = gpd.sjoin(gdf, buf)
+
+        for _, row in tqdm(self.df.iterrows(), total=self.df.shape[0], desc='Processing OSM data'):  #
+
+            relevant = joined[joined.index_right == _]
+
+            # presence of attribute disposition => breality record
+            if row['disposition'] is not np.nan or row[
+                [i for i in self.df.columns if 'dist' in i and 'park' not in i]].isnull().values.any():
+                nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
+                                        dist_type='great_circle')
+            else:
+                relevant = relevant[relevant.what.str.contains('park')]  # TODO handle cases when df is empty
+                nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
+                                        dist_type='great_circle')
+
+            # TODO update self.df with particular dists
+            # TODO Estimated speed was about 1000 records/ 5 mins
 
     def add_embeddings(self):
         pass
@@ -134,12 +183,14 @@ class Generator(object):
         self.df = df  # dataframe to be enriched
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
-
         self.df.to_csv('../data/tmp_final.csv', mode='w', index=False)
 
         return self.df
 
 
 if __name__ == '__main__':
-    en = Enricher(pd.DataFrame())
+    data = pd.read_csv('/home/emanuel/Music/prodej_breality_scraped.csv')
+    en = Enricher(data)
+    #en.add_osm_data(dist=1500)
+    #en.add_gp('/home/emanuel/Documents/real_estate/src/models/fitted_gp_low')
     en.add_quality_data(path='/home/emanuel/Documents/real_estate/data/geodata')
