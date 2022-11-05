@@ -92,7 +92,6 @@ def osmnx_call(long: float, lat: float, dist: int, tags: dict) -> gpd.GeoDataFra
 
     values = list(itertools.chain.from_iterable(list(tags.values())))
 
-    # TODO probably remove entries with no name as we want only some popular places
     # remove nans
     gdf['geometry'].dropna(axis=0, inplace=True)
 
@@ -117,16 +116,14 @@ def osmnx_call(long: float, lat: float, dist: int, tags: dict) -> gpd.GeoDataFra
     return gdf
 
 
-def osmnx_nearest(long_query: float, lat_query: float, long: float, lat: float, dist: int,
+def osmnx_nearest(gdf: gpd.GeoDataFrame, long: float, lat: float, dist: int = 1500,
                   dist_type: str = 'great_circle') -> pd.DataFrame:
     """
     Finds nearest features (bus station, metro, park etc) from point of interest
     Parameters
     ----------
-    long_query: float
-        query longitude
-    lat_query: float
-        query latitude
+    gdf: gpd.GeoDataFrame
+        GeoDataframe which will be queried
     long : float
         longitude of point of interest (e.g. middle of prague)
     lat : float
@@ -141,29 +138,6 @@ def osmnx_nearest(long_query: float, lat_query: float, long: float, lat: float, 
     -------
 
     """
-    # TODO prepare it to be run fast asynchronously / once a month update json with geometries
-    # TODO add doctor etc ... same as in sreality
-    tags = {'leisure': ['park', 'dog_park',
-                        'playground',
-                        'fitness_centre', 'stadium', 'swimming_pool', 'sports_centre', 'pitch'],
-            'amenity': ['school',
-                        'kindergarten',
-                        'cafe', 'pub', 'restaurant',
-                        'atm',
-                        'bank',
-                        'post_office'
-                        'clinic', 'hospital',
-                        'pharmacy', #'dentist',
-                        'cinema',
-                        'theatre', #'library',
-                        #'marketplace'
-                        ],
-            'building': ['supermarket'],
-            'shop': ['supermarket', 'mall', 'general'],
-            'highway': ['bus_stop'], 'railway': ['tram_stop'],
-            'station': ['subway']}
-
-    gdf = osmnx_call(long, lat, dist, tags)
 
     # TODO fix network for df if needed
     # TODO prepare version for bezrealitky (all tags) and sreality (only parks)
@@ -182,14 +156,11 @@ def osmnx_nearest(long_query: float, lat_query: float, long: float, lat: float, 
         lengths = [ox.utils_graph.get_route_edge_attributes(graph, edge, 'length') for edge in edges]
         distances = [sum(x) for x in lengths]
     elif dist_type == 'great_circle':
-        distances = ox.distance.great_circle_vec(np.array([lat_query] * gdf.shape[0]), np.array([long_query] * gdf.shape[0]),
+        distances = ox.distance.great_circle_vec(np.array([lat] * gdf.shape[0]), np.array([long] * gdf.shape[0]),
                                                  gdf['geometry'].y.values, gdf['geometry'].x.values)
     else:
         raise Exception(f'`dist_type` {dist_type} not supported')
 
-    # TODO filter obtained dataset to left only nearest amenities/geometries
-    #  do we want filter only nearest because e.g. bigger park can be few metres away and still good enough (depends on preferences)
-    #  probably first 3 or so would be better --> discuss how to represent geospatial attributes except binary info and distances of nearest
     gdf['dist'] = distances
 
     gdfc = gdf.groupby('what', as_index=False).agg({'dist': 'min', 'geometry': 'first', 'name': 'first'})
@@ -257,7 +228,3 @@ def prepare_rasters(path: str) -> tuple:
 def generate_embeddings(text: str) -> np.array:
     pass
 
-
-if __name__ == '__main__':
-
-    osmnx_nearest(long_query=14.43809, lat_query=50.06851, long=14.432222758734174, lat=50.07463538361094, dist=18000)
