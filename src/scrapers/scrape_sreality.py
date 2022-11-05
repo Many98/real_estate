@@ -314,7 +314,7 @@ class SRealityScraper(BaseScraper):
                 except:
                     try:
                         #time.sleep(5)
-                        position = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
+                        public_equipment = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
                             '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact')))
                     except:
                         pass
