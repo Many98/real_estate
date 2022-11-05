@@ -88,9 +88,8 @@ def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path:
     ci_low_pred = mean_pred - 2 * std_pred
 
     # fix when variance is so high that ci_lower bound is under zero which is not wanted
-    fix = np.where(ci_low_pred <= 0)[0]
-    ci_low = np.where(fix, np.quantile(y, 0.1), ci_low_pred)
-    mean = np.where(fix, (ci_high_pred + ci_low) / 2, mean_pred)
+    ci_low = np.where(ci_low_pred <= 0, np.quantile(y, 0.1), ci_low_pred)
+    mean = np.where(ci_low_pred <= 0, (ci_high_pred + ci_low) / 2, mean_pred)
 
     return mean, std_pred, ci_low, ci_high_pred
 
