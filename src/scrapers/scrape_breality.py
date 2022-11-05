@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 import csv
 import os
@@ -53,11 +55,13 @@ class BezRealitkyScraper(BaseScraper):
             return {}
         else:
             driver.get(url)
+            time.sleep(1.5)
             content = driver.page_source
             soup = BeautifulSoup(content)
 
             # JSON file scraping
             try:
+                time.sleep(1)
                 script = soup.find('script', attrs={'type': 'application/json'})
                 string = script.text
                 dict_ = json.loads(string)
@@ -67,6 +71,7 @@ class BezRealitkyScraper(BaseScraper):
                 dict_ = dict_['props']['pageProps']['origAdvert']
             except:
                 print('Json loading failed')
+                return {}
             try:
                 kk = dict_.get('poiData', None)
                 dict_2 = json.loads(kk) if kk is not None else None
@@ -95,7 +100,7 @@ class BezRealitkyScraper(BaseScraper):
                     'gas': None,  # Plyn
                     'waste': None,  # Odpad
                     'equipment': dict_.get('equipped', None),  # Vybavení
-                    'state': dict_.get('reconstruction', None),
+                    'state': dict_.get('condition', None),
                     # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
                     'construction_type': dict_.get('construction', None),
                     # Stavba (3 states possible ) panel, cihla, ostatni
@@ -116,41 +121,27 @@ class BezRealitkyScraper(BaseScraper):
                     'has_garden': dict_.get('frontGarden', None),  # zahrada
                     'has_parking': dict_.get('parking', None),
 
-                    # additional info - sometimes
-                    'cellar_area': dict_.get('cellarSurface', None),
-                    # plocha sklepu (if provided)
-                    'loggia_area': dict_.get('loggiaSurface', None),
-                    'balcony_area': dict_.get('balconySurface', None),
-
-
                     # what has b reality in addition
                     'tags': '_'.join(dict_.get('tags', [])),
                     'disposition': dict_.get('disposition', None),
-                    'age': dict_.get('age', None),
-                    'condition': dict_.get('condition', None),
-                    'is_new': dict_.get('newBuilding', None),
 
-                    # binary civic amenities (obcanska vybavenost binarne info) - done
-                    'MHD': None,
-                    'train_station': None,
-                    'post_office': None,
-                    'atm': None,  # bankomat according to google translate :D
-                    'bank': None,
-                    'doctor': None,
-                    'vet': None,
-                    'school': None,
-                    'kindergarten': None,
-                    'supermarket_grocery': None,
-                    'restaurant_pub': None,
-                    'playground': None,
-                    'sports_field': None,
-                    # or similar kind of leisure amenity probably OSM would be better
-                    'subway': None,
-                    'tram': None,
-                    'bus': None,
+                    # binary civic amenities (obcanska vybavenost binarne info)
+                    # TODO DEPRECATED (DIST attributes are enough) -> csv needs updates
+                    # 'bus_station': None,
+                    # 'train_station': None,
+                    # 'post_office': None,
+                    # 'atm': None, # bankomat according to google translate :D
+                    # 'doctor': None,
+                    # 'vet': None,
+                    # 'primary_school': None,
+                    # 'kindergarten': None,
+                    # 'supermarket_grocery': None,
+                    # 'restaurant_pub': None,
+                    # 'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
+                    # 'subway': None,
+                    # 'tram': None,
                     # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-                    'theatre_cinema': None,
-                    'pharmacy': None,
+                    # 'theatre_cinema': None,
 
                     # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
                     'bus_station_dist': None,
@@ -174,6 +165,15 @@ class BezRealitkyScraper(BaseScraper):
                     'theatre_cinema_dist': None,
                     'pharmacy_dist': None
 
+                    # additional info # TODO DEPRECATED (HAS-like attributes are enough) -> needs update csv
+                    # 'cellar_area': None, # plocha sklepu (if provided)
+                    # 'loggia_area': None,
+                    # 'bank_dist': None,
+                    # 'age': dict_.get('age', None),
+                    # 'condition': dict_.get('condition', None),
+                    # 'is_new': dict_.get('newBuilding', None),
+                    # 'balcony_area': None
+
                 }
 
                 dj = dict_.get('dataJson', None)
@@ -184,19 +184,7 @@ class BezRealitkyScraper(BaseScraper):
                     out.update({'estimated_rent_price': estim_price.get('estimationRent', {}).get('price', None)})
                 geo_data = {}
                 if dict_2 is not None and dict_2 != []:
-                    # TODO cannot be hardcoded as 1
                     geo_data = {
-                        # binary civic amenities (obcanska vybavenost binarne info) - done
-                        'MHD': True if 'public_transport' in list(dict_2.keys()) else None,  # spíš MHD
-                        'post_office': True if 'post' in list(dict_2.keys()) else None,
-                        'bank': True if 'bank' in list(dict_2.keys()) else None,
-                        'school': True if 'school' in list(dict_2.keys()) else None,
-                        'kindergarten': True if 'kindergarten' in list(dict_2.keys()) else None,
-                        'supermarket_grocery': True if 'shop' in list(dict_2.keys()) else None,
-                        'restaurant_pub': True if 'restaurant' in list(dict_2.keys()) else None,
-                        'playground': True if 'playground' in list(dict_2.keys()) else None,
-                        'sports_field': True if 'sports_field' in list(dict_2.keys()) else None,
-                        'pharmacy': True if 'pharmacy' in list(dict_2.keys()) else None,
 
                         # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
                         'MHD_dist': dict_2.get('public_transport', {}).get('properties', {}).get('walkDistance', None),
