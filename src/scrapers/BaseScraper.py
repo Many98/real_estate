@@ -93,7 +93,10 @@ class BaseScraper(ABC):
                 for link in tqdm(self.prepared_links, desc='Scraping links...'):
                     if link not in self.scraped_links and link != '':
                         data = self.scrape(driver, link)
-                        if data:
+                        if data.get('status', None) is not None and data.get('status', None) == 'expired':
+                            self.new_scraped_links.append(link)
+                            self.scraped_links.append(link)
+                        elif data:
                             self.data.append(data)
                             self.new_scraped_links.append(link)
                             self.scraped_links.append(link)
