@@ -63,7 +63,7 @@ class BezRealitkyScraper(BaseScraper):
                 dict_ = json.loads(string)
                 if 'origAdvert' not in list(
                         dict_['props']['pageProps'].keys()):  # advert was really deleted / status code 404
-                    return {}
+                    return {'status': 'expired'}
                 dict_ = dict_['props']['pageProps']['origAdvert']
             except:
                 print('Json loading failed')
