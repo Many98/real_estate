@@ -52,7 +52,7 @@ class SRealityScraper(BaseScraper):
             'header': None,  # text description of disposition e.g. 3 + kk
             'price': None,  # Celková cena
             'note': None,  # poznamka (k cene) sometimes can have valid info like
-                # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
+            # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
             'usable_area': None,  # Užitná plocha
             'floor_area': None,  # Plocha podlahová
             'floor': None,  # podlazie
@@ -65,21 +65,21 @@ class SRealityScraper(BaseScraper):
 
             # binary civic amenities (obcanska vybavenost binarne info)
             # TODO DEPRECATED (DIST attributes are enough) -> csv needs updates
-            #'bus_station': None,
-            #'train_station': None,
-            #'post_office': None,
-            #'atm': None, # bankomat according to google translate :D
-            #'doctor': None,
-            #'vet': None,
-            #'primary_school': None,
-            #'kindergarten': None,
-            #'supermarket_grocery': None,
-            #'restaurant_pub': None,
-            #'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
-            #'subway': None,
-            #'tram': None,
+            # 'bus_station': None,
+            # 'train_station': None,
+            # 'post_office': None,
+            # 'atm': None, # bankomat according to google translate :D
+            # 'doctor': None,
+            # 'vet': None,
+            # 'primary_school': None,
+            # 'kindergarten': None,
+            # 'supermarket_grocery': None,
+            # 'restaurant_pub': None,
+            # 'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
+            # 'subway': None,
+            # 'tram': None,
             # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-            #'theatre_cinema': None,
+            # 'theatre_cinema': None,
 
             # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti)
             'bus_station_dist': None,
@@ -106,7 +106,8 @@ class SRealityScraper(BaseScraper):
             'gas': None,  # Plyn
             'waste': None,  # Odpad:
             'equipment': None,  # Vybavení:
-            'state': None,  # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
+            'state': None,
+            # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
             'construction_type': None,  # Stavba (3 states possible ) panel, cihla, ostatni
             'place': None,  # Umístění objektu
             'electricity': None,  # elektrina
@@ -126,56 +127,49 @@ class SRealityScraper(BaseScraper):
             'no_barriers': None,  # ci je bezbarierovy bezbarierovy
             'has_loggia': None,  # lodzie m2
             'has_balcony': None,  # balkon
-            'has_garden': None, # zahrada,
+            'has_garden': None,  # zahrada,
             'has_parking': None,
 
             # additional info # TODO DEPRECATED (HAS-like attributes are enough) -> needs update csv
-            #'cellar_area': None, # plocha sklepu (if provided)
-            #'loggia_area': None,
-            #'bank_dist': None,
-            #'age': dict_.get('age', None),
-            #'condition': dict_.get('condition', None),
-            #'is_new': dict_.get('newBuilding', None),
-            #'balcony_area': None
+            # 'cellar_area': None, # plocha sklepu (if provided)
+            # 'loggia_area': None,
+            # 'bank_dist': None,
+            # 'age': dict_.get('age', None),
+            # 'condition': dict_.get('condition', None),
+            # 'is_new': dict_.get('newBuilding', None),
+            # 'balcony_area': None
         }
         if 'sreality' not in url:  # ensures correct link
             return {}
         else:
             driver.get(url)
-            time.sleep(1)
+            time.sleep(2)
             content = driver.page_source
-            time.sleep(1)
-            soup = BeautifulSoup(content)
-            time.sleep(1)
+            soup = BeautifulSoup(content, features="lxml")
             error_page = soup.find('div', attrs={'class': 'error-page ng-scope'})
             if error_page is None:
                 slovnik = {}
                 # scrape header
-                header = None
                 try:
-                    time.sleep(1)
+                    #time.sleep(1)
                     header = soup.find('span', attrs={'class': 'name ng-binding'})
-                    time.sleep(1)
                     if header is None:
                         raise Exception('header not found')
                 except:
                     try:
-                        #time.sleep(5)
-                        header = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
-                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/h1/span/span[1]')))
-                        header = header.text
+                        header = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                 '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/h1/span/span[1]')))
                     except:
-                        pass
+                        print('No header present, link is probably expired')
+                        with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
+                            f.write(url + '\n')
+                        return {'status': 'expired'}
                 if header is not None:
-                    header = str(header)
-                    header = header[header.find(">") + 1:]
-                    header = header[:header.find("<")]
-                    slovnik["header"] = header
+                    slovnik["header"] = header.text
                 else:
                     print("Header for this page does not exist.")
 
                 # price
-                price = None
                 try:
                     time.sleep(1)
                     price = soup.find('span', attrs={'class': 'norm-price ng-binding'})
@@ -183,32 +177,29 @@ class SRealityScraper(BaseScraper):
                         raise Exception('header not found')
                 except:
                     try:
-                        time.sleep(5)
-                        price = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
-                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/span/span[2]')))
+                        #time.sleep(5)
+                        price = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[4]/span/span[2]')))
                     except:
-                        pass
+                        price = None
                 if price is not None:
-                    price = price.text
-                    slovnik["price"] = price
+                    slovnik["price"] = price.text.replace("\xa0", "")
                 else:
                     print("Price for this page does not exist.")
 
                 # tabular data
-                table_data = None
                 try:
-                    time.sleep(1)
+                    #time.sleep(1)
                     table_data = soup.find('div', attrs={'class': 'params clear'})
                     if table_data is None:
                         raise Exception('table data not found')
                 except:
                     try:
-                        #time.sleep(5)
-                        table_data = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
-                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[7]')))
+                        table_data = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                     '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[7]')))
                     except:
-                        pass
-                # table_data = soup.find('div', attrs={'class': 'params clear'})
+                        table_data = None
+
                 if table_data is not None:
                     table_data_str = str(table_data)
                     r = re.compile(r'\bICON-OK\b | \bICON-CROSS\b', flags=re.I | re.X)
@@ -234,92 +225,74 @@ class SRealityScraper(BaseScraper):
                     j = 0
                     while i < size_of_table and j < len(yes_no):
                         if i < size_of_table - 1:
-                            if table[i][-1] == ":" and table[i+1][-1] == ":":
-                                table.insert(i+1, yes_no[j])
+                            if table[i][-1] == ":" and table[i + 1][-1] == ":":
+                                table.insert(i + 1, yes_no[j])
                                 j += 1
                                 size_of_table = len(table)
                         elif i == size_of_table - 1 and table[i][-1] == ":":
                             table.append(yes_no[j])
                             size_of_table = len(table)
-                        i+=1
-                    for i in range(int(len(table)/2)):
+                        i += 1
+                    for i in range(int(len(table) / 2)):
                         i *= 2
-                        slovnik[table[i]] = table[i+1]
+                        slovnik[table[i]] = table[i + 1]
 
                 else:
                     print("No tabular data on this page")
 
                 # scrape description
-                description = None
                 try:
-                    time.sleep(1)
+                    #time.sleep(1)
                     description = soup.find('div', attrs={'class': 'description ng-binding'})
                     if description is None:
                         raise Exception('description not found')
                 except:
                     try:
-                        #time.sleep(5)
-                        description = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
-                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[6]')))
+                        description = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                      '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[6]')))
                     except:
-                        pass
+                        description = None
                 if description is not None:
-                    retezec = str(description)
-                    index_paragraph = retezec.find("<p>")
-                    retezec = retezec[index_paragraph:]
-                    retezec = retezec.replace("<p>", "")
-                    retezec = retezec.replace("</p>", " ")
-                    retezec = retezec.replace("</div>", "")
-                    retezec = retezec.replace("\xa0", "")
-                    description = retezec
-                    slovnik["description"] = description
-                    del retezec
+                    slovnik["description"] = description.text.replace("\xa0", "")
                 else:
                     print("No description on this webpage.")
 
                 # scrape position
-                position = None
                 try:
-                    time.sleep(1)
+                    #time.sleep(1)
                     position = soup.find('a', attrs={'class': 'print'})
                     if position is None:
                         raise Exception('position not found')
                 except:
                     try:
-                        #time.sleep(5)
-                        position = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
-                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[2]/div[2]/div/a')))
+                        position = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                   '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[2]/div[2]/div/a')))  # //*[@id="s-map"]/div[2]/div/a
+                        position = position.get_attribute('href')
                     except:
-                        pass
+                        position = None
 
                 if position is not None:
                     position = str(position)
-                    index = position.find("x=")
-                    position = position[index:]
-                    index = position.find("style=")
-                    position = position[:index]
-                    position = re.split('&amp;', position)
-                    position = position[:-1]
-                    slovnik["position"] = position
+                    position = position[position.find("x="):]
+                    position = position[:position.find("style=")].replace('amp', '').replace(';', '')
+                    slovnik["position"] = position.split('&')[:-1]
                 else:
                     print("No position on this web page.")
 
                 # public equipment scraping
-                public_equipment = None
                 try:
-                    time.sleep(1)
+                    #time.sleep(1)
                     public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
                     if public_equipment is None:
                         raise Exception('public equipment not found')
                 except:
                     try:
-                        #time.sleep(5)
-                        public_equipment = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
-                            '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact')))
+                        # time.sleep(5)
+                        public_equipment = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                           '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact')))
                     except:
-                        pass
-                #public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
-                #time.sleep(1)
+                        public_equipment = None
+
                 if public_equipment is not None:
                     public_equipment = public_equipment.text
                     seznam = public_equipment.split("m)")
@@ -375,86 +348,84 @@ class SRealityScraper(BaseScraper):
                     out["description"] = slovnik["description"]
                     del slovnik["description"]
                 if "Bus MHD" in slovnik:
-                    #out["bus_station"] = "yes"
                     out['bus_station_dist'] = slovnik["Bus MHD"]
                     del slovnik["Bus MHD"]
                 if "Bus" in slovnik:
-                    #out["bus_station"] = "yes"
                     out['bus_station_dist'] = slovnik["Bus"]
                     del slovnik["Bus"]
                 if "Vlak" in slovnik:
-                    #out["train_station"] = "yes"
+                    # out["train_station"] = "yes"
                     out["train_station_dist"] = slovnik["Vlak"]
                     del slovnik["Vlak"]
                 if "Pošta" in slovnik:
-                    #out["post_office"] = "yes"
+                    # out["post_office"] = "yes"
                     out["post_office_dist"] = slovnik["Pošta"]
                     del slovnik["Pošta"]
                 if "Bankomat" in slovnik:
-                    #out["atm"] = "yes"
+                    # out["atm"] = "yes"
                     out["atm_dist"] = slovnik["Bankomat"]
                     del slovnik["Bankomat"]
                 if "Lékař" in slovnik:
-                    #out["doctor"] = "yes"
+                    # out["doctor"] = "yes"
                     out["doctor_dist"] = slovnik["Lékař"]
                     del slovnik["Lékař"]
                 if "Lékárna" in slovnik:
                     out["pharmacy_dist"] = slovnik["Lékárna"]
                     del slovnik["Lékárna"]
                 if "Veterinář" in slovnik:
-                    #out["vet"] = "yes"
+                    # out["vet"] = "yes"
                     out["vet_dist"] = slovnik["Veterinář"]
                     del slovnik["Veterinář"]
                 if "Škola" in slovnik:
-                    #out["primary_school"] = "yes"
+                    # out["primary_school"] = "yes"
                     out["primary_school_dist"] = slovnik["Škola"]
                     del slovnik["Škola"]
                 if "Školka" in slovnik:
-                    #out["kindergarten"] = "yes"
+                    # out["kindergarten"] = "yes"
                     out["kindergarten_dist"] = slovnik["Školka"]
                     del slovnik["Školka"]
                 if "Večerka" in slovnik:
-                    #out["supermarket_grocery"] = "yes"
+                    # out["supermarket_grocery"] = "yes"
                     out["supermarket_grocery_dist"] = slovnik["Večerka"]
                     del slovnik["Večerka"]
                 elif "Obchod" in slovnik:
-                    #out["supermarket_grocery"] = "yes"
+                    # out["supermarket_grocery"] = "yes"
                     out["supermarket_grocery_dist"] = slovnik["Obchod"]
                     del slovnik["Obchod"]
                 if "Restaurace" in slovnik:
-                    #out["restaurant_pub"] = "yes"
+                    # out["restaurant_pub"] = "yes"
                     out["restaurant_pub_dist"] = slovnik["Restaurace"]
                     del slovnik["Restaurace"]
                 elif "Hospoda" in slovnik:
-                    #out["retaurant_pub"] = "yes"
+                    # out["retaurant_pub"] = "yes"
                     out["restaurant_pub_dist"] = slovnik["Hospoda"]
                     del slovnik["Hospoda"]
                 if "Hřiště" in slovnik:
-                    #out['playground_gym_pool'] = "yes"
+                    # out['playground_gym_pool'] = "yes"
                     out['playground_dist'] = slovnik["Hřiště"]
                     del slovnik["Hřiště"]
                 if "Sportoviště" in slovnik:
-                    out['sports_field'] = "yes"
+                    # out['sports_field'] = "yes"
                     out['sports_field_dist'] = slovnik["Sportoviště"]
                     del slovnik["Sportoviště"]
                 if "Hřiště" in slovnik:
-                    out["playground"] = "yes"
+                    # out["playground"] = "yes"
                     out["playground_dist"] = slovnik["Hřiště"]
                     del slovnik["Hřiště"]
                 if "Metro" in slovnik:
-                    #out["subway"] = "yes"
+                    # out["subway"] = "yes"
                     out["subway_station_dist"] = slovnik["Metro"]
                     del slovnik["Metro"]
                 if "Tram" in slovnik:
-                    #out["tram"] = "yes"
+                    # out["tram"] = "yes"
                     out["tram_station_dist"] = slovnik["Tram"]
                     del slovnik["Tram"]
                 if "Divadlo" in slovnik:
-                    #out["theatre_cinema"] = "yes"
+                    # out["theatre_cinema"] = "yes"
                     out["theatre_cinema_dist"] = slovnik["Divadlo"]
                     del slovnik["Divadlo"]
                 elif "Kino" in slovnik:
-                    #out["theatre_cinema"] = "yes"
+                    # out["theatre_cinema"] = "yes"
                     out["theatre_cinema_dist"] = slovnik["Kino"]
                     del slovnik["Kino"]
                 if "Plyn:" in slovnik:
@@ -522,7 +493,9 @@ class SRealityScraper(BaseScraper):
                     out["description"] = ""
 
                 for k, v in slovnik.items():
-                    out["description"] = out["description"] + k + ":" + v + ". "
+                    out["description"] += ' ' + k + ":" + v + ". "
                 del slovnik
 
                 return out
+            else:
+                return {'status': 'expired'}
