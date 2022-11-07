@@ -142,7 +142,12 @@ class SRealityScraper(BaseScraper):
         if 'sreality' not in url:  # ensures correct link
             return {}
         else:
+            self.cookie_added = False
             driver.get(url)
+            # this adds cookie to get rid of cookie constent popup
+            # because it was causing unexpected results when loading elements with selenium
+            if not self.cookie_added:
+                self.add_consent_cookie(driver)
             time.sleep(2)
             content = driver.page_source
             soup = BeautifulSoup(content, features="lxml")
@@ -197,14 +202,22 @@ class SRealityScraper(BaseScraper):
                         raise Exception('table data not found')
                 except:
                     try:
-                        table_data = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
-                                                                                                     '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[7]')))
+                        time.sleep(15)
+                        content = driver.page_source
+                        soup = BeautifulSoup(content, features="lxml")
+                        table_data = soup.find('div', attrs={'class': 'params clear'})
+                        if table_data is None:
+                            raise Exception('table data not found after wait')
                     except:
-                        table_data = None
-                        with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
-                            f.write(url + ' tabular_data ' + '\n')
+                        try:
+                            table_data = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                         '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[7]')))
+                        except:
+                            table_data = None
+                            with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
+                                f.write(url + ' tabular_data ' + '\n')
 
-                if table_data is not None:
+                if table_data is not None and table_data.text:
                     table_data_str = str(table_data)
                     r = re.compile(r'\bICON-OK\b | \bICON-CROSS\b', flags=re.I | re.X)
                     crosses_and_ticks = r.findall(table_data_str)
@@ -248,11 +261,12 @@ class SRealityScraper(BaseScraper):
                 try:
                     #time.sleep(1)
                     description = soup.find('div', attrs={'class': 'description ng-binding'})
-                    if description is None:
+                    if description is None or description.text == '':
                         raise Exception('description not found')
                 except:
                     try:
-                        description = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                        time.sleep(5)
+                        description = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH,
                                                                                                       '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[6]')))
                     except:
                         description = None
@@ -295,19 +309,27 @@ class SRealityScraper(BaseScraper):
                         raise Exception('public equipment not found')
                 except:
                     try:
-                        # time.sleep(5)
-                        public_equipment = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
-                                                                                                           '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact[1]')))
+                        time.sleep(15)
+                        content = driver.page_source
+                        soup = BeautifulSoup(content, features="lxml")
+                        public_equipment = soup.find('preact', attrs={'data': 'publicEquipment'})
+                        if public_equipment is None:
+                            raise Exception('table data not found after wait')
                     except:
                         try:
+                            # time.sleep(5)
                             public_equipment = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
-                                                                                                               '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact')))
+                                                                                                               '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact[1]/div/ul')))
                         except:
-                            public_equipment = None
-                            with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
-                                f.write(url + ' public_equip ' + '\n')
+                            try:
+                                public_equipment = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,
+                                                                                                                   '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/preact[1]')))
+                            except:
+                                public_equipment = None
+                                with open(os.path.join('../', 'data', 'weird_links.txt'), 'a') as f:
+                                    f.write(url + ' public_equip ' + '\n')
 
-                if public_equipment is not None:
+                if public_equipment is not None and public_equipment.text:
                     public_equipment = public_equipment.text
                     seznam = public_equipment.split("m)")
                     seznam = [item + ")" for item in seznam]
@@ -513,3 +535,17 @@ class SRealityScraper(BaseScraper):
                 return out
             else:
                 return {'status': 'expired'}
+
+    def add_consent_cookie(self, driver: WebDriver) -> None:
+        try:
+            driver.add_cookie({'domain': '.sreality.cz',
+                               'expiry': 1702034432,
+                               'httpOnly': False,
+                               'name': 'euconsent-v2',
+                               'path': '/',
+                               'sameSite': 'None',
+                               'secure': True,
+                               'value': 'CPiEukAPiEukAD3ACBCSCoCsAP_AAEPAAATIIDoBhCokBSFCAGpYIIMAAAAHxxAAYCACABAAgAABABIAIAQAAAAQAAQgBAAAABQAIAIAAAAACEAAAAAAAAAAAQAAAAAAAAAAIQAAAAAAAiBAAAAAAABAAAAAAABAQAAAgAAAAAIAQAAAAAEAgAAAAAAAAAAAAAAAAQgAAAAAAAAAAAganAlAAWABUAC4AGQAQAAyABoADmAIgAigBMACeAFUAMQAfgBCQCIAIkARwAnABSgCxAGWAM0AdwA_QCEAEWALQAXUAwIBrAD5AJtAWoAvMBkgDSgGpgAA.YAAAAAAAAAAA'})
+            self.cookie_added = True
+        except:
+            pass
