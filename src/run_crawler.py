@@ -14,8 +14,8 @@ if __name__ == "__main__":
     #arguments = parser.parse_args()
 
     # Here can be tested functionality of two scrapers
-    b = BezRealitkyScraper()
-    b.run(in_filename='prodej_links.txt', out_filename='prodej')
+    #b = BezRealitkyScraper()
+    #b.run(in_filename='prodej_links.txt', out_filename='prodej')
     s = SRealityScraper()
     s.run(in_filename='prodej_links.txt', out_filename='prodej')
     """
