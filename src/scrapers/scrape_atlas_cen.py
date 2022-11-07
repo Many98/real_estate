@@ -12,6 +12,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
+from datetime import date
+from dateutil.relativedelta import relativedelta
 
 from scrapers.BaseScraper import BaseScraper
 
@@ -26,8 +28,8 @@ class AtlasCenScraper(BaseScraper):
         data = []
 
         page = 1
-        # for prague last 6 months
-        url = f'https://www.reas.cz/atlas?bounds=49.88755653624285%2C13.974609375000002%2C50.23183414485175%2C14.956512451171877&filters=%7B%22types%22%3A%5B%22flat%22%5D%2C%22sort%22%3A%22sales_with_photos%22%2C%22date%22%3A%7B%22selectedOption%22%3A%22six_months%22%2C%22soldAfter%22%3A%222022-4-3%22%7D%7D&search=%7B%22text%22%3A%22Praha%22%7D&scrollPos=&listPage={page}&listPerPage=30'
+        # for prague last 6 months from now
+        url = f'https://www.reas.cz/atlas?bounds=49.88755653624285%2C13.974609375000002%2C50.23183414485175%2C14.956512451171877&filters=%7B%22types%22%3A%5B%22flat%22%5D%2C%22sort%22%3A%22sales_with_photos%22%2C%22date%22%3A%7B%22selectedOption%22%3A%22six_months%22%2C%22soldAfter%22%3A%22{str(date.today() + relativedelta(months=-6))}%22%7D%7D&search=%7B%22text%22%3A%22Praha%22%7D&scrollPos=&listPage={page}&listPerPage=30'
         pagination = True
         driver.get(url)
         ele = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH,
