@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 import csv
 import os
@@ -7,7 +9,12 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
-
+from selenium import webdriver
+from bs4 import BeautifulSoup
+import json
+import re
+import json
+import urllib3
 from scrapers.BaseScraper import BaseScraper
 
 
@@ -47,13 +54,155 @@ class BezRealitkyScraper(BaseScraper):
         if 'bezrealitky' not in url:  # ensures correct link
             return {}
         else:
-            self._save_image('https://api.bezrealitky.cz/media/cache/record_main/data/images/advert/730k/730486/1660896816-momyfdwydw-phpmalr4d.jpg', url)
-            self._save_text('blablablasfsdof',url)
-            test_dict = {'header': 'Prodej bytu 4+kk • 123 m² bez realitky',
-                                                  'price': 17850000,
-                                                  'plocha': 123,
-                                                  'long': 45.1,
-                                                  'lat': 15.5,
-                                                   'hash': 'asdafqwf6ew6'}
-            return test_dict
+            driver.get(url)
+            time.sleep(1.5)
+            content = driver.page_source
+            soup = BeautifulSoup(content)
 
+            # JSON file scraping
+            try:
+                time.sleep(1)
+                script = soup.find('script', attrs={'type': 'application/json'})
+                string = script.text
+                dict_ = json.loads(string)
+                if 'origAdvert' not in list(
+                        dict_['props']['pageProps'].keys()):  # advert was really deleted / status code 404
+                    return {'status': 'expired'}
+                dict_ = dict_['props']['pageProps']['origAdvert']
+            except:
+                print('Json loading failed')
+                return {}
+            try:
+                kk = dict_.get('poiData', None)
+                dict_2 = json.loads(kk) if kk is not None else None
+                dict_3 = dict_2.get('gps', None)
+
+                out = {
+                    'header': dict_.get('imageAltText', None),
+                    # text description of disposition e.g. 3 + kk
+                    'price': dict_.get('price', None),  # Celková cena
+                    'note': None,
+                    # poznamka (k cene) sometimes can have valid info like
+                    # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
+                    'usable_area': dict_.get('surface', None),  # Užitná plocha
+                    'floor_area': None,  # Plocha podlahová
+                    'floor': dict_.get('etage', None),  # podlazie
+                    'energy_effeciency': dict_.get('penb', None),
+                    # Energetická náročnost (letters A-G) A=best, G=shitty
+                    'ownership': dict_.get('ownership', None),
+                    # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
+                    'description': dict_.get('description', None),
+                    'long': dict_3.get('lng', None),
+                    'lat': dict_3.get('lat', None),
+                    'hash': None,
+
+                    # other - done
+                    'gas': None,  # Plyn
+                    'waste': None,  # Odpad
+                    'equipment': dict_.get('equipped', None),  # Vybavení
+                    'state': dict_.get('condition', None),
+                    # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
+                    'construction_type': dict_.get('construction', None),
+                    # Stavba (3 states possible ) panel, cihla, ostatni
+                    'place': dict_.get('address', None),  # Umístění objektu
+                    'electricity': None,  # elektrina
+                    'heating': dict_.get('heating', None),  # topeni
+                    'transport': None,  # doprava
+                    'year_reconstruction': None,  # rok rekonstrukce
+                    'telecomunication': None,  # telekomunikace
+
+                    # binary info - done
+                    'has_lift': dict_.get('lift', None),  # Výtah: True, False
+                    'has_garage': dict_.get('garage', None),  # garaz
+                    'has_cellar': dict_.get('cellar', None),  # sklep presence
+                    'no_barriers': None,  # ci je bezbarierovy bezbarierovy
+                    'has_loggia': dict_.get('loggia', None),  # lodzie
+                    'has_balcony': dict_.get('balcony', None),  # balkon
+                    'has_garden': dict_.get('frontGarden', None),  # zahrada
+                    'has_parking': dict_.get('parking', None),
+
+                    # what has b reality in addition
+                    'tags': '_'.join(dict_.get('tags', [])),
+                    'disposition': dict_.get('disposition', None),
+
+                    # binary civic amenities (obcanska vybavenost binarne info)
+                    # TODO DEPRECATED (DIST attributes are enough) -> csv needs updates
+                    # 'bus_station': None,
+                    # 'train_station': None,
+                    # 'post_office': None,
+                    # 'atm': None, # bankomat according to google translate :D
+                    # 'doctor': None,
+                    # 'vet': None,
+                    # 'primary_school': None,
+                    # 'kindergarten': None,
+                    # 'supermarket_grocery': None,
+                    # 'restaurant_pub': None,
+                    # 'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
+                    # 'subway': None,
+                    # 'tram': None,
+                    # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
+                    # 'theatre_cinema': None,
+
+                    # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
+                    'bus_station_dist': None,
+                    'train_station_dist': None,
+                    'subway_station_dist': None,
+                    'tram_station_dist': None,
+                    'MHD_dist': None,
+                    'post_office_dist': None,
+                    'atm_dist': None,
+                    'bank_dist': None,
+                    'doctor_dist': None,
+                    'vet_dist': None,
+                    'primary_school_dist': None,
+                    'kindergarten_dist': None,
+                    'supermarket_grocery_dist': None,
+                    'restaurant_pub_dist': None,
+                    'playground_dist': None,
+                    'sports_field_dist': None,
+                    # or similar kind of leisure amenity probably OSM would be better
+                    # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
+                    'theatre_cinema_dist': None,
+                    'pharmacy_dist': None
+
+                    # additional info # TODO DEPRECATED (HAS-like attributes are enough) -> needs update csv
+                    # 'cellar_area': None, # plocha sklepu (if provided)
+                    # 'loggia_area': None,
+                    # 'bank_dist': None,
+                    # 'age': dict_.get('age', None),
+                    # 'condition': dict_.get('condition', None),
+                    # 'is_new': dict_.get('newBuilding', None),
+                    # 'balcony_area': None
+
+                }
+
+                dj = dict_.get('dataJson', None)
+                estim_price = json.loads(dj) if dj is not None else None
+
+                if estim_price is not None:
+                    out.update({'estimated_sale_price': estim_price.get('estimationSale', {}).get('price', None)})
+                    out.update({'estimated_rent_price': estim_price.get('estimationRent', {}).get('price', None)})
+                geo_data = {}
+                if dict_2 is not None and dict_2 != []:
+                    geo_data = {
+
+                        # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
+                        'MHD_dist': dict_2.get('public_transport', {}).get('properties', {}).get('walkDistance', None),
+                        # using `get` method it is more robust see https://www.w3schools.com/python/ref_dictionary_get.asp
+                        'post_office_dist': dict_2.get('post', {}).get('properties', {}).get('walkDistance', None),
+                        'bank_dist': dict_2.get('bank', {}).get('properties', {}).get('walkDistance', None),
+
+                        'primary_school_dist': dict_2.get('school', {}).get('properties', {}).get('walkDistance', None),
+                        'kindergarten_dist': dict_2.get('kindergartne', {}).get('properties', {}).get('walkDistance', None),
+                        'supermarket_grocery_dist': dict_2.get('shop', {}).get('properties', {}).get('walkDistance', None),
+                        'restaurant_pub_dist': dict_2.get('restaurant', {}).get('properties', {}).get('walkDistance', None),
+                        'playground_dist': dict_2.get('playground', {}).get('properties', {}).get('walkDistance', None),
+                        'sports_field_dist': dict_2.get('sports_field', {}).get('properties', {}).get('walkDistance', None),
+                        'pharmacy_dist': dict_2.get('pharmacy', {}).get('properties', {}).get('walkDistance', None)
+
+                    }
+
+                out.update(geo_data)
+                return out
+            except KeyError:
+                return {}

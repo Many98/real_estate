@@ -31,15 +31,17 @@ class BaseScraper(ABC):
     def _export_tabular_data(self, out_filename: str = '', **kwargs) -> None:
         """method to export(append) tabular data to .csv file"""
         path = os.path.join('../', 'data', f"{out_filename}_{self.name}_scraped.csv")
-        df_to_be_written = pd.DataFrame(self.data)
-        df_to_be_written.to_csv(path, mode='a', index=False, header=not os.path.exists(path))
+        if self.data:
+            df_to_be_written = pd.DataFrame(self.data)
+            df_to_be_written.to_csv(path, mode='a', index=False, header=not os.path.exists(path))
 
         print(f'New data appended successfully in {path}!', end="\r", flush=True)
 
     def _update_scrapped_links(self) -> None:
         """update `already_scraped_links.txt` file"""
-        with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'a') as f:
-            f.writelines(['\n' + i for i in self.new_scraped_links])
+        if self.new_scraped_links:
+            with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'a') as f:
+                f.writelines(['\n' + i for i in self.new_scraped_links])
 
     def _save_image(self, img_url: str, web_url: str) -> None:
         """Method to save image from `img_url`"""
@@ -93,7 +95,11 @@ class BaseScraper(ABC):
                 for link in tqdm(self.prepared_links, desc='Scraping links...'):
                     if link not in self.scraped_links and link != '':
                         data = self.scrape(driver, link)
-                        if data:
+                        if data.get('status', None) is not None and data.get('status', None) == 'expired':
+                            self.new_scraped_links.append(link)
+                            self.scraped_links.append(link)
+                            i += 1
+                        elif data:
                             self.data.append(data)
                             self.new_scraped_links.append(link)
                             self.scraped_links.append(link)
@@ -103,9 +109,9 @@ class BaseScraper(ABC):
                         self._update_scrapped_links()
                         self.data = []  # flush list
                         self.new_scraped_links = []
-                if self.data:
-                    self._export_tabular_data(**kwargs)
-                    self._update_scrapped_links()
+
+                self._export_tabular_data(**kwargs)
+                self._update_scrapped_links()
             else:  # used for other scrappers which implement logic only in `scrape` method and return list of data
                 self.data = self.scrape(driver, '')
                 self._export_tabular_data(**kwargs)
