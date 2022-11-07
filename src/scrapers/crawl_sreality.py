@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 import time
 from scrapers.BaseKindOfCrawler import BaseKindOfCrawler
 from tqdm import tqdm
+#from fake_useragent import UserAgent
 
 
 class KindOfCrawlerForSReality(BaseKindOfCrawler):
@@ -31,6 +32,10 @@ class KindOfCrawlerForSReality(BaseKindOfCrawler):
             #options.add_argument('--no-sandbox')
             #options.add_argument('--remote-debugging-port=9222')
 
+            #ua = UserAgent()
+            #user_agent = ua.random
+            #options.add_argument(f'user-agent={user_agent}')
+
             print('Running webdriver...')
 
             # instantiate webdriver; install webdriver according to current chrome version
@@ -47,6 +52,7 @@ class KindOfCrawlerForSReality(BaseKindOfCrawler):
             pagination = True
             i = 0
             page = 1
+            stopping_rule = {'page': page, 'stop': 0}
             while pagination:
 
                 # get html from the page
@@ -68,35 +74,34 @@ class KindOfCrawlerForSReality(BaseKindOfCrawler):
 
                     # else: 1. add to database; 2. append to new apts list; 3. append to existing links list
                     else:
-                        try:  # TODO implement faster way of retrieving urls without checking of validity
-                            driver.get(link_url)
-                        except:
-                            print(f'Not valid advertisement url {link_url}')
-                        time.sleep(3)
-                        soup = BeautifulSoup(driver.page_source, 'lxml')
-                        #driver.quit()
+                        time.sleep(0.5)
 
-                        if 'Je mi líto, inzerát neexistuje.' not in str(soup.body):
-                            self.reality_links.append(link_url)
-                            self.append_to_txt(link_url)
-                            self.existing_links.append(link_url)
-                            i += 1
-
-                        else:
-
-                            print(f'Link {link_url} is non-existing! SHAME!')
+                        self.reality_links.append(link_url)
+                        self.append_to_txt(link_url)
+                        self.existing_links.append(link_url)
+                        i += 1
 
                 try:
                     next_page_elem = page_soup.find("a", {"class": "btn-paging-pn icof icon-arr-right paging-next"})
                     driver.get('https://www.sreality.cz/' + next_page_elem.get('href'))
                 except:
                     try:
-                        next_page_elem = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH,
+                        time.sleep(2)
+                        next_page_elem = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH,
                                         '//*[@id="page-layout"]/div[2]/div[3]/div[3]/div/div/div/div/div[3]/div/div[25]/ul[2]/li[7]/a')))
                         driver.get(next_page_elem.get_attribute('href'))
                     except:
-                        pagination = False
-                        continue
+                        try:
+                            driver.refresh()
+                            if stopping_rule['page'] == page:
+                                stopping_rule['stop'] += 1
+                            if stopping_rule['stop'] == 2:
+                                raise Exception('Pagination exceeded')
+                            stopping_rule['page'] = page
+                            page -= 1
+                        except:
+                            pagination = False
+                            continue
 
                 time.sleep(1.5)
                 page += 1
