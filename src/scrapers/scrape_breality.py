@@ -205,4 +205,4 @@ class BezRealitkyScraper(BaseScraper):
                 out.update(geo_data)
                 return out
             except KeyError:
-                pass
+                return {}
