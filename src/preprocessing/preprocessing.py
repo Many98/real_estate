@@ -16,6 +16,7 @@ class Preprocessor(object):
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
         self.impute()
+        self.categorize()
         self.encode()
         self.scale()
 
@@ -77,7 +78,29 @@ class Preprocessor(object):
 
         """
 
-        pass
+        self.df.dropna(how='any', subset=['price', 'usable_area', 'header', 'long', 'lat'], inplace=True)
+
+        # fill unknown/undefined
+        self.df.fillna(value={'floor': -99, 'energy_effeciency': 'unknown', 'ownership': 'unknown', 'description': '',
+                              'gas': 'unknown', 'waste': 'unknown', 'equipment': 'unknown', 'state': 'unknown',
+                              'construction_type': 'unknown', 'place': 'unknown', 'electricity': 'unknown',
+                              'heating': 'unknown', 'transport': 'unknown', 'year_reconstruction': 2038,
+                              'telecomunication': 'unknown', 'age': 'undefined',
+                              'air_quality': 'unknown', 'built_density': 'unknown', 'sun_glare': 'unknown'},
+                       inplace=True)
+
+        # fill <>_dist features
+        dist_cols = [i for i in self.df.columns if 'dist' in i]
+        self.df[dist_cols].fillna(value=10000, inplace=True)
+
+        # fill has_<> & no_barriers attributes
+        has_cols = [i for i in self.df.columns if 'has' in i]
+        has_cols.append('no_barriers')
+        self.df[has_cols].fillna(value=False, inplace=True)
+
+        # fill daily/nightly noise with simple mean imputation
+        self.df['daily_noise'].fillna(values=self.df['daily_noise'].mean(skipna=True), inplace=True)
+        self.df['nightly_noise'].fillna(values=self.df['nightly_noise'].mean(skipna=True), inplace=True)
 
     def categorize(self):
         """
@@ -86,7 +109,21 @@ class Preprocessor(object):
         -------
 
         """
-        pass
+        # categorize <>_dist features
+        dist_cols = [i for i in self.df.columns if 'dist' in i]
+        dists = list(range(0, 1700, 100))
+        for col in dist_cols:
+            self.df[col] = pd.cut(self.df[col], bins=dists,
+                   include_lowest=True,
+                   labels=[f'{dists[i]}-{dists[i+1]-1}m' for i in range(len(dists[:-2]))] + ['>=1500m'])
+
+        # categorize year_reconstruction  TODO define maybe better categories
+        self.df['year_reconstruction'] = pd.cut(self.df['year_reconstruction'], bins=[0, 1950, 1980, 2000, 2010, 2015, 2020, 2025, 2040],
+               include_lowest=True, labels=['<1950', '1951-1980', '1981-2000', '2001-2010', '2011-2015', '2016-2020',
+                                            '2021-2025',
+                                            'undefined'])
+
+        # TODO do we want categorize `floor` features
 
     def encode(self):
         """
@@ -105,3 +142,9 @@ class Preprocessor(object):
 
         """
         pass
+
+if __name__ == '__main__':
+    data = pd.read_csv('/home/emanuel/Music/prodej_breality_scraped.csv')
+    pr = Preprocessor(data)
+    pr.impute()
+    pr.encode()
