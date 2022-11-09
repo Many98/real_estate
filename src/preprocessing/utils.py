@@ -102,7 +102,7 @@ def osmnx_call(long: float, lat: float, dist: int, tags: dict) -> gpd.GeoDataFra
 
     # merge names to one attribute
     gdf['what'] = gdf[list(tags.keys())].agg("&".join, axis=1)
-    gdf['what'] = gdf['what'].apply(lambda x: re.sub(r'^&+|&+$', '', x))
+    #gdf['what'] = gdf['what'].apply(lambda x: '&')  not needed anymore
 
     gdf.drop(list(tags.keys()), 1, inplace=True)
 
