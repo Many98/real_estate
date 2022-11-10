@@ -11,6 +11,7 @@ class Preprocessor(object):
 
     TODO consider using decorators as it would be probably more elegant solution
     """
+
     def __init__(self, df: pd.DataFrame):
         self.df = df  # dataframe to be preprocessed
 
@@ -34,23 +35,25 @@ class Preprocessor(object):
         -------
 
         """
-        num_ord_cols = [i for i in self.df.columns if 'dist' in i] + ['floor', 'year_reconstruction']
+        num_ord_cols = [i for i in self.df.columns if 'dist' in i] + ['year_reconstruction']
         ord_cols = ['energy_effeciency', 'air_quality', 'built_density', 'sun_glare']
         for d in num_ord_cols:
-            self.df[d+'_num'] = self.df[d]  # create feature copy handled as numeric/continuous
-            self.df[d+'_ord'] = self.df[d]  # create feature copy handled as ordinal
+            self.df[d + '_num'] = self.df[d]  # create feature copy handled as numeric/continuous
+            self.df[d + '_ord'] = self.df[d]  # create feature copy handled as ordinal
         for d in ord_cols:
-            self.df[d+'_ord'] = self.df[d]  # create feature copy handled as ordinal
+            self.df[d + '_ord'] = self.df[d]  # create feature copy handled as ordinal
 
     def impute(self):
         """
+        # TODO interesting article about missing values
+            https://towardsdatascience.com/all-about-missing-data-handling-b94b8b5d2184
         method to handle missing values imputation
         * required columns (nulls/Nones/nans/missing values are not tolerated => row removed):
             price (response); usable_area/floor area; disposition (in sreality extracted from header);
             lng, lat both are secondary features (probably not used in final model)
 
         * not required numeric (float) features:
-            floor ???? how to define unknown, => maybe ordinal encoding with `unknown` level
+            floor -> we will use typical imputing technique /mean/median/arbitrary
 
         * not required binary/bool (categorical) features:
             has_<> (all `has` features) => missing = False
@@ -96,22 +99,34 @@ class Preprocessor(object):
         self.df.dropna(how='any', subset=['price', 'usable_area', 'header', 'long', 'lat'], inplace=True)
 
         # fill unknown/undefined
-        self.df.fillna(value={'floor': -99, 'energy_effeciency': 'unknown', 'ownership': 'unknown', 'description': '',
+        self.df[['air_quality', 'built_density', 'sun_glare']] = \
+            self.df[['air_quality', 'built_density', 'sun_glare']].astype(str)
+        self.df.fillna(value={'floor': -99,  # -> arbitrary imputation  (floor handled only as numeric)
+                              'year_reconstruction': 2038,
+                              'year_reconstruction_num': 0,  # -> arbitrary
+                              'year_reconstruction_ord': 2038,  # -> arbitrary
+                              'energy_effeciency_ord': 'X',  # -> arbitrary
+                              'energy_effeciency': 'unknown', 'ownership': 'unknown', 'description': '',
                               'gas': 'unknown', 'waste': 'unknown', 'equipment': 'unknown', 'state': 'unknown',
                               'construction_type': 'unknown', 'place': 'unknown', 'electricity': 'unknown',
-                              'heating': 'unknown', 'transport': 'unknown', 'year_reconstruction': 2038,
+                              'heating': 'unknown', 'transport': 'unknown',
                               'telecomunication': 'unknown',
-                              #'age': 'undefined',
-                              'air_quality': 'unknown', 'built_density': 'unknown', 'sun_glare': 'unknown'},
+                              # 'age': 'undefined',
+                              'air_quality': 'unknown', 'built_density': 'unknown', 'sun_glare': 'unknown',
+                              'air_quality_ord': 0, 'built_density_ord': 0, 'sun_glare_ord': 0  # -> arbitrary
+                              },
                        inplace=True)
 
         # fill <>_dist features
-        dist_cols = [i for i in self.df.columns if 'dist' in i]
+        dist_cols = [i for i in self.df.columns if 'dist' in i and 'ord' not in i and 'num' not in i]
         self.df.fillna(value={i: 10000 for i in dist_cols}, inplace=True)
+        self.df.fillna(value={i + '_ord': 10000 for i in dist_cols},  # -> after categorization mapped to arbitrary -999
+                       inplace=True)
+        self.df.fillna(value={i + '_num': -999 for i in dist_cols}, inplace=True)  # -> arbitrary
 
         # fill has_<> & no_barriers attributes
         has_cols = [i for i in self.df.columns if 'has' in i]
-        has_cols.append('no_barriers')
+        has_cols.append('no_barriers')  # TODO probably `no_barriers will be removed as we do not have it`
         self.df[has_cols] = self.df[has_cols].astype(bool)
         self.df.fillna(value={i: False for i in dist_cols}, inplace=True)
 
@@ -126,22 +141,31 @@ class Preprocessor(object):
         -------
 
         """
-        # TODO do we want categorize dist features
         # categorize <>_dist features
-        dist_cols = [i for i in self.df.columns if 'dist' in i]
+        dist_cols = [i for i in self.df.columns if 'dist' in i and 'num' not in i]
         dists = list(range(0, 1600, 100)) + [np.infty]
         for col in dist_cols:
             self.df[col] = pd.cut(self.df[col], bins=dists,
-                   include_lowest=True,
-                   labels=[f'{dists[i]}-{dists[i+1]-1}m' for i in range(len(dists[:-2]))] + ['>=1500m'])
+                                  include_lowest=True,
+                                  labels=[f'{dists[i]}-{dists[i + 1] - 1}m' for i in range(len(dists[:-2]))] + [
+                                      '>=1500m'])
 
         # categorize year_reconstruction  TODO define maybe better categories
-        self.df['year_reconstruction'] = pd.cut(self.df['year_reconstruction'], bins=[0, 1950, 1980, 2000, 2010, 2015, 2020, 2025, np.infty],
-               include_lowest=True, labels=['<1950', '1951-1980', '1981-2000', '2001-2010', '2011-2015', '2016-2020',
-                                            '2021-2025',
-                                            'undefined'])
-
-        # TODO do we want categorize `floor` features
+        self.df['year_reconstruction'] = pd.cut(self.df['year_reconstruction'],
+                                                bins=[0, 1950, 1980, 2000, 2010, 2015, 2020, 2025, np.infty],
+                                                include_lowest=True,
+                                                labels=['<1950', '1951-1980', '1981-2000', '2001-2010', '2011-2015',
+                                                        '2016-2020',
+                                                        '2021-2025',
+                                                        'undefined'])
+        self.df['year_reconstruction_ord'] = pd.cut(self.df['year_reconstruction_ord'],
+                                                    bins=[0, 1950, 1980, 2000, 2010, 2015, 2020, 2025, np.infty],
+                                                    include_lowest=True,
+                                                    labels=['<1950', '1951-1980', '1981-2000', '2001-2010',
+                                                            '2011-2015',
+                                                            '2016-2020',
+                                                            '2021-2025',
+                                                            'arbitrary'])
 
     def encode(self):
         """
@@ -150,15 +174,35 @@ class Preprocessor(object):
         -------
 
         """
-        # one-hot
+        # one-hot encoding
         self.df = pd.get_dummies(self.df, columns=['energy_effeciency', 'ownership', 'equipment',
                                                    'state',
                                                    'disposition'  # TODO needs known exact levels
-                                                   'construction_type', 'year_reconstruction', 'heating'
-                                                   #'gas', 'waste', 'telecomunication', 'electricity', 
-                                                     ''], drop_first=True)
+                                                   'construction_type', 'year_reconstruction', 'heating',
+                                                   'air_quality', 'built_density', 'sun_glare',
+                                                   # 'gas', 'waste', 'telecomunication', 'electricity',
+                                                   ] +
+                                                  [i for i in self.df.columns if
+                                                   'dist' in i and 'ord' not in i and 'num' not in i],
+                                 drop_first=True)
 
-        # TODO ordinal encoding which featuers ??
+        # ordinal encoding
+        self.df['energy_effeciency_ord'] = self.df['energy_effeciency_ord'].replace({'X': 0, 'A': 1, 'B': 2, 'C': 3,
+                                                                                     'D': 4, 'E': 5, 'F': 6, 'G': 7})
+        self.df['year_reconstruction_ord'] = self.df['year_reconstruction_ord'].replace({'<1950': 1, '1951-1980': 2,
+                                                                                         '1981-2000': 3,
+                                                                                         '2001-2010': 4,
+                                                                                         '2011-2015': 5,
+                                                                                         '2016-2020': 6,
+                                                                                         '2021-2025': 7,
+                                                                                         'arbitrary': 0})
+
+        dist_cols = [i for i in self.df.columns if 'dist_ord' in i]
+        dists = list(range(0, 1600, 100)) + [np.infty]
+        l = [f'{dists[i]}-{dists[i + 1] - 1}m' for i in range(len(dists[:-2]))] + ['>=1500m']
+        for col in dist_cols:
+            self.df[col] = self.df[col].replace(
+                {k: v for k, v in zip(l, list(range(1, len(l))) + [0])})
 
     def scale(self):
         """
@@ -167,7 +211,9 @@ class Preprocessor(object):
         -------
 
         """
-        # TODO which features will be numerical
+        # TODO which features will be numerical, scaling probably will no be necessary
+        #  probably only response, floor and usable_area will be numeric (maybe dists), `noise`
+        pass
 
     def remove(self):
         """
@@ -176,6 +222,8 @@ class Preprocessor(object):
         -------
 
         """
+        pass
+
 
 if __name__ == '__main__':
     data = pd.read_csv('/home/emanuel/Music/prodej_breality_scraped.csv')
@@ -190,12 +238,7 @@ if __name__ == '__main__':
     #  place, transport -> move to description
     #  no barriers not present -> remove ??
     #  telecomunication  >> to description ???
-    #  what to do with dist features ???
-    #  what to do with floor ??? ordinal categorize ?? how to handle missing
-    #  which features will be numerical
     #  TODO  some preprocessing will need to be always on whole dataset e.g. robust scaling ???
-    #  TODO maybe here create also categorized features e.g. `dist` and also numerical and test it on model
-    #    same for similar features like floor, energy_effeciency(ordinal, vs onehot)
-    #  TODO maybe we will need test more imputation techniques
     #  TODO maybe preprocessor step should be done as last after all data are appended to final csv so all scalings etc
     #   will return relevant values
+    #  TODO what about new columns indicating missingness
