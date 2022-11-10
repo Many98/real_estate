@@ -15,14 +15,32 @@ class Preprocessor(object):
         self.df = df  # dataframe to be preprocessed
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
+        self.expand()
         self.impute()
         self.categorize()
         self.encode()
         self.scale()
+        self.remove()
 
         self.df.to_csv('../data/tmp_preprocessed.csv', mode='w', index=False)
 
         return self.df
+
+    def expand(self):
+        """
+        method to expand some critical features to copies which will be numerical/ordinal because by default
+         almost all features will be categorical/categorized and one-hot encoded
+        Returns
+        -------
+
+        """
+        num_ord_cols = [i for i in self.df.columns if 'dist' in i] + ['floor', 'year_reconstruction']
+        ord_cols = ['energy_effeciency', 'air_quality', 'built_density', 'sun_glare']
+        for d in num_ord_cols:
+            self.df[d+'_num'] = self.df[d]  # create feature copy handled as numeric/continuous
+            self.df[d+'_ord'] = self.df[d]  # create feature copy handled as ordinal
+        for d in ord_cols:
+            self.df[d+'_ord'] = self.df[d]  # create feature copy handled as ordinal
 
     def impute(self):
         """
@@ -50,15 +68,12 @@ class Preprocessor(object):
                         `<50m`, `50-99m`, `100-149m` ... `>1500m`, `unknown`
                     also we will need to use OSM to impute all missing data i.e. find whether MHD is metro/bus/tram
                     in bezrealitky data
-                # TODO <>_dist features from bezreality will be replaced with euclidean distance/great circle dist
-                    as in sreality ... this type of distance will be still relevant because can serve as proxy for
-                    real network distance to place; this will be also computationally more efficient
             * nominal
-                ownership; equipment; waste; gas; construction_type; electricity; heating; year_reconstruction;
+                ownership; equipment; waste; gas; construction_type; electricity; heating;
                 telecomunication; disposition
             * nominal or ordinal
                 energy_effeciency => unknown level (possible nominal)
-                age, condition
+                age, condition, year_reconstruction
 
         * textual:
             description (textual attribute => NLP) (kind of required)
@@ -85,22 +100,24 @@ class Preprocessor(object):
                               'gas': 'unknown', 'waste': 'unknown', 'equipment': 'unknown', 'state': 'unknown',
                               'construction_type': 'unknown', 'place': 'unknown', 'electricity': 'unknown',
                               'heating': 'unknown', 'transport': 'unknown', 'year_reconstruction': 2038,
-                              'telecomunication': 'unknown', 'age': 'undefined',
+                              'telecomunication': 'unknown',
+                              #'age': 'undefined',
                               'air_quality': 'unknown', 'built_density': 'unknown', 'sun_glare': 'unknown'},
                        inplace=True)
 
         # fill <>_dist features
         dist_cols = [i for i in self.df.columns if 'dist' in i]
-        self.df[dist_cols].fillna(value=10000, inplace=True)
+        self.df.fillna(value={i: 10000 for i in dist_cols}, inplace=True)
 
         # fill has_<> & no_barriers attributes
         has_cols = [i for i in self.df.columns if 'has' in i]
         has_cols.append('no_barriers')
-        self.df[has_cols].fillna(value=False, inplace=True)
+        self.df[has_cols] = self.df[has_cols].astype(bool)
+        self.df.fillna(value={i: False for i in dist_cols}, inplace=True)
 
         # fill daily/nightly noise with simple mean imputation
-        self.df['daily_noise'].fillna(values=self.df['daily_noise'].mean(skipna=True), inplace=True)
-        self.df['nightly_noise'].fillna(values=self.df['nightly_noise'].mean(skipna=True), inplace=True)
+        self.df.fillna(values={'daily_noise': self.df['daily_noise'].mean(skipna=True)}, inplace=True)
+        self.df.fillna(values={'nightly_noise': self.df['nightly_noise'].mean(skipna=True)}, inplace=True)
 
     def categorize(self):
         """
@@ -109,16 +126,17 @@ class Preprocessor(object):
         -------
 
         """
+        # TODO do we want categorize dist features
         # categorize <>_dist features
         dist_cols = [i for i in self.df.columns if 'dist' in i]
-        dists = list(range(0, 1700, 100))
+        dists = list(range(0, 1600, 100)) + [np.infty]
         for col in dist_cols:
             self.df[col] = pd.cut(self.df[col], bins=dists,
                    include_lowest=True,
                    labels=[f'{dists[i]}-{dists[i+1]-1}m' for i in range(len(dists[:-2]))] + ['>=1500m'])
 
         # categorize year_reconstruction  TODO define maybe better categories
-        self.df['year_reconstruction'] = pd.cut(self.df['year_reconstruction'], bins=[0, 1950, 1980, 2000, 2010, 2015, 2020, 2025, 2040],
+        self.df['year_reconstruction'] = pd.cut(self.df['year_reconstruction'], bins=[0, 1950, 1980, 2000, 2010, 2015, 2020, 2025, np.infty],
                include_lowest=True, labels=['<1950', '1951-1980', '1981-2000', '2001-2010', '2011-2015', '2016-2020',
                                             '2021-2025',
                                             'undefined'])
@@ -127,12 +145,20 @@ class Preprocessor(object):
 
     def encode(self):
         """
-        method to handle on-hot and nominal encoding of categorical features
+        method to handle one-hot and nominal encoding of categorical features
         Returns
         -------
 
         """
-        pass
+        # one-hot
+        self.df = pd.get_dummies(self.df, columns=['energy_effeciency', 'ownership', 'equipment',
+                                                   'state',
+                                                   'disposition'  # TODO needs known exact levels
+                                                   'construction_type', 'year_reconstruction', 'heating'
+                                                   #'gas', 'waste', 'telecomunication', 'electricity', 
+                                                     ''], drop_first=True)
+
+        # TODO ordinal encoding which featuers ??
 
     def scale(self):
         """
@@ -141,10 +167,35 @@ class Preprocessor(object):
         -------
 
         """
-        pass
+        # TODO which features will be numerical
+
+    def remove(self):
+        """
+        method to remove unnecessary columns/features
+        Returns
+        -------
+
+        """
 
 if __name__ == '__main__':
     data = pd.read_csv('/home/emanuel/Music/prodej_breality_scraped.csv')
     pr = Preprocessor(data)
     pr.impute()
     pr.encode()
+
+    # TODO changes:
+    #  gas ?? --> binary hasgas <<
+    #  waste
+    #  electricity
+    #  place, transport -> move to description
+    #  no barriers not present -> remove ??
+    #  telecomunication  >> to description ???
+    #  what to do with dist features ???
+    #  what to do with floor ??? ordinal categorize ?? how to handle missing
+    #  which features will be numerical
+    #  TODO  some preprocessing will need to be always on whole dataset e.g. robust scaling ???
+    #  TODO maybe here create also categorized features e.g. `dist` and also numerical and test it on model
+    #    same for similar features like floor, energy_effeciency(ordinal, vs onehot)
+    #  TODO maybe we will need test more imputation techniques
+    #  TODO maybe preprocessor step should be done as last after all data are appended to final csv so all scalings etc
+    #   will return relevant values
