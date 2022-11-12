@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import re
 
 
 class Synchronizer(object):
@@ -42,15 +43,12 @@ class Synchronizer(object):
         except Exception as e:
             print(e)
 
-        self.dictionary_sreality = self.sreality_df.to_dict()
-        self.dictionary_breality = self.breality_df.to_dict()
-        self.dictionary_sreality = self.unify_categoric_variables()
-        self.dictionary_sreality, self.dictionary_breality = self.merge_text()
+        self.extract_sreality_data()
         self.check_dtypes()  # checks dtypes on both dataframes
         self.unify()
-        #self.merge_text()
+        self.merge_text()
 
-        self.final_df.to_csv('C:/Users/adams/OneDrive/Dokumenty/GitHub/real_estate/data/tmp_synchronized.csv', mode='w', index=False)
+        self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
 
         return self.final_df
 
@@ -60,7 +58,19 @@ class Synchronizer(object):
         Returns
         -------
         """
-        self.final_df = pd.concat([self.sreality_data, self.breality_data])
+        # TODO HERE PERFORM UNIFICATION ON DATAFRAMES `sreality_df` and `breality_df`
+        #  i.e. there cannot be redundancy i.e. instead of result
+        #  of `self.final_df['ownership'].unique()` `array(['Osobní', 'Státní/obecní', 'Družstevní', nan, 'OSOBNI',
+        #        'UNDEFINED', 'DRUZSTEVNI'])`
+        #  we want to have just `array(['Osobní', 'Státní/obecní', 'Družstevní', nan])`
+        #  and similar for other columns
+
+
+        # here add your code
+
+
+
+        self.final_df = pd.concat([self.sreality_df, self.breality_df])
 
     def merge_text(self):
         """
@@ -75,26 +85,9 @@ class Synchronizer(object):
         -------
 
         """
-        for i in range(len(self.dictionary_sreality["description"])):
-            if self.dictionary_sreality["note"][i] is not None:
-                self.dictionary_sreality["description"][i] = self.dictionary_sreality["description"][i] + str(self.dictionary_sreality["note"][i])
-            if self.dictionary_sreality["transport"][i] is not None:
-                self.dictionary_sreality["description"][i] = self.dictionary_sreality["description"][i] + str(self.dictionary_sreality["transport"][i])
-            if self.dictionary_sreality["telecomunication"][i] is not None:
-                self.dictionary_sreality["description"][i] = self.dictionary_sreality["description"][i] + str(self.dictionary_sreality["telecomunication"][i])
-        for i in range(len(self.dictionary_breality["description"])):
-            if self.dictionary_breality["note"][i] is not None:
-                self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + str(self.dictionary_breality["note"][i])
-            if self.dictionary_breality["tags"][i] is not None:
-                self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + str(self.dictionary_breality["tags"][i])
-            if self.dictionary_breality["place"][i] is not None:
-                self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + \
-                                                         str(self.dictionary_breality["place"][i])
-            if self.dictionary_breality["transport"][i] is not None:
-                self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + str(self.dictionary_breality["transport"][i])
-            if self.dictionary_breality["telecomunication"][i] is not None:
-                self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + str(self.dictionary_breality["telecomunication"][i])
-        return self.dictionary_sreality, self.dictionary_breality
+        cols = ['note', 'tags', 'place', 'transport', 'telecomunication']
+        for col in cols:
+            self.final_df['description'] += ' ' + self.final_df[col]
 
     def check_dtypes(self):
         """
@@ -103,318 +96,77 @@ class Synchronizer(object):
         -------
 
         """
-        self.sreality_data = pd.DataFrame.from_dict(self.dictionary_sreality)
-        self.breality_data = pd.DataFrame.from_dict(self.dictionary_breality)
-
-        # sreality types
-        self.sreality_data["price"] = self.sreality_data["price"].fillna(0).astype("int64")
-        self.sreality_data["usable_area"] = self.sreality_data["usable_area"].fillna(0).astype("int64")
-        # self.sreality_data["floor"] = self.sreality_data["floor"].astype("int64")
-
-
-
+        # TODO HERE check dtypes on both dataframes or on final its up to you
+        #  e.g. with assert statemnets
         pass
 
-    def unify_categoric_variables(self):
+    def extract_sreality_data(self):
+        """
+        auxiliary method to extract data from sreality because most of them were in string format
+        Returns
+        -------
 
-
+        """
         # header
-        for i in range(len(self.dictionary_sreality["header"])):
-            self.dictionary_sreality["header"][i] = self.dictionary_sreality["header"][i].replace("\xa0", " ")
-
+        self.sreality_df['header'] = self.sreality_df['header'].apply(
+            lambda x: x.replace("\xa0", " ") if x is not np.nan else np.nan).astype('str')
 
         # price
-        for i in range(len(self.dictionary_sreality["price"])):
-            try:
-                cislo = int(self.dictionary_sreality["price"][i][0])
-                self.dictionary_sreality["price"][i] = self.dictionary_sreality["price"][i].replace(" ", "")
-                index = self.dictionary_sreality["price"][i].find("K")
-                self.dictionary_sreality["price"][i] = int(self.dictionary_sreality["price"][i][:index])
-            except:
-                self.dictionary_sreality["price"][i] = None
-
+        self.sreality_df['price'] = self.sreality_df['price'].apply(
+            lambda x: re.sub(r'[^0-9]', '', x) if x is not np.nan else np.nan)
+        self.sreality_df['price'] = self.sreality_df['price'].apply(
+            lambda x: x if x != '' else np.nan).astype('float')
 
         # usable area
-        cellar_area = {}
-        for i in range(len(self.dictionary_sreality["usable_area"])):
-            cellar_area[i] = None
-            try:
-                cislo = int(self.dictionary_sreality["usable_area"][i][0])
-                self.dictionary_sreality["usable_area"][i] = self.dictionary_sreality["usable_area"][i].replace(" ", "")
-                index = self.dictionary_sreality["usable_area"][i].find("m")
-                self.dictionary_sreality["usable_area"][i] = int(self.dictionary_sreality["usable_area"][i][:index])
-            except:
-                self.dictionary_sreality["usable_area"][i] = None
-        self.dictionary_sreality["cellar_area"] = cellar_area
+        self.sreality_df['usable_area'] = self.sreality_df['usable_area'].apply(
+            lambda x: re.sub(r'[^0-9]', '', x.replace('m2', '')) if x is not np.nan else np.nan)
+        self.sreality_df['usable_area'] = self.sreality_df['usable_area'].apply(
+            lambda x: x if x != '' else np.nan).astype('float')
 
         # floor
-        for i in range(len(self.dictionary_sreality["floor"])):
-            try:
-                index = self.dictionary_sreality["floor"][i].find(" ")
-                if "přízemí" in self.dictionary_sreality["floor"][i]:
-                    self.dictionary_sreality["floor"][i] = 0
-                elif self.dictionary_sreality["floor"][i][index-1] == ".":
-                    self.dictionary_sreality["floor"][i] = int(self.dictionary_sreality["floor"][i][:(index - 1)])
-            except:
-                pass
-
-
+        self.sreality_df['floor'] = self.sreality_df['floor'].apply(lambda x: x.replace('přízemí', '0.') if x is not np.nan else np.nan)
+        self.sreality_df['floor'] = self.sreality_df['floor'].apply(lambda x: x.split('.')[0] if x is not np.nan else np.nan).astype(float)
 
         # energy efficiency
-        for i in range(len(self.dictionary_sreality["energy_effeciency"])):
-            try:
-                self.dictionary_sreality["energy_effeciency"][i] = self.dictionary_sreality["energy_effeciency"][i][6]
-            except:
-                pass
-
+        self.sreality_df['energy_effeciency'] = self.sreality_df['energy_effeciency'].apply(
+            lambda x: x[6] if x is not np.nan else np.nan).astype('str')
 
         # long
-        for i in range(len(self.dictionary_sreality["long"])):
-            if type(self.dictionary_sreality["long"]) is not None:
-                self.dictionary_sreality["long"][i] = float(self.dictionary_sreality["long"][i][2:])
-
+        self.sreality_df['long'] = self.sreality_df['long'].apply(
+            lambda x: x[2:] if x is not np.nan else np.nan).astype('float')
 
         # lat
-        for i in range(len(self.dictionary_sreality["lat"])):
-            if type(self.dictionary_sreality["lat"]) is not None:
-                self.dictionary_sreality["lat"][i] = float(self.dictionary_sreality["lat"][i][2:])
+        self.sreality_df['lat'] = self.sreality_df['lat'].apply(
+            lambda x: x[2:] if x is not np.nan else np.nan).astype('float')
 
-
-        # bus station dist
-        for i in range(len(self.dictionary_sreality["bus_station_dist"])):
-            try:
-                index = self.dictionary_sreality["bus_station_dist"][i].find("(")
-                self.dictionary_sreality["bus_station_dist"][i] = self.dictionary_sreality["bus_station_dist"][i][(index+1):]
-                index = self.dictionary_sreality["bus_station_dist"][i].find(" ")
-                self.dictionary_sreality["bus_station_dist"][i] = float(self.dictionary_sreality["bus_station_dist"][i][:index])
-            except:
-                pass
-
-
-        # train station dist
-        for i in range(len(self.dictionary_sreality["train_station_dist"])):
-            try:
-                index = self.dictionary_sreality["train_station_dist"][i].find("(")
-                self.dictionary_sreality["train_station_dist"][i] = self.dictionary_sreality["train_station_dist"][i][(index+1):]
-                index = self.dictionary_sreality["train_station_dist"][i].find(" ")
-                self.dictionary_sreality["train_station_dist"][i] = float(self.dictionary_sreality["train_station_dist"][i][:index])
-            except:
-                pass
-
-        # subway station dist
-        for i in range(len(self.dictionary_sreality["subway_station_dist"])):
-            try:
-                index = self.dictionary_sreality["subway_station_dist"][i].find("(")
-                self.dictionary_sreality["subway_station_dist"][i] = self.dictionary_sreality["subway_station_dist"][i][(index+1):]
-                index = self.dictionary_sreality["subway_station_dist"][i].find(" ")
-                self.dictionary_sreality["subway_station_dist"][i] = float(self.dictionary_sreality["subway_station_dist"][i][:index])
-            except:
-                pass
-
-        # tram station dist
-        for i in range(len(self.dictionary_sreality["tram_station_dist"])):
-            try:
-                index = self.dictionary_sreality["tram_station_dist"][i].find("(")
-                self.dictionary_sreality["tram_station_dist"][i] = self.dictionary_sreality["tram_station_dist"][i][(index+1):]
-                index = self.dictionary_sreality["tram_station_dist"][i].find(" ")
-                self.dictionary_sreality["tram_station_dist"][i] = float(self.dictionary_sreality["tram_station_dist"][i][:index])
-            except:
-                pass
-
-        # post office dist
-        for i in range(len(self.dictionary_sreality["post_office_dist"])):
-            try:
-                index = self.dictionary_sreality["post_office_dist"][i].find("(")
-                self.dictionary_sreality["post_office_dist"][i] = self.dictionary_sreality["post_office_dist"][i][(index+1):]
-                index = self.dictionary_sreality["post_office_dist"][i].find(" ")
-                self.dictionary_sreality["post_office_dist"][i] = float(self.dictionary_sreality["post_office_dist"][i][:index])
-            except:
-                pass
-
-        # atm dist
-        for i in range(len(self.dictionary_sreality["atm_dist"])):
-            try:
-                index = self.dictionary_sreality["atm_dist"][i].find("(")
-                self.dictionary_sreality["atm_dist"][i] = self.dictionary_sreality["atm_dist"][i][(index+1):]
-                index = self.dictionary_sreality["atm_dist"][i].find(" ")
-                self.dictionary_sreality["atm_dist"][i] = float(self.dictionary_sreality["atm_dist"][i][:index])
-            except:
-                pass
-
-        # doctor dist
-        for i in range(len(self.dictionary_sreality["doctor_dist"])):
-            try:
-                index = self.dictionary_sreality["doctor_dist"][i].find("(")
-                self.dictionary_sreality["doctor_dist"][i] = self.dictionary_sreality["doctor_dist"][i][(index+1):]
-                index = self.dictionary_sreality["doctor_dist"][i].find(" ")
-                self.dictionary_sreality["doctor_dist"][i] = float(self.dictionary_sreality["doctor_dist"][i][:index])
-            except:
-                pass
-
-        # vet dist
-        for i in range(len(self.dictionary_sreality["vet_dist"])):
-            try:
-                index = self.dictionary_sreality["vet_dist"][i].find("(")
-                self.dictionary_sreality["vet_dist"][i] = self.dictionary_sreality["vet_dist"][i][(index+1):]
-                index = self.dictionary_sreality["vet_dist"][i].find(" ")
-                self.dictionary_sreality["vet_dist"][i] = float(self.dictionary_sreality["vet_dist"][i][:index])
-            except:
-                pass
-
-        # primary school dist
-        for i in range(len(self.dictionary_sreality["primary_school_dist"])):
-            try:
-                index = self.dictionary_sreality["primary_school_dist"][i].find("(")
-                self.dictionary_sreality["primary_school_dist"][i] = self.dictionary_sreality["primary_school_dist"][i][(index+1):]
-                index = self.dictionary_sreality["primary_school_dist"][i].find(" ")
-                self.dictionary_sreality["primary_school_dist"][i] = float(self.dictionary_sreality["primary_school_dist"][i][:index])
-            except:
-                pass
-
-        # kindergarten dist
-        for i in range(len(self.dictionary_sreality["kindergarten_dist"])):
-            try:
-                index = self.dictionary_sreality["kindergarten_dist"][i].find("(")
-                self.dictionary_sreality["kindergarten_dist"][i] = self.dictionary_sreality["kindergarten_dist"][i][(index+1):]
-                index = self.dictionary_sreality["kindergarten_dist"][i].find(" ")
-                self.dictionary_sreality["kindergarten_dist"][i] = float(self.dictionary_sreality["kindergarten_dist"][i][:index])
-            except:
-                pass
-
-        # supermarket grocery dist
-        for i in range(len(self.dictionary_sreality["supermarket_grocery_dist"])):
-            try:
-                index = self.dictionary_sreality["supermarket_grocery_dist"][i].find("(")
-                self.dictionary_sreality["supermarket_grocery_dist"][i] = self.dictionary_sreality["supermarket_grocery_dist"][i][(index+1):]
-                index = self.dictionary_sreality["supermarket_grocery_dist"][i].find(" ")
-                self.dictionary_sreality["supermarket_grocery_dist"][i] = float(self.dictionary_sreality["supermarket_grocery_dist"][i][:index])
-            except:
-                pass
-
-        # restaurant, pub dist
-        for i in range(len(self.dictionary_sreality["restaurant_pub_dist"])):
-            try:
-                index = self.dictionary_sreality["restaurant_pub_dist"][i].find("(")
-                self.dictionary_sreality["restaurant_pub_dist"][i] = self.dictionary_sreality["restaurant_pub_dist"][i][(index+1):]
-                index = self.dictionary_sreality["restaurant_pub_dist"][i].find(" ")
-                self.dictionary_sreality["restaurant_pub_dist"][i] = float(self.dictionary_sreality["restaurant_pub_dist"][i][:index])
-            except:
-                pass
-
-        # playground dist
-        for i in range(len(self.dictionary_sreality["playground_dist"])):
-            try:
-                index = self.dictionary_sreality["playground_dist"][i].find("(")
-                self.dictionary_sreality["playground_dist"][i] = self.dictionary_sreality["playground_dist"][i][(index+1):]
-                index = self.dictionary_sreality["playground_dist"][i].find(" ")
-                self.dictionary_sreality["playground_dist"][i] = float(self.dictionary_sreality["playground_dist"][i][:index])
-            except:
-                pass
-
-        # sports field dist
-        for i in range(len(self.dictionary_sreality["sports_field_dist"])):
-            try:
-                index = self.dictionary_sreality["sports_field_dist"][i].find("(")
-                self.dictionary_sreality["sports_field_dist"][i] = self.dictionary_sreality["sports_field_dist"][i][(index+1):]
-                index = self.dictionary_sreality["sports_field_dist"][i].find(" ")
-                self.dictionary_sreality["sports_field_dist"][i] = float(self.dictionary_sreality["sports_field_dist"][i][:index])
-            except:
-                pass
-
-        # theatre cinema dist
-        for i in range(len(self.dictionary_sreality["theatre_cinema_dist"])):
-            try:
-                index = self.dictionary_sreality["theatre_cinema_dist"][i].find("(")
-                self.dictionary_sreality["theatre_cinema_dist"][i] = \
-                self.dictionary_sreality["theatre_cinema_dist"][i][(index + 1):]
-                if self.dictionary_sreality["theatre_cinema_dist"][i].find("(") >= 0:
-                    index = self.dictionary_sreality["theatre_cinema_dist"][i].find("(")
-                    self.dictionary_sreality["theatre_cinema_dist"][i] = \
-                    self.dictionary_sreality["theatre_cinema_dist"][i][(index + 1):]
-                index = self.dictionary_sreality["theatre_cinema_dist"][i].find(" ")
-                self.dictionary_sreality["theatre_cinema_dist"][i] = float(self.dictionary_sreality["theatre_cinema_dist"][i][:index])
-            except:
-                pass
-
-        # pharmacy dist
-        for i in range(len(self.dictionary_sreality["pharmacy_dist"])):
-            try:
-                index = self.dictionary_sreality["pharmacy_dist"][i].find("(")
-                self.dictionary_sreality["pharmacy_dist"][i] = self.dictionary_sreality["pharmacy_dist"][i][(index+1):]
-                index = self.dictionary_sreality["pharmacy_dist"][i].find(" ")
-                self.dictionary_sreality["pharmacy_dist"][i] = float(self.dictionary_sreality["pharmacy_dist"][i][:index])
-            except:
-                pass
+        #  <>_dist cols
+        dist_cols = [i for i in self.sreality_df.columns if 'dist' in i]
+        for col in dist_cols:
+            self.sreality_df[col] = self.sreality_df[col].apply(
+                lambda x: re.sub(r'[^0-9]', '', str(x)) if x is not np.nan else np.nan)
+            self.sreality_df[col] = self.sreality_df[col].apply(
+                lambda x: x if x is not np.nan and x != '' else np.nan).astype('float')
 
         # gas
-        for i in range(len(self.dictionary_sreality["gas"])):
-            if str(self.dictionary_sreality["gas"][i]) == 'nan':
-                self.dictionary_sreality["gas"][i] = None
-            self.dictionary_sreality["gas"][i] = bool(self.dictionary_sreality["gas"][i])
-            self.dictionary_sreality["gas"][i] = float(self.dictionary_sreality["gas"][i])
+        self.sreality_df['gas'] = self.sreality_df['gas'].apply(
+            lambda x: bool(x) if x is not np.nan else False)
 
         # waste
-        for i in range(len(self.dictionary_sreality["waste"])):
-            if str(self.dictionary_sreality["waste"][i]) == "nan":
-                self.dictionary_sreality["waste"][i] = None
-            self.dictionary_sreality["waste"][i] = bool(self.dictionary_sreality["waste"][i])
-            self.dictionary_sreality["waste"][i] = float(self.dictionary_sreality["waste"][i])
+        self.sreality_df['waste'] = self.sreality_df['waste'].apply(
+            lambda x: bool(x) if x is not np.nan else False)
 
         # year reconstruction
-        for i in range(len(self.dictionary_sreality["year_reconstruction"])):
-            try:
-                self.dictionary_sreality["year_reconstruction"][i] = int(self.dictionary_sreality["year_reconstruction"][i])
-            except:
-                pass
+        self.sreality_df['year_reconstruction'] = self.sreality_df['year_reconstruction'].astype(float)
 
-        # has garage
-        for i in range(len(self.dictionary_sreality["has_garage"])):
-            if self.dictionary_sreality["has_garage"][i] == "Topení:" or str(self.dictionary_sreality["has_garage"][i]) == 'nan':
-                self.dictionary_sreality["has_garage"][i] = None
-            self.dictionary_sreality["has_garage"][i] = bool(self.dictionary_sreality["has_garage"][i])
-            self.dictionary_sreality["has_garage"][i] = float(self.dictionary_sreality["has_garage"][i])
-
-        # has lift
-        print(set(self.dictionary_sreality["has_lift"].values()))
-        for i in range(len(self.dictionary_sreality["has_lift"])):
-            if str(self.dictionary_sreality["has_lift"][i]) == 'nan':
-                self.dictionary_sreality["has_lift"][i] = None
-            self.dictionary_sreality["has_lift"][i] = bool(self.dictionary_sreality["has_lift"][i])
-            self.dictionary_sreality["has_lift"][i] = float(self.dictionary_sreality["has_lift"][i])
-        print(set(self.dictionary_sreality["has_lift"].values()))
-
-        # has cellar
-        for i in range(len(self.dictionary_sreality["has_cellar"])):
-            if str(self.dictionary_sreality["has_cellar"][i]) == 'nan':
-                self.dictionary_sreality["has_cellar"][i] = None
-            self.dictionary_sreality["has_cellar"][i] = bool(self.dictionary_sreality["has_cellar"][i])
-            self.dictionary_sreality["has_cellar"][i] = float(self.dictionary_sreality["has_cellar"][i])
-
-        # has loggia
-        for i in range(len(self.dictionary_sreality["has_loggia"])):
-            if str(self.dictionary_sreality["has_loggia"][i]) == 'nan':
-                self.dictionary_sreality["has_loggia"][i] = None
-            self.dictionary_sreality["has_loggia"][i] = bool(self.dictionary_sreality["has_loggia"][i])
-            self.dictionary_sreality["has_loggia"][i] = float(self.dictionary_sreality["has_loggia"][i])
-
-        # has balcony
-        for i in range(len(self.dictionary_sreality["has_balcony"])):
-            if str(self.dictionary_sreality["has_balcony"][i]) == 'nan':
-                self.dictionary_sreality["has_balcony"][i] = None
-            self.dictionary_sreality["has_balcony"][i] = bool(self.dictionary_sreality["has_balcony"][i])
-            self.dictionary_sreality["has_balcony"][i] = float(self.dictionary_sreality["has_balcony"][i])
-
-        # has parking
-        for i in range(len(self.dictionary_sreality["has_parking"])):
-            if str(self.dictionary_sreality["has_parking"][i]) == 'nan':
-                self.dictionary_sreality["has_parking"][i] = None
-            self.dictionary_sreality["has_parking"][i] = bool(self.dictionary_sreality["has_parking"][i])
-            self.dictionary_sreality["has_parking"][i] = float(self.dictionary_sreality["has_parking"][i])
+        #  `has_<>` columns
+        has_cols = [i for i in self.sreality_df.columns if 'has' in i and 'hash' not in i]
+        for col in has_cols:
+            self.sreality_df[col] = self.sreality_df[col].apply(
+                lambda x: str(x).replace('Topení:', '') if x is not np.nan else np.nan)
+            self.sreality_df[col] = self.sreality_df[col].apply(
+                lambda x: True if x is not np.nan and x not in ('', 'ne') else False)
 
 
-
-        return self.dictionary_sreality
-
-# sreality_df = pd.read_csv("C:/Users/adams/OneDrive/Dokumenty/GitHub/real_estate/data/prodej_sreality_scraped.csv")
 synchronizer = Synchronizer(tuple([0,0]))
-synchronizer.__call__(sreality_csv_path="C:/Users/adams/OneDrive/Dokumenty/GitHub/real_estate/data/prodej_sreality_scraped.csv", breality_csv_path="C:/Users/adams/OneDrive/Dokumenty/GitHub/real_estate/data/prodej_breality_scraped.csv")
+synchronizer(sreality_csv_path=os.path.join('..','..', 'data/prodej_sreality_scraped.csv'),
+             breality_csv_path=os.path.join('..', '..', 'data/prodej_breality_scraped.csv'))
