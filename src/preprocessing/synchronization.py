@@ -48,9 +48,9 @@ class Synchronizer(object):
         self.dictionary_sreality, self.dictionary_breality = self.merge_text()
         self.check_dtypes()  # checks dtypes on both dataframes
         self.unify()
-        self.merge_text()
+        #self.merge_text()
 
-        self.final_df.to_csv('../data/tmp_synchronized.csv', mode='w', index=False)
+        self.final_df.to_csv('C:/Users/adams/OneDrive/Dokumenty/GitHub/real_estate/data/tmp_synchronized.csv', mode='w', index=False)
 
         return self.final_df
 
@@ -60,8 +60,7 @@ class Synchronizer(object):
         Returns
         -------
         """
-
-        self.final_df = pd.DataFrame()
+        self.final_df = pd.concat([self.sreality_data, self.breality_data])
 
     def merge_text(self):
         """
@@ -70,6 +69,8 @@ class Synchronizer(object):
         * note (from sreality data) => NLP
         * tags (from bezrealitky data) => NLP
         * place (from bezrealitky data) => NLP
+        * transport
+        * telecommunication
         Returns
         -------
 
@@ -77,6 +78,10 @@ class Synchronizer(object):
         for i in range(len(self.dictionary_sreality["description"])):
             if self.dictionary_sreality["note"][i] is not None:
                 self.dictionary_sreality["description"][i] = self.dictionary_sreality["description"][i] + str(self.dictionary_sreality["note"][i])
+            if self.dictionary_sreality["transport"][i] is not None:
+                self.dictionary_sreality["description"][i] = self.dictionary_sreality["description"][i] + str(self.dictionary_sreality["transport"][i])
+            if self.dictionary_sreality["telecomunication"][i] is not None:
+                self.dictionary_sreality["description"][i] = self.dictionary_sreality["description"][i] + str(self.dictionary_sreality["telecomunication"][i])
         for i in range(len(self.dictionary_breality["description"])):
             if self.dictionary_breality["note"][i] is not None:
                 self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + str(self.dictionary_breality["note"][i])
@@ -85,6 +90,10 @@ class Synchronizer(object):
             if self.dictionary_breality["place"][i] is not None:
                 self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + \
                                                          str(self.dictionary_breality["place"][i])
+            if self.dictionary_breality["transport"][i] is not None:
+                self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + str(self.dictionary_breality["transport"][i])
+            if self.dictionary_breality["telecomunication"][i] is not None:
+                self.dictionary_breality["description"][i] = self.dictionary_breality["description"][i] + str(self.dictionary_breality["telecomunication"][i])
         return self.dictionary_sreality, self.dictionary_breality
 
     def check_dtypes(self):
@@ -94,6 +103,16 @@ class Synchronizer(object):
         -------
 
         """
+        self.sreality_data = pd.DataFrame.from_dict(self.dictionary_sreality)
+        self.breality_data = pd.DataFrame.from_dict(self.dictionary_breality)
+
+        # sreality types
+        self.sreality_data["price"] = self.sreality_data["price"].fillna(0).astype("int64")
+        self.sreality_data["usable_area"] = self.sreality_data["usable_area"].fillna(0).astype("int64")
+        # self.sreality_data["floor"] = self.sreality_data["floor"].astype("int64")
+
+
+
         pass
 
     def unify_categoric_variables(self):
@@ -132,7 +151,7 @@ class Synchronizer(object):
         for i in range(len(self.dictionary_sreality["floor"])):
             try:
                 index = self.dictionary_sreality["floor"][i].find(" ")
-                if self.dictionary_sreality["floor"][i][:index] == "přízemí":
+                if "přízemí" in self.dictionary_sreality["floor"][i]:
                     self.dictionary_sreality["floor"][i] = 0
                 elif self.dictionary_sreality["floor"][i][index-1] == ".":
                     self.dictionary_sreality["floor"][i] = int(self.dictionary_sreality["floor"][i][:(index - 1)])
@@ -308,6 +327,10 @@ class Synchronizer(object):
                 index = self.dictionary_sreality["theatre_cinema_dist"][i].find("(")
                 self.dictionary_sreality["theatre_cinema_dist"][i] = \
                 self.dictionary_sreality["theatre_cinema_dist"][i][(index + 1):]
+                if self.dictionary_sreality["theatre_cinema_dist"][i].find("(") >= 0:
+                    index = self.dictionary_sreality["theatre_cinema_dist"][i].find("(")
+                    self.dictionary_sreality["theatre_cinema_dist"][i] = \
+                    self.dictionary_sreality["theatre_cinema_dist"][i][(index + 1):]
                 index = self.dictionary_sreality["theatre_cinema_dist"][i].find(" ")
                 self.dictionary_sreality["theatre_cinema_dist"][i] = float(self.dictionary_sreality["theatre_cinema_dist"][i][:index])
             except:
@@ -325,10 +348,17 @@ class Synchronizer(object):
 
         # gas
         for i in range(len(self.dictionary_sreality["gas"])):
-            if self.dictionary_sreality["gas"][i] == "'Individuální'" or self.dictionary_sreality["gas"][i] == "'Individuální":
-                self.dictionary_sreality["gas"][i] = "Individuální"
-            elif self.dictionary_sreality["gas"][i] == "'Plynovod'" or self.dictionary_sreality["gas"][i] == "Plynovod'":
-                self.dictionary_sreality["gas"][i] = "Plynovod"
+            if str(self.dictionary_sreality["gas"][i]) == 'nan':
+                self.dictionary_sreality["gas"][i] = None
+            self.dictionary_sreality["gas"][i] = bool(self.dictionary_sreality["gas"][i])
+            self.dictionary_sreality["gas"][i] = float(self.dictionary_sreality["gas"][i])
+
+        # waste
+        for i in range(len(self.dictionary_sreality["waste"])):
+            if str(self.dictionary_sreality["waste"][i]) == "nan":
+                self.dictionary_sreality["waste"][i] = None
+            self.dictionary_sreality["waste"][i] = bool(self.dictionary_sreality["waste"][i])
+            self.dictionary_sreality["waste"][i] = float(self.dictionary_sreality["waste"][i])
 
         # year reconstruction
         for i in range(len(self.dictionary_sreality["year_reconstruction"])):
@@ -339,24 +369,47 @@ class Synchronizer(object):
 
         # has garage
         for i in range(len(self.dictionary_sreality["has_garage"])):
-            if self.dictionary_sreality["has_garage"][i] == "Topení:":
+            if self.dictionary_sreality["has_garage"][i] == "Topení:" or str(self.dictionary_sreality["has_garage"][i]) == 'nan':
                 self.dictionary_sreality["has_garage"][i] = None
+            self.dictionary_sreality["has_garage"][i] = bool(self.dictionary_sreality["has_garage"][i])
+            self.dictionary_sreality["has_garage"][i] = float(self.dictionary_sreality["has_garage"][i])
+
+        # has lift
+        print(set(self.dictionary_sreality["has_lift"].values()))
+        for i in range(len(self.dictionary_sreality["has_lift"])):
+            if str(self.dictionary_sreality["has_lift"][i]) == 'nan':
+                self.dictionary_sreality["has_lift"][i] = None
+            self.dictionary_sreality["has_lift"][i] = bool(self.dictionary_sreality["has_lift"][i])
+            self.dictionary_sreality["has_lift"][i] = float(self.dictionary_sreality["has_lift"][i])
+        print(set(self.dictionary_sreality["has_lift"].values()))
 
         # has cellar
         for i in range(len(self.dictionary_sreality["has_cellar"])):
-            self.dictionary_sreality["has_cellar"] = bool(self.dictionary_sreality["has_cellar"])
+            if str(self.dictionary_sreality["has_cellar"][i]) == 'nan':
+                self.dictionary_sreality["has_cellar"][i] = None
+            self.dictionary_sreality["has_cellar"][i] = bool(self.dictionary_sreality["has_cellar"][i])
+            self.dictionary_sreality["has_cellar"][i] = float(self.dictionary_sreality["has_cellar"][i])
 
         # has loggia
         for i in range(len(self.dictionary_sreality["has_loggia"])):
-            self.dictionary_sreality["has_loggia"] = bool(self.dictionary_sreality["has_loggia"])
+            if str(self.dictionary_sreality["has_loggia"][i]) == 'nan':
+                self.dictionary_sreality["has_loggia"][i] = None
+            self.dictionary_sreality["has_loggia"][i] = bool(self.dictionary_sreality["has_loggia"][i])
+            self.dictionary_sreality["has_loggia"][i] = float(self.dictionary_sreality["has_loggia"][i])
 
         # has balcony
         for i in range(len(self.dictionary_sreality["has_balcony"])):
-            self.dictionary_sreality["has_balcony"] = bool(self.dictionary_sreality["has_balcony"])
+            if str(self.dictionary_sreality["has_balcony"][i]) == 'nan':
+                self.dictionary_sreality["has_balcony"][i] = None
+            self.dictionary_sreality["has_balcony"][i] = bool(self.dictionary_sreality["has_balcony"][i])
+            self.dictionary_sreality["has_balcony"][i] = float(self.dictionary_sreality["has_balcony"][i])
 
         # has parking
         for i in range(len(self.dictionary_sreality["has_parking"])):
-            self.dictionary_sreality["has_parking"] = bool(self.dictionary_sreality["has_parking"])
+            if str(self.dictionary_sreality["has_parking"][i]) == 'nan':
+                self.dictionary_sreality["has_parking"][i] = None
+            self.dictionary_sreality["has_parking"][i] = bool(self.dictionary_sreality["has_parking"][i])
+            self.dictionary_sreality["has_parking"][i] = float(self.dictionary_sreality["has_parking"][i])
 
 
 
