@@ -108,7 +108,7 @@ class Preprocessor(object):
                               'energy_effeciency_ord': 'X',  # -> arbitrary
                               'energy_effeciency': 'unknown', 'ownership': 'unknown', 'description': '',
                               'gas': 'unknown', 'waste': 'unknown', 'equipment': 'unknown', 'state': 'unknown',
-                              'construction_type': 'unknown', 'place': 'unknown', 'electricity': 'unknown',
+                              'construction_type': 'unknown', 'electricity': 'unknown',
                               'heating': 'unknown', 'transport': 'unknown',
                               'telecomunication': 'unknown',
                               # 'age': 'undefined',
@@ -120,9 +120,10 @@ class Preprocessor(object):
         # fill <>_dist features
         dist_cols = [i for i in self.df.columns if 'dist' in i and 'ord' not in i and 'num' not in i]
         self.df.fillna(value={i: 10000 for i in dist_cols}, inplace=True)
-        self.df.fillna(value={i + '_ord': 10000 for i in dist_cols},  # -> after categorization mapped to arbitrary -999
-                       inplace=True)
-        self.df.fillna(value={i + '_num': -999 for i in dist_cols}, inplace=True)  # -> arbitrary
+        self.df.fillna(value={i + '_ord': 10000 for i in dist_cols},
+                       inplace=True)  # -> after categorization mapped to arbitrary highest ordinal value
+        self.df.fillna(value={i + '_num': -999 for i in dist_cols}, inplace=True)  # -> arbitrary to handle >1500m in
+        # numeric feature we will use indicator from one-hot to indicate whether >1500m
 
         # fill has_<> & no_barriers attributes
         has_cols = [i for i in self.df.columns if 'has' in i]
@@ -131,8 +132,8 @@ class Preprocessor(object):
         self.df.fillna(value={i: False for i in dist_cols}, inplace=True)
 
         # fill daily/nightly noise with simple mean imputation
-        self.df.fillna(values={'daily_noise': self.df['daily_noise'].mean(skipna=True)}, inplace=True)
-        self.df.fillna(values={'nightly_noise': self.df['nightly_noise'].mean(skipna=True)}, inplace=True)
+        self.df.fillna(values={'daily_noise': float(self.df['daily_noise'].mean(skipna=True))}, inplace=True)
+        self.df.fillna(values={'nightly_noise': float(self.df['nightly_noise'].mean(skipna=True))}, inplace=True)
 
     def categorize(self):
         """
@@ -202,7 +203,7 @@ class Preprocessor(object):
         l = [f'{dists[i]}-{dists[i + 1] - 1}m' for i in range(len(dists[:-2]))] + ['>=1500m']
         for col in dist_cols:
             self.df[col] = self.df[col].replace(
-                {k: v for k, v in zip(l, list(range(1, len(l))) + [0])})
+                {k: v for k, v in zip(l, list(range(1, len(l) + 1)))})
 
     def scale(self):
         """
@@ -228,16 +229,9 @@ class Preprocessor(object):
 if __name__ == '__main__':
     data = pd.read_csv('/home/emanuel/Music/prodej_breality_scraped.csv')
     pr = Preprocessor(data)
-    pr.impute()
-    pr.encode()
+    pr()
 
     # TODO changes:
-    #  gas ?? --> binary hasgas <<
-    #  waste
-    #  electricity
-    #  place, transport -> move to description
-    #  no barriers not present -> remove ??
-    #  telecomunication  >> to description ???
     #  TODO  some preprocessing will need to be always on whole dataset e.g. robust scaling ???
     #  TODO maybe preprocessor step should be done as last after all data are appended to final csv so all scalings etc
     #   will return relevant values
