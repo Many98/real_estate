@@ -240,9 +240,6 @@ class Generator(object):
 
 
 if __name__ == '__main__':
-    data = pd.read_csv('/home/emanuel/Music/prodej_breality_scraped.csv')
+    data = pd.read_csv('../data/prodej_breality_scraped.csv')
     en = Enricher(data)
-    en.add_osm_data(dist=1500)
-    print('f')
-    #en.add_gp('/home/emanuel/Documents/real_estate/src/models/fitted_gp_low')
-    #en.add_quality_data(path='/home/emanuel/Documents/real_estate/data/geodata')
+    en()
