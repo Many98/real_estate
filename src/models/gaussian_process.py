@@ -7,6 +7,8 @@ import numpy as np
 from typing import Union
 import os
 import pickle
+import py7zr
+import requests
 
 # TODO see https://towardsdatascience.com/tree-boosting-for-spatial-data-789145d6d97d
 #  GPBoost kind of mix of gradient boosted trees with gaussian processes
@@ -60,7 +62,7 @@ def gp_train(grid: Union[list, dict], bbox: tuple = (14.0, 14.8, 49.9, 50.3),
 
 
 def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path: str =
-                 '../data/_atlas_cen_scraped.csv'):
+                 '../data/_atlas_cen_scraped.csv') -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Performs prediction using pickled model
     Parameters
@@ -73,6 +75,16 @@ def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path:
     -------
 
     """
+    if not os.path.isfile(model_path):
+        with requests.get('https://zenodo.org/record/7319710/files/fitted_gp_low.7z?download=1', stream=True) as r:
+            with open('models/fitted_gp_low.7z', 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+    if '7z' in model_path:
+        if not os.path.isfile(os.path.split(model_path)[0]):
+            with py7zr.SevenZipFile(model_path, mode='r') as z:
+                z.extractall(path=os.path.split(model_path)[0])
+        model_path = os.path.split(model_path)[0]
     if os.path.isfile(model_path):
         gp_model = pickle.load(open(model_path, 'rb'))
     else:
