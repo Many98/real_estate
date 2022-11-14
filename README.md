@@ -21,6 +21,9 @@ Processing runs in two phases:
 Implementation is also implemented in 2 main classes:
 * `ETL` class handles data obtaining and preprocessings
 * `Model` class operates on preprocessed data by `ETL`
+   the model itself will probably be one of
+   - Xgboost on (tabular data + embeddings textual descriptions)
+   - ensemble of Xgboost on tabular data & Electra (small-e-czech) on textual descriptions
 
 #### Graphical proposal of processing logic 
 
