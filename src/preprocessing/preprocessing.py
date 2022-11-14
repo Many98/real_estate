@@ -178,10 +178,10 @@ class Preprocessor(object):
         # one-hot encoding
         self.df = pd.get_dummies(self.df, columns=['energy_effeciency', 'ownership', 'equipment',
                                                    'state',
-                                                   'disposition'  # TODO needs known exact levels
-                                                   'construction_type', 'year_reconstruction', 'heating',
+                                                   'disposition'
+                                                   'construction_type', 'year_reconstruction',
                                                    'air_quality', 'built_density', 'sun_glare',
-                                                   # 'gas', 'waste', 'telecomunication', 'electricity',
+                                                   'gas', 'waste', 'telecomunication', 'electricity', 'heating',
                                                    ] +
                                                   [i for i in self.df.columns if
                                                    'dist' in i and 'ord' not in i and 'num' not in i],
