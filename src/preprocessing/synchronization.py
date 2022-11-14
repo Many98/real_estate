@@ -39,9 +39,9 @@ class Synchronizer(object):
 
         """
         try:
+            # dataframes to be synchronized
             self.sreality_df = pd.read_csv(sreality_csv_path).iloc[self.from_row[0]:, :]
-            self.breality_df = pd.read_csv(breality_csv_path).iloc[self.from_row[1]:,
-                               :]  # dataframes to be synchronized
+            self.breality_df = pd.read_csv(breality_csv_path).iloc[self.from_row[1]:, :]
         except Exception as e:
             print(e)
 
@@ -50,10 +50,74 @@ class Synchronizer(object):
         self.check_dtypes()  # checks dtypes on both dataframes
         self.unify()
         self.merge_text()
+        self.remove()
 
-        self.final_df.to_csv(os.path.join('..', '..', 'data/tmp_synchronized.csv'), mode='w', index=False)
+        if self.integrity_check():
+            self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
 
         return self.final_df
+
+    def integrity_check(self) -> bool:
+        """
+        auxiliary function to check integrity
+        Returns
+        -------
+
+        """
+        assert self.final_df.ownership.isin(np.array(['Osobní', 'Státní/obecní', 'Družstevní', np.nan],
+                                                     dtype=object)).all(), \
+            '`ownership` contains unexpected value'
+        assert self.final_df.price.min() > 1000, '`price` must be positive'
+        assert self.final_df.usable_area.min() > 0, '`usable_area` must be positive'
+        assert -5 < self.final_df.floor.min() and self.final_df.floor.max() < 100, '`floor` must be >-5'
+        assert self.final_df.energy_effeciency.isin(np.array([np.nan, 'G', 'E', 'B', 'D', 'C',
+                                                              'A', 'F'], dtype=object)).all(), \
+            '`energy_effeciency` contains unexpected value'
+        assert 13 < self.final_df.long.min() and self.final_df.long.max() < 16, '`long` must be within [14, 16]'
+        assert 49 < self.final_df.lat.min() and self.final_df.lat.max() < 51, '`lat` must be within [49, 51]'
+
+        assert self.final_df.equipment.isin(np.array(['ne', np.nan, 'Částečně', 'ano'], dtype=object)).all(), \
+            '`equipment` contains unexpected value'
+        assert self.final_df.state.isin(np.array([np.nan, 'V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci',
+                                                  'Novostavba', 'Velmi dobrý', 'Dobrý', 'Ve výstavbě', 'Projekt',
+                                                  'Špatný', ], dtype=object)).all(), \
+            '`state` contains unexpected value'
+        assert self.final_df.construction_type.isin(
+            np.array([np.nan, 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná',
+                      'Montovaná', 'Nízkoenergetická'], dtype=object)).all(), \
+            '`construction_type` contains unexpected value'
+        assert self.final_df.disposition.isin(
+            np.array([np.nan, '1+kk', '1+1', '3+1', '3+kk', '2+kk', '4+1', '2+1', '5+kk', '4+kk',
+                      'atypické', '6', '5+1', '6+kk'], dtype=object)).all(), \
+            '`disposition` contains unexpected value'
+        assert self.final_df.additional_disposition.isin(np.array([np.nan, 'Podkrovní', 'Loft', 'Mezonet'],
+                                                                  dtype=object)).all(), \
+            '`additional_disposition` contains unexpected value'
+        assert 0 <= self.final_df.year_reconstruction.min(), \
+            '`year_reconstruction` must be within positive'
+
+        bool_cols = ['gas', 'electricity', 'waste', 'heating', 'telecomunication'] + \
+                    [col for col in self.final_df if 'has' in col and 'hash' not in col]
+        for col in bool_cols:
+            assert self.final_df[col].isin(np.array([np.nan, True, False])).all(), \
+                f'`{col}` contains unexpected value'
+
+        dist_cols = [col for col in self.final_df if 'dist' in col]
+        for col in dist_cols:
+            assert self.final_df[col].min() >= 0, f'`{col}` must be  positive'
+
+        return True
+
+    def remove(self):
+        """
+        auxiliary method to remove some records with unexpected values e.g. price <=0; rental price instead
+        of sellling price
+        Returns
+        -------
+
+        """
+        self.final_df.drop(self.final_df.loc[self.final_df['price'] <= 0].index, inplace=True)
+        self.final_df.drop(self.final_df.loc[self.final_df['header'].str.contains('Pronájem')].index, inplace=True)
 
     def unify(self):
         """
@@ -61,29 +125,32 @@ class Synchronizer(object):
         Returns
         -------
         """
-        # TODO HERE PERFORM UNIFICATION ON DATAFRAMES `sreality_df` and `breality_df`
-        #  i.e. there cannot be redundancy i.e. instead of result
-        #  of `self.final_df['ownership'].unique()` `array(['Osobní', 'Státní/obecní', 'Družstevní', nan, 'OSOBNI',
-        #        'UNDEFINED', 'DRUZSTEVNI'])`
-        #  we want to have just `array(['Osobní', 'Státní/obecní', 'Družstevní', nan])`
-        #  and similar for other columns
-
-        # here add your code
-        self.final_df = pd.concat([self.sreality_df, self.breality_df])
+        self.final_df = pd.concat([self.sreality_df, self.breality_df], ignore_index=True)
         self.final_df = self.final_df.replace("nan", np.nan)
+
         self.final_df["ownership"] = self.final_df["ownership"].replace("OSOBNI", "Osobní")
         self.final_df["ownership"] = self.final_df["ownership"].replace("DRUZSTEVNI", "Družstevní")
         self.final_df["ownership"] = self.final_df["ownership"].replace("UNDEFINED", np.nan)
+
         self.final_df["equipment"] = self.final_df["equipment"].replace("VYBAVENY", "ano")
         self.final_df["equipment"] = self.final_df["equipment"].replace("NEVYBAVENY", "ne")
         self.final_df["equipment"] = self.final_df["equipment"].replace("VYBAVENY", "ano")
         self.final_df["equipment"] = self.final_df["equipment"].replace("CASTECNE", "Částečně")
+
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("CIHLA", "Cihlová")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("OSTATNI", "Smíšená")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("PANEL", "Panelová")
-        self.final_df["construction_type"] = self.final_df["construction_type"].replace("NIZKOENERGETICKY", "Nízkoenergetická")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("NIZKOENERGETICKY",
+                                                                                        "Nízkoenergetická")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("UNDEFINED", np.nan)
-        self.final_df["condition"] = self.final_df["condition"].replace("UNDEFINED", np.nan)
+
+        self.final_df["state"] = self.final_df["state"].replace("UNDEFINED", np.nan)
+        self.final_df["state"] = self.final_df["state"].replace("VERY_GOOD", 'Velmi dobrý')
+        self.final_df["state"] = self.final_df["state"].replace("GOOD", 'Dobrý')
+        self.final_df["state"] = self.final_df["state"].replace("NEW", 'Novostavba')
+        self.final_df["state"] = self.final_df["state"].replace("BAD", 'Špatný')
+        self.final_df["state"] = self.final_df["state"].replace("CONSTRUCTION", 'V rekonstrukci')
+
         self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_6_KK", "6+kk")
         self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_2_KK", "2+kk")
         self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_4_KK", "4+kk")
@@ -98,8 +165,6 @@ class Synchronizer(object):
         self.final_df["disposition"] = self.final_df["disposition"].replace("OSTATNI", "atypické")
         self.final_df["disposition"] = self.final_df["disposition"].replace("GARSONIERA", "1+kk")
         self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_5_1", "5+1")
-
-        pass
 
     def merge_text(self):
         """
@@ -117,7 +182,9 @@ class Synchronizer(object):
         cols = ['note', 'tags', 'place', 'transport', 'telecomunication_txt', 'heating_txt', 'additional_disposition',
                 'waste_txt', 'electricity_txt']
         for col in cols:
+            self.final_df[col].fillna('', inplace=True)
             self.final_df['description'] += ' ' + self.final_df[col]
+            self.final_df[col] = self.final_df[col].replace('', np.nan)
 
     def check_dtypes(self):
         """
@@ -126,11 +193,9 @@ class Synchronizer(object):
         -------
 
         """
-        # TODO HERE check dtypes on both dataframes or on final its up to you
-        #  e.g. with assert statemnets
+
         self.breality_df["price"] = self.breality_df["price"].astype("float64")
         self.sreality_df["note"] = self.sreality_df["note"].astype("str")
-        self.breality_df["note"] = self.breality_df["note"].astype("str")
         self.breality_df["usable_area"] = self.breality_df["usable_area"].astype("float64")
         self.breality_df["gas"] = self.breality_df["gas"].astype("str")
         self.breality_df["waste"] = self.breality_df["waste"].astype("str")
@@ -142,10 +207,6 @@ class Synchronizer(object):
         self.breality_df["electricity_txt"] = self.breality_df["electricity_txt"].astype("str")
         self.breality_df["telecomunication_txt"] = self.breality_df["telecomunication_txt"].astype("str")
         self.breality_df["additional_disposition"] = self.breality_df["additional_disposition"].astype("str")
-
-
-
-        pass
 
     def extract_breality_data(self) -> None:
         """
@@ -172,27 +233,9 @@ class Synchronizer(object):
 
         self.breality_df["has_parking"] = self.breality_df["has_parking"].apply(
             lambda x: True if x == True else False)
-        self.breality_df["MHD"] = self.breality_df["MHD"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["post_office"] = self.breality_df["post_office"].apply(
-            lambda x: True if x == True else False)
 
-        self.breality_df["bank"] = self.breality_df["bank"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["school"] = self.breality_df["school"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["kindergarten"] = self.breality_df["kindergarten"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["supermarket_grocery"] = self.breality_df["supermarket_grocery"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["restaurant_pub"] = self.breality_df["restaurant_pub"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["playground"] = self.breality_df["playground"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["sports_field"] = self.breality_df["sports_field"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["pharmacy"] = self.breality_df["pharmacy"].apply(
-            lambda x: True if x == True else False)
+        if self.breality_df.state.isin(np.array(['INTERNAL', 'ALL', 'EXTERNAL', 'CORE', np.nan], dtype=object)).all():
+            self.breality_df.state = self.breality_df.condition
 
         self.breality_df['heating'] = self.breality_df['heating'].apply(
             lambda x: bool(x) if x is not np.nan else np.nan)
@@ -274,7 +317,7 @@ class Synchronizer(object):
         self.sreality_df['additional_disposition'] = self.sreality_df['header'].apply(
             lambda x: x.split('(')[-1].split(')')[0].replace(x.split('(')[0].split(')')[0],
                                                              '') if x is not np.nan else np.nan)
-
+        self.sreality_df['additional_disposition'] = self.sreality_df['additional_disposition'].replace('', np.nan)
         self.sreality_df['disposition'] = self.sreality_df['header'].apply(
             lambda x: x.split()[2] if x is not np.nan else np.nan)
 
@@ -301,6 +344,7 @@ class Synchronizer(object):
                 self.sreality_df[col] = False
 
 
-synchronizer = Synchronizer(tuple([0, 0]))
-synchronizer(sreality_csv_path=os.path.join('..', '..', 'data/prodej_sreality_scraped.csv'),
-             breality_csv_path=os.path.join('..', '..', 'data/prodej_breality_scraped.csv'))
+if __name__ == '__main__':
+    synchronizer = Synchronizer(from_row=(0, 0))
+    synchronizer(sreality_csv_path=os.path.join('..', '..', 'data/prodej_sreality_scraped.csv'),
+                 breality_csv_path=os.path.join('..', '..', 'data/prodej_breality_scraped.csv'))
