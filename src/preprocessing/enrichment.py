@@ -25,7 +25,7 @@ class Enricher(object):
         self.df = df  # dataframe to be enriched
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.add_gp('../models/fitted_gp_low')
+        self.add_gp('models/fitted_gp_low')
         self.add_quality_data('../data/geodata/')
         self.add_criminality_data()
         self.add_osm_data()
