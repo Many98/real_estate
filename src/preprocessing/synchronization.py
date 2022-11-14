@@ -84,7 +84,20 @@ class Synchronizer(object):
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("NIZKOENERGETICKY", "Nízkoenergetická")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("UNDEFINED", np.nan)
         self.final_df["condition"] = self.final_df["condition"].replace("UNDEFINED", np.nan)
-
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_6_KK", "6+kk")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_2_KK", "2+kk")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_4_KK", "4+kk")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_1_1", "1+1")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_3_KK", "3+kk")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_1_KK", "1+kk")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_2_1", "2+1")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_2_IZB", "2+1")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_4_1", "4+1")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_5_KK", "5+kk")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_3_1", "3+1")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("OSTATNI", "atypické")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("GARSONIERA", "1+kk")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_5_1", "5+1")
 
         pass
 
