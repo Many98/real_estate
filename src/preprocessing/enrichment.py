@@ -3,10 +3,11 @@ import numpy as np
 import os
 
 import geopandas as gpd
-import rioxarray
 import xarray as xr
 
-import fasttext
+import requests
+from compress_fasttext.feature_extraction import FastTextTransformer
+from compress_fasttext.models import CompressedFastTextKeyedVectors
 
 from tqdm import tqdm
 
@@ -28,7 +29,9 @@ class Enricher(object):
         self.add_quality_data('../data/geodata/')
         self.add_criminality_data()
         self.add_osm_data()
-        self.add_embeddings()
+        self.add_fasttext_embeddings()
+        self.add_electra_embeddings()
+        self.add_roberta_embeddings()
 
         self.df.to_csv('../data/tmp_enriched.csv', mode='w', index=False)
 
@@ -185,10 +188,39 @@ class Enricher(object):
                                         dist_type='great_circle')
                 self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
 
-    def add_embeddings(self):
-        # fasttext.util.download_model('cs', if_exists='strict') # download model for czech
-        ft = fasttext.load_model('/media/emanuel/data/fasttext/cc.cs.300.bin')
-        # TODO model too big to fit into memory
+    def add_fasttext_embeddings(self):
+        """
+        adds fasttext embeddings
+        Note that fasttext binaries are very huge, for czech it is about 7GB therefore
+        compressed fasttext model is used instead. for details see
+        https://vasnetsov93.medium.com/shrinking-fasttext-embeddings-so-that-it-fits-google-colab-cd59ab75959e
+        https://github.com/avidale/compress-fasttext
+        Returns
+        -------
+
+        """
+        # fasttext.util.download_model('cs', if_exists='strict') # download model for czech -> too big
+        # https://github.com/avidale/compress-fasttext
+        if not os.path.isfile('models/fasttext-cs-mini'):
+            with requests.get('https://zenodo.org/record/4905385/files/fasttext-cs-mini?download=1', stream=True) as r:
+                with open('models/fasttext-cs-mini', 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+        small_model = CompressedFastTextKeyedVectors.load('models/fasttext-cs-mini')
+
+        # `FastTextTransformer` has sklearn-like API
+        ft = FastTextTransformer(model=small_model)
+
+        embeddings = ft.transform(self.df.description)  # represents a text as the average of the embedding of its words
+
+        dd = pd.DataFrame(data=embeddings, columns=[f'ft_emb_{i}' for i in range(1, embeddings.shape[1] + 1)])
+        self.df = pd.concat([self.df, dd], axis=1)
+
+    def add_electra_embeddings(self):
+        pass
+
+    def add_roberta_embeddings(self):
+        pass
 
 
 class Generator(object):
