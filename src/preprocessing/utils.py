@@ -77,7 +77,7 @@ def osmnx_call(long: float, lat: float, dist: int, tags: dict) -> gpd.GeoDataFra
     -------
 
     """
-    ox.config(use_cache=True, log_console=True)
+    ox.config(use_cache=True, log_console=True, cache_folder='preprocessing/cache')
     gdf = ox.geometries_from_point((lat, long), tags, dist)
 
     # only POLYGONS, MULTIPOLYGONS and POINTS are allowed
