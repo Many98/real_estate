@@ -69,8 +69,24 @@ class Synchronizer(object):
         #  and similar for other columns
 
         # here add your code
-
         self.final_df = pd.concat([self.sreality_df, self.breality_df])
+        self.final_df = self.final_df.replace("nan", np.nan)
+        self.final_df["ownership"] = self.final_df["ownership"].replace("OSOBNI", "Osobní")
+        self.final_df["ownership"] = self.final_df["ownership"].replace("DRUZSTEVNI", "Družstevní")
+        self.final_df["ownership"] = self.final_df["ownership"].replace("UNDEFINED", np.nan)
+        self.final_df["equipment"] = self.final_df["equipment"].replace("VYBAVENY", "ano")
+        self.final_df["equipment"] = self.final_df["equipment"].replace("NEVYBAVENY", "ne")
+        self.final_df["equipment"] = self.final_df["equipment"].replace("VYBAVENY", "ano")
+        self.final_df["equipment"] = self.final_df["equipment"].replace("CASTECNE", "Částečně")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("CIHLA", "Cihlová")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("OSTATNI", "Smíšená")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("PANEL", "Panelová")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("NIZKOENERGETICKY", "Nízkoenergetická")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("UNDEFINED", np.nan)
+        self.final_df["condition"] = self.final_df["condition"].replace("UNDEFINED", np.nan)
+
+
+        pass
 
     def merge_text(self):
         """
@@ -99,6 +115,23 @@ class Synchronizer(object):
         """
         # TODO HERE check dtypes on both dataframes or on final its up to you
         #  e.g. with assert statemnets
+        self.breality_df["price"] = self.breality_df["price"].astype("float64")
+        self.sreality_df["note"] = self.sreality_df["note"].astype("str")
+        self.breality_df["note"] = self.breality_df["note"].astype("str")
+        self.breality_df["usable_area"] = self.breality_df["usable_area"].astype("float64")
+        self.breality_df["gas"] = self.breality_df["gas"].astype("str")
+        self.breality_df["waste"] = self.breality_df["waste"].astype("str")
+        self.breality_df["electricity"] = self.breality_df["electricity"].astype("str")
+        self.breality_df["transport"] = self.breality_df["transport"].astype("str")
+        self.breality_df["telecomunication"] = self.breality_df["telecomunication"].astype("str")
+        self.sreality_df["tags"] = self.sreality_df["tags"].astype("str")
+        self.breality_df["waste_txt"] = self.breality_df["waste_txt"].astype("str")
+        self.breality_df["electricity_txt"] = self.breality_df["electricity_txt"].astype("str")
+        self.breality_df["telecomunication_txt"] = self.breality_df["telecomunication_txt"].astype("str")
+        self.breality_df["additional_disposition"] = self.breality_df["additional_disposition"].astype("str")
+
+
+
         pass
 
     def extract_breality_data(self) -> None:
@@ -108,12 +141,48 @@ class Synchronizer(object):
         -------
 
         """
+
         self.breality_df['waste_txt'] = self.breality_df['waste']
         self.breality_df['electricity_txt'] = self.breality_df['electricity']
         self.breality_df['heating_txt'] = self.breality_df['heating']
         self.breality_df['telecomunication_txt'] = self.breality_df['telecomunication']
 
         self.breality_df['additional_disposition'] = np.array([np.nan] * self.breality_df.shape[0])
+
+        self.breality_df["has_cellar"] = self.sreality_df["has_cellar"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["has_loggia"] = self.sreality_df["has_loggia"].apply(
+            lambda x: True if x == True else False)
+
+        self.breality_df["has_garden"] = self.breality_df["has_garden"].apply(
+            lambda x: True if x is not np.nan else np.nan)
+
+        self.breality_df["has_parking"] = self.breality_df["has_parking"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["MHD"] = self.breality_df["MHD"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["post_office"] = self.breality_df["post_office"].apply(
+            lambda x: True if x == True else False)
+
+        self.breality_df["bank"] = self.breality_df["bank"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["school"] = self.breality_df["school"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["kindergarten"] = self.breality_df["kindergarten"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["supermarket_grocery"] = self.breality_df["supermarket_grocery"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["restaurant_pub"] = self.breality_df["restaurant_pub"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["playground"] = self.breality_df["playground"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["sports_field"] = self.breality_df["sports_field"].apply(
+            lambda x: True if x == True else False)
+        self.breality_df["pharmacy"] = self.breality_df["pharmacy"].apply(
+            lambda x: True if x == True else False)
+
+        self.breality_df['heating'] = self.breality_df['heating'].apply(
+            lambda x: bool(x) if x is not np.nan else np.nan)
 
     def extract_sreality_data(self) -> None:
         """
@@ -215,6 +284,8 @@ class Synchronizer(object):
                 lambda x: str(x).replace('Topení:', '') if x is not np.nan else np.nan)
             self.sreality_df[col] = self.sreality_df[col].apply(
                 lambda x: True if x is not np.nan and x not in ('', 'ne') else False)
+            if col == "has_garden":
+                self.sreality_df[col] = False
 
 
 synchronizer = Synchronizer(tuple([0, 0]))
