@@ -263,6 +263,7 @@ if __name__ == "__main__":
 
     etl = ETL(inference=False)
     final_data = etl()
+    # TODO prepare final data and perform final corrections and checks on `ETL` class
 
     model = Model(data=final_data, inference=False)
     # inference phase pd.DataFrame with features and predicted prices
