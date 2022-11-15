@@ -1,31 +1,14 @@
 # documentation: https://docs.streamlit.io/
 # more: https://extras.streamlitapp.com/Altex
-import streamlit as st
 import base64
-import streamlit as st
 # pip install streamlit_option_menu
 from streamlit_option_menu import option_menu
-import pandas as pd
 import numpy as np
-import io
 import os
-import streamlit as st
-from PIL import Image
 from streamlit_folium import folium_static
 import folium
-import requests
-from requests.exceptions import ConnectionError
 import streamlit as st
-from folium.plugins import Draw
-from geopy.geocoders import Nominatim
-from streamlit_folium import st_folium
-import pickle  # to load a saved model
-from selenium import webdriver
-from selenium.webdriver.remote.webdriver import WebDriver
-from bs4 import BeautifulSoup
-import json
 import joblib
-from sklearn.ensemble import RandomForestRegressor
 
 st.set_page_config(page_title='Real e-state', page_icon="chart_with_upwards_trend", initial_sidebar_state="collapsed")
 
