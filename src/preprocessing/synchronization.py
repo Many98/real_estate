@@ -22,7 +22,9 @@ class Synchronizer(object):
                                              from_row[1] -> breality TODO make this more robust
         """
         self.from_row = from_row
-        self.final_df = None
+        self.final_df = pd.DataFrame()
+        self.sreality_df = pd.DataFrame()
+        self.breality_df = pd.DataFrame()
 
     def __call__(self, sreality_csv_path: str, breality_csv_path: str, *args, **kwargs) -> pd.DataFrame:
         """
@@ -42,18 +44,19 @@ class Synchronizer(object):
             # dataframes to be synchronized
             self.sreality_df = pd.read_csv(sreality_csv_path).iloc[self.from_row[0]:, :]
             self.breality_df = pd.read_csv(breality_csv_path).iloc[self.from_row[1]:, :]
-        except Exception as e:
-            print(e)
+        except:
+            pass
 
-        self.extract_sreality_data()
-        self.extract_breality_data()
-        self.check_dtypes()  # checks dtypes on both dataframes
-        self.unify()
-        self.merge_text()
-        self.remove()
+        if not self.sreality_df.empty or not self.breality_df.empty:
+            self.extract_sreality_data()
+            self.extract_breality_data()
+            self.check_dtypes()  # checks dtypes on both dataframes
+            self.unify()
+            self.merge_text()
+            self.remove()
 
-        if self.integrity_check():
-            self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
+            if self.integrity_check():
+                self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
 
         return self.final_df
 
@@ -108,10 +111,32 @@ class Synchronizer(object):
 
         return True
 
+    def _clean_description(self):
+        """
+        auxiliary method to clean a bit description column
+        by removing price from it
+        Returns
+        -------
+
+        """
+        self.final_df['description'] = self.final_df['description'].apply(lambda x: re.sub(r'[0-9]{6,10}', '', x))
+        for i in ['Zlevněno', 'Původní cena', 'price']:
+            self.final_df['description'] = self.final_df['description'].apply(lambda x: re.sub(i, '', x))
+
+    def _hash_it(self):
+        """
+        auxiliary method to add hashes based on every record values and based on description value
+        Returns
+        -------
+
+        """
+        self.final_df['hash'] = pd.util.hash_pandas_object(self.breality_df, index=False)
+        self.final_df['desc_hash'] = pd.util.hash_pandas_object(self.breality_df['description'], index=False)
+
     def remove(self):
         """
         auxiliary method to remove some records with unexpected values e.g. price <=0; rental price instead
-        of sellling price
+        of sellling price & also records with same hashes (remove duplicates)
         Returns
         -------
 
@@ -166,6 +191,8 @@ class Synchronizer(object):
         self.final_df["disposition"] = self.final_df["disposition"].replace("GARSONIERA", "1+kk")
         self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_5_1", "5+1")
 
+        self._hash_it()
+
     def merge_text(self):
         """
         method for merging all columns which should be processed by NLP
@@ -179,6 +206,8 @@ class Synchronizer(object):
         -------
 
         """
+        self._clean_description()  # remove prices from description
+
         cols = ['note', 'tags', 'place', 'transport', 'telecomunication_txt', 'heating_txt', 'additional_disposition',
                 'waste_txt', 'electricity_txt']
         for col in cols:
