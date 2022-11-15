@@ -100,7 +100,7 @@ if selected == "Prediction by URL":
         if 'bezrealitky' or 'sreality' not in url:
             pass
         else:
-            filename = os.path.join('../', 'data', 'urls')
+            filename = os.path.join('../data/predict_links.txt')
             if not os.path.exists(filename):
                 with open(filename, 'w') as f:
                     f.write(url)
