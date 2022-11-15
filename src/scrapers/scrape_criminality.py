@@ -1,5 +1,4 @@
 import pandas as pd
-
 '''
 for i in range(12, 23):
     url = "https://kriminalita.policie.cz/api/v2/downloads/20"+str(i)+"_554782.geojson"
@@ -11,6 +10,7 @@ for i in range(12, 23):
 '''
 def filter_rows_by_values(df, col, values):
     return df[~df[col].isin(values)]
+
 
 df_crim = pd.DataFrame()
 for j in range(12, 23):
@@ -24,5 +24,17 @@ for j in range(12, 23):
     df = filter_rows_by_values(df, "types", indexes_2)
     df_crim = df_crim.append(df)
 
-df_crim.to_csv('criminality.csv', sep=',', encoding='utf-8')
+# df_crim["types"] = df_crim["types"].astype(str)
+df_crim["types"] = df_crim["types"].replace(79, "Dopravní nehody", regex=True)
+for l in range(88, 97):
+    df_crim["types"] = df_crim["types"].replace(l, "Extremismus", regex=True)
+for m in range(63, 74):
+    df_crim["types"] = df_crim["types"].replace(m, "Obecně nebezpečná", regex=True)
+for k in range(35, 54):
+    df_crim["types"] = df_crim["types"].replace(k, "Krádeže", regex=True)
+for j in range(18, 35):
+    df_crim["types"] = df_crim["types"].replace(j, "Krádeže vloupáním", regex=True)
+for i in range(1, 13):
+    df_crim["types"] = df_crim["types"].replace(i, "Násilné", regex=True)
 print(df_crim.info())
+df_crim.to_csv('criminality.csv', sep=',', encoding='utf-8')
