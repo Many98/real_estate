@@ -16,14 +16,13 @@ class Preprocessor(object):
         self.df = df  # dataframe to be preprocessed
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.expand()
-        self.impute()
-        self.categorize()
-        self.encode()
-        self.scale()
-        self.remove()
-
-        self.df.to_csv('../data/tmp_preprocessed.csv', mode='w', index=False)
+        if not self.df.empty:
+            self.expand()
+            self.impute()
+            self.categorize()
+            self.encode()
+            self.scale()
+            self.remove()
 
         return self.df
 
@@ -223,7 +222,7 @@ class Preprocessor(object):
         -------
 
         """
-        pass
+        self.df.drop_duplicates(subset=['hash'], ignore_index=True, inplace=True)
 
 
 if __name__ == '__main__':
