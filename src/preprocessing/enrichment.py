@@ -25,15 +25,14 @@ class Enricher(object):
         self.df = df  # dataframe to be enriched
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.add_gp('models/fitted_gp_low')
-        self.add_quality_data('../data/geodata/')
-        self.add_criminality_data()
-        self.add_osm_data()
-        self.add_fasttext_embeddings()
-        self.add_electra_embeddings()
-        self.add_roberta_embeddings()
-
-        self.df.to_csv('../data/tmp_enriched.csv', mode='w', index=False)
+        if not self.df.empty:
+            self.add_gp('models/fitted_gp_low')
+            self.add_quality_data('../data/geodata/')
+            self.add_criminality_data()
+            self.add_osm_data()
+            self.add_fasttext_embeddings()
+            self.add_electra_embeddings()
+            self.add_roberta_embeddings()
 
         return self.df
 
@@ -234,7 +233,8 @@ class Generator(object):
         self.df = df  # dataframe to be enriched
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.df.to_csv('../data/tmp_final.csv', mode='w', index=False)
+        if not self.df.empty:
+            pass
 
         return self.df
 
