@@ -1,20 +1,13 @@
 import time
 
-import pandas as pd
-import csv
-import os
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
-from selenium import webdriver
 from bs4 import BeautifulSoup
+from datetime import datetime
 import json
-import re
-import json
-import urllib3
 from scrapers.BaseScraper import BaseScraper
 
 
@@ -23,33 +16,19 @@ class BezRealitkyScraper(BaseScraper):
         super().__init__(name, delay)
 
     def scrape(self, driver: WebDriver, url: str) -> dict:
-        """Here comes custom implementation for bezrealitky
+        """
+        Here comes custom implementation for bezrealitky.cz
             E.g.  method must be able to scrape all relevant data from urls like
                 https://www.bezrealitky.cz/nemovitosti-byty-domy/742622-nabidka-prodej-bytu
-                Output should be dictionary e.g. {'header': 'Prodej bytu 4+kk • 123 m² bez realitky',
-                                              'price': 17 850 000,
-                                              'plocha': 123,
-                                              'long': 45.1,
-                                              'lat': 15.5} ... etc.
-
-                dictionary is required 'cause it is straighforward to create pd.DataFrame on it and easily export to csv
-                for details see `scrapers.BaseScraper`
-
-
-            *    Here should be scraped all tabular data and also longitude and latitude (in bezrealitky its ussually
-                as easy as looking for `lng` keyword in html code) ...
-                and returned as dictionary
-
-
-            *    method should also retrieve urls of image data a then call `self._save_image(img_url, url)` (probably in for loop)
-                ( save_image method will create unique hash for web_url which will serve as directory name for all images for
-                that web_url)
-            *  similarly for text data call self._save_text(text, url)
-
-            * finally update dictionary  e.g. result.update({'hash': self._hash(url)}) (it will append particular hash (filename))
-             to dictionary as we need reference where are stored images and text for specific url
-                for particular `url`
-
+        Parameters
+        ----------
+        driver : WebDriver
+            instance of selenium's WebDriver
+        url : str
+            url link to be scraped
+        Returns
+        -------
+        dict with specific keys and scraped values
         """
         if 'bezrealitky' not in url:  # ensures correct link
             return {}
@@ -82,6 +61,8 @@ class BezRealitkyScraper(BaseScraper):
                     dict_3 = dict_.get('gps', {})
 
                 out = {
+                    'name': self.name,
+                    'date': datetime.today().strftime('%Y-%m-%d'),
                     'header': dict_.get('imageAltText', None),
                     # text description of disposition e.g. 3 + kk
                     'price': dict_.get('price', None),  # Celková cena
@@ -129,24 +110,6 @@ class BezRealitkyScraper(BaseScraper):
                     'tags': '_'.join(dict_.get('tags', [])),
                     'disposition': dict_.get('disposition', None),
 
-                    # binary civic amenities (obcanska vybavenost binarne info)
-                    # TODO DEPRECATED (DIST attributes are enough) -> csv needs updates
-                    # 'bus_station': None,
-                    # 'train_station': None,
-                    # 'post_office': None,
-                    # 'atm': None, # bankomat according to google translate :D
-                    # 'doctor': None,
-                    # 'vet': None,
-                    # 'primary_school': None,
-                    # 'kindergarten': None,
-                    # 'supermarket_grocery': None,
-                    # 'restaurant_pub': None,
-                    # 'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
-                    # 'subway': None,
-                    # 'tram': None,
-                    # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-                    # 'theatre_cinema': None,
-
                     # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
                     'bus_station_dist': None,
                     'train_station_dist': None,
@@ -155,7 +118,6 @@ class BezRealitkyScraper(BaseScraper):
                     'MHD_dist': None,
                     'post_office_dist': None,
                     'atm_dist': None,
-                    'bank_dist': None,
                     'doctor_dist': None,
                     'vet_dist': None,
                     'primary_school_dist': None,
@@ -168,15 +130,6 @@ class BezRealitkyScraper(BaseScraper):
                     # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
                     'theatre_cinema_dist': None,
                     'pharmacy_dist': None
-
-                    # additional info # TODO DEPRECATED (HAS-like attributes are enough) -> needs update csv
-                    # 'cellar_area': None, # plocha sklepu (if provided)
-                    # 'loggia_area': None,
-                    # 'bank_dist': None,
-                    # 'age': dict_.get('age', None),
-                    # 'condition': dict_.get('condition', None),
-                    # 'is_new': dict_.get('newBuilding', None),
-                    # 'balcony_area': None
 
                 }
 
