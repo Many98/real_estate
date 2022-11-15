@@ -19,7 +19,7 @@ from typing import Union
 class ETL(object):
     """class encapsulating whole preprocessing/ETL logic for data
 
-        ?price map? | <crawl> -> [scrape] -> [enrich] -> [synchronize] -> [preprocess] -> [generate] => pd.DataFrame
+        ?price map? | <crawl> -> [scrape] -> [synchronize] -> [enrich] -> [preprocess] -> [generate] => pd.DataFrame
         Model generation will be independent of this ETL pipeline
 
     Overall steps in ETL should be:
@@ -38,7 +38,7 @@ class ETL(object):
     5.  Feature engineering i.e.
        [preprocess] a) necessary preprocessing like handling missing values, one-hot encoding,
                        scaling features (if necessary e.g. for linear regression model) etc. # TODO (Emanuel)
-       [generate] b) generation of additional/aggregate features # TODO (Adama)
+       [generate] b) generation of additional/aggregate features # TODO (Adam)
                         (requires research of e.g. econometrial methods)  # TODO reserch (Hanka)
     ---------------------------------
 

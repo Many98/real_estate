@@ -509,6 +509,9 @@ class SRealityScraper(BaseScraper):
                 if "Bezbariérový přístup:" in slovnik:
                     out["no_barriers"] = slovnik["Bezbariérový přístup:"]
                     del slovnik["Bezbariérový přístup:"]
+                elif "Bezbariérový:" in slovnik:
+                    out["no_barriers"] = slovnik["Bezbariérový:"]
+                    del slovnik["Bezbariérový:"]
                 if "Lodžie:" in slovnik:
                     out["has_loggia"] = slovnik["Lodžie:"]
                     del slovnik["Lodžie:"]

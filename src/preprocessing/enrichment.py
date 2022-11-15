@@ -3,8 +3,11 @@ import numpy as np
 import os
 
 import geopandas as gpd
-import rioxarray
 import xarray as xr
+
+import requests
+from compress_fasttext.feature_extraction import FastTextTransformer
+from compress_fasttext.models import CompressedFastTextKeyedVectors
 
 from tqdm import tqdm
 
@@ -22,11 +25,13 @@ class Enricher(object):
         self.df = df  # dataframe to be enriched
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.add_gp('../models/fitted_gp_low')
+        self.add_gp('models/fitted_gp_low')
         self.add_quality_data('../data/geodata/')
         self.add_criminality_data()
         self.add_osm_data()
-        self.add_embeddings()
+        self.add_fasttext_embeddings()
+        self.add_electra_embeddings()
+        self.add_roberta_embeddings()
 
         self.df.to_csv('../data/tmp_enriched.csv', mode='w', index=False)
 
@@ -110,8 +115,6 @@ class Enricher(object):
         -------
 
         """
-        # TODO prepare gdf here
-        # TODO add new column to sreality and breality scraper
 
         tags = {'leisure': ['park', 'dog_park',  # park
                             'playground',  # hriste
@@ -120,12 +123,13 @@ class Enricher(object):
                             'kindergarten',  # skolka
                             'cafe', 'pub', 'restaurant',  # restaurace/krcma
                             'atm',  # bankomat
-                            'post_office'  # posta
+                            'post_office',  # posta
                             'clinic', 'hospital',  # doktory
                             'veterinary',  # veterinar
                             'pharmacy',  # lekarna
                             'cinema', 'theatre',  # kino/divadlo
                             ],
+                'building': ['train_station'],
                 'shop': ['supermarket', 'mall', 'general'],  # obchod
                 'highway': ['bus_stop'],  # bus
                 'railway': ['tram_stop', 'station'],  # tram / train station
@@ -160,15 +164,62 @@ class Enricher(object):
                 [i for i in self.df.columns if 'dist' in i and 'park' not in i]].isnull().values.any():
                 nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
                                         dist_type='great_circle')
+
+                self.df.at[_, 'bus_station_dist'] = float(nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
+                self.df.at[_, 'train_station_dist'] = float(nearest[nearest.what.str.contains('train')]['dist'].min())
+                self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
+                self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
+                self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
+                self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atn')]['dist'].min())
+                self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
+                self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
+                self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
+                self.df.at[_, 'kindergarten_dist'] = float(nearest[nearest.what.str.contains('kinder')]['dist'].min())
+                self.df.at[_, 'supermarket_grocery_dist'] = float(nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
+                self.df.at[_, 'restaurant_pub_dist'] = float(nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
+                self.df.at[_, 'playground_dist'] = float(nearest[nearest.what.str.contains('playground')]['dist'].min())
+                self.df.at[_, 'sports_field_dist'] = float(nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
+                self.df.at[_, 'theatre_cinema_dist'] = float(nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
+                self.df.at[_, 'pharmacy_dist'] = float(nearest[nearest.what.str.contains('pharmacy')]['dist'].min())
+                self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
             else:
                 relevant = relevant[relevant.what.str.contains('park')]  # TODO handle cases when df is empty
                 nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
                                         dist_type='great_circle')
+                self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
 
-            # TODO update self.df with particular dists
-            # TODO Estimated speed was about 1000 records/ 5 mins
+    def add_fasttext_embeddings(self):
+        """
+        adds fasttext embeddings
+        Note that fasttext binaries are very huge, for czech it is about 7GB therefore
+        compressed fasttext model is used instead. for details see
+        https://vasnetsov93.medium.com/shrinking-fasttext-embeddings-so-that-it-fits-google-colab-cd59ab75959e
+        https://github.com/avidale/compress-fasttext
+        Returns
+        -------
 
-    def add_embeddings(self):
+        """
+        # fasttext.util.download_model('cs', if_exists='strict') # download model for czech -> too big
+        # https://github.com/avidale/compress-fasttext
+        if not os.path.isfile('models/fasttext-cs-mini'):
+            with requests.get('https://zenodo.org/record/4905385/files/fasttext-cs-mini?download=1', stream=True) as r:
+                with open('models/fasttext-cs-mini', 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+        small_model = CompressedFastTextKeyedVectors.load('models/fasttext-cs-mini')
+
+        # `FastTextTransformer` has sklearn-like API
+        ft = FastTextTransformer(model=small_model)
+
+        embeddings = ft.transform(self.df.description)  # represents a text as the average of the embedding of its words
+
+        dd = pd.DataFrame(data=embeddings, columns=[f'ft_emb_{i}' for i in range(1, embeddings.shape[1] + 1)])
+        self.df = pd.concat([self.df, dd], axis=1)
+
+    def add_electra_embeddings(self):
+        pass
+
+    def add_roberta_embeddings(self):
         pass
 
 
@@ -189,8 +240,6 @@ class Generator(object):
 
 
 if __name__ == '__main__':
-    data = pd.read_csv('/home/emanuel/Music/prodej_breality_scraped.csv')
+    data = pd.read_csv('../data/prodej_breality_scraped.csv')
     en = Enricher(data)
-    #en.add_osm_data(dist=1500)
-    #en.add_gp('/home/emanuel/Documents/real_estate/src/models/fitted_gp_low')
-    en.add_quality_data(path='/home/emanuel/Documents/real_estate/data/geodata')
+    en()

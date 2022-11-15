@@ -57,7 +57,7 @@ class BezRealitkyScraper(BaseScraper):
             driver.get(url)
             time.sleep(1.5)
             content = driver.page_source
-            soup = BeautifulSoup(content)
+            soup = BeautifulSoup(content, features="lxml")
 
             # JSON file scraping
             try:
@@ -75,7 +75,11 @@ class BezRealitkyScraper(BaseScraper):
             try:
                 kk = dict_.get('poiData', None)
                 dict_2 = json.loads(kk) if kk is not None else None
-                dict_3 = dict_2.get('gps', None)
+                dict_3 = None
+                if isinstance(dict_2, dict):
+                    dict_3 = dict_2.get('gps', None)
+                if dict_3 is None:
+                    dict_3 = dict_.get('gps', {})
 
                 out = {
                     'header': dict_.get('imageAltText', None),
