@@ -100,6 +100,8 @@ class Preprocessor(object):
         # fill unknown/undefined
         self.df[['air_quality', 'built_density', 'sun_glare']] = \
             self.df[['air_quality', 'built_density', 'sun_glare']].astype(str)
+        self.df = self.df.replace("nan", np.nan)
+
         self.df.fillna(value={'floor': -99,  # -> arbitrary imputation  (floor handled only as numeric)
                               'year_reconstruction': 2038,
                               'year_reconstruction_num': 0,  # -> arbitrary
@@ -125,7 +127,7 @@ class Preprocessor(object):
         # numeric feature we will use indicator from one-hot to indicate whether >1500m
 
         # fill has_<> & no_barriers attributes
-        has_cols = [i for i in self.df.columns if 'has' in i]
+        has_cols = [i for i in self.df.columns if 'has' in i and 'hash' not in i]
         has_cols.append('no_barriers')  # TODO probably `no_barriers will be removed as we do not have it`
         self.df[has_cols] = self.df[has_cols].astype(bool)
         self.df.fillna(value={i: False for i in dist_cols}, inplace=True)
@@ -184,7 +186,7 @@ class Preprocessor(object):
                                                    ] +
                                                   [i for i in self.df.columns if
                                                    'dist' in i and 'ord' not in i and 'num' not in i],
-                                 drop_first=True)
+                                 drop_first=False)  # TODO do we want drop first ???
 
         # ordinal encoding
         self.df['energy_effeciency_ord'] = self.df['energy_effeciency_ord'].replace({'X': 0, 'A': 1, 'B': 2, 'C': 3,
