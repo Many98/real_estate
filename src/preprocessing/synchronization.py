@@ -130,8 +130,8 @@ class Synchronizer(object):
         -------
 
         """
-        self.final_df['hash'] = pd.util.hash_pandas_object(self.breality_df, index=False)
-        self.final_df['desc_hash'] = pd.util.hash_pandas_object(self.breality_df['description'], index=False)
+        self.final_df['hash'] = pd.util.hash_pandas_object(self.final_df, index=False).astype(str)
+        self.final_df['desc_hash'] = pd.util.hash_pandas_object(self.final_df['description'], index=False).astype(str)
 
     def remove(self):
         """
