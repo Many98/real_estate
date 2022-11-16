@@ -131,8 +131,8 @@ class Preprocessor(object):
         self.df.fillna(value={i: False for i in dist_cols}, inplace=True)
 
         # fill daily/nightly noise with simple mean imputation
-        self.df.fillna(values={'daily_noise': float(self.df['daily_noise'].mean(skipna=True))}, inplace=True)
-        self.df.fillna(values={'nightly_noise': float(self.df['nightly_noise'].mean(skipna=True))}, inplace=True)
+        self.df.fillna(value={'daily_noise': float(self.df['daily_noise'].mean(skipna=True))}, inplace=True)
+        self.df.fillna(value={'nightly_noise': float(self.df['nightly_noise'].mean(skipna=True))}, inplace=True)
 
     def categorize(self):
         """
@@ -177,7 +177,7 @@ class Preprocessor(object):
         # one-hot encoding
         self.df = pd.get_dummies(self.df, columns=['energy_effeciency', 'ownership', 'equipment',
                                                    'state',
-                                                   'disposition'
+                                                   'disposition',
                                                    'construction_type', 'year_reconstruction',
                                                    'air_quality', 'built_density', 'sun_glare',
                                                    'gas', 'waste', 'telecomunication', 'electricity', 'heating',
