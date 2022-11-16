@@ -55,7 +55,6 @@ class SRealityScraper(BaseScraper):
             'train_station_dist': None,
             'subway_station_dist': None,
             'tram_station_dist': None,
-            'MHD_dist': None,
             'post_office_dist': None,
             'atm_dist': None,
             'doctor_dist': None,

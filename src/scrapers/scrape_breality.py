@@ -115,7 +115,6 @@ class BezRealitkyScraper(BaseScraper):
                     'train_station_dist': None,
                     'subway_station_dist': None,
                     'tram_station_dist': None,
-                    'MHD_dist': None,
                     'post_office_dist': None,
                     'atm_dist': None,
                     'doctor_dist': None,
@@ -144,7 +143,6 @@ class BezRealitkyScraper(BaseScraper):
                     geo_data = {
 
                         # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
-                        'MHD_dist': dict_2.get('public_transport', {}).get('properties', {}).get('walkDistance', None),
                         # using `get` method it is more robust see https://www.w3schools.com/python/ref_dictionary_get.asp
                         'post_office_dist': dict_2.get('post', {}).get('properties', {}).get('walkDistance', None),
                         'bank_dist': dict_2.get('bank', {}).get('properties', {}).get('walkDistance', None),
