@@ -87,11 +87,11 @@ class Synchronizer(object):
             '`state` contains unexpected value'
         assert self.final_df.construction_type.isin(
             np.array([np.nan, 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná',
-                      'Montovaná', 'Nízkoenergetická'], dtype=object)).all(), \
+                      'Montovaná', 'Nízkoenergetická', 'Drevostavba'], dtype=object)).all(), \
             '`construction_type` contains unexpected value'
         assert self.final_df.disposition.isin(
             np.array([np.nan, '1+kk', '1+1', '3+1', '3+kk', '2+kk', '4+1', '2+1', '5+kk', '4+kk',
-                      'atypické', '6', '5+1', '6+kk'], dtype=object)).all(), \
+                      'atypické', '6 pokojů a více', '5+1', '6+kk'], dtype=object)).all(), \
             '`disposition` contains unexpected value'
         assert self.final_df.additional_disposition.isin(np.array([np.nan, 'Podkrovní', 'Loft', 'Mezonet'],
                                                                   dtype=object)).all(), \
@@ -167,6 +167,8 @@ class Synchronizer(object):
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("PANEL", "Panelová")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("NIZKOENERGETICKY",
                                                                                         "Nízkoenergetická")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("DREVOSTAVBA",
+                                                                                        "Drevostavba")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("UNDEFINED", np.nan)
 
         self.final_df["state"] = self.final_df["state"].replace("UNDEFINED", np.nan)
@@ -347,8 +349,10 @@ class Synchronizer(object):
             lambda x: x.split('(')[-1].split(')')[0].replace(x.split('(')[0].split(')')[0],
                                                              '') if x is not np.nan else np.nan)
         self.sreality_df['additional_disposition'] = self.sreality_df['additional_disposition'].replace('', np.nan)
-        self.sreality_df['disposition'] = self.sreality_df['header'].apply(
-            lambda x: x.split()[2] if x is not np.nan else np.nan)
+        disp = self.sreality_df['header'].str.extract(
+            r'(1\+kk)|(1\+1)|(3\+1)|(3\+kk)|(2\+kk)|(4\+1)|(2\+1)|(5\+kk)|(4\+kk)|(atypické)|(6 pokojů a více)|(5\+1)')
+        disp.fillna('', inplace=True)
+        self.sreality_df['disposition'] = disp.sum(axis=1).replace('', np.nan).astype(str)
 
         # equipment
         # ok because its string features
