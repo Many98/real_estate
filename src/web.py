@@ -97,12 +97,36 @@ if selected == "Prediction by URL":
     # MODELS
     result_url = st.button('Predict house price with URL')
     if result_url:
-        # st.write('Calculating results...')
-        # RANDOM FOREST
-        # regr = RandomForestRegressor(n_estimators=350, max_depth=7, max_features=10, min_samples_leaf=3, criterion='absolute_error', random_state=42)
-        loaded_rf_url = joblib.load("./random_forest.joblib")  # https://mljar.com/blog/save-load-random-forest/
-        rf_price_url = loaded_rf_url.predict(X)
-        st.write('Predicting price of the flat is: ', rf_price_url)
+        
+        st.write(f'Scraping data from {result_url} ...')
+        
+        from main import ETL
+        
+        etl = ETL(inference=True)
+        data = etl()
+        
+        ## just for now only fitted gaussian process is used
+        if not os.path.isfile(model_path):
+            with requests.get('https://zenodo.org/record/7319710/files/fitted_gp_low.7z?download=1', stream=True) as r:
+                with open('models/fitted_gp_low.7z', 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+        if '7z' in model_path:
+            if not os.path.isfile(os.path.split(model_path)[0]):
+                with py7zr.SevenZipFile(model_path, mode='r') as z:
+                    z.extractall(path=os.path.split(model_path)[0])
+            model_path = os.path.split(model_path)[0]
+        if os.path.isfile(model_path):
+            gp_model = pickle.load(open(model_path, 'rb'))
+        else:
+            raise Exception('model not found')
+         
+        st.write('Model is thinking...')
+        X = data[['long', 'lat']].to_numpy()
+        mean_price, std_price = gp_model.predict(X, return_std=True)
+        
+        st.write(f'Estimated price of apartment is {mean_price}. \n' 
+                 f'95% confidece interval is {(mean_pred - 2 * std_pred, mean_pred + 2 * std_pred)}')
 
         # OTHER MODELS
 
