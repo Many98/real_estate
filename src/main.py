@@ -97,12 +97,14 @@ class ETL(object):
         # ### 1,2 OBTAIN RAW DATA
         if not self.inference:
             # links firstly obtained by crawlers and appended to `../data/prodej_links.txt`
-            #self.sreality_crawler.crawl()
-            #self.breality_crawler.crawl()
+            self.sreality_crawler.crawl()
+            self.breality_crawler.crawl()
 
             # already scrapped links are appended to `../data/already_scraped_links.txt`
-            #self.sreality_scraper.run(in_filename=self.crawled_links_filename, out_filename=self.scrapped_data_filename)
-            #self.breality_scraper.run(in_filename=self.crawled_links_filename, out_filename=self.scrapped_data_filename)
+            self.sreality_scraper.run(in_filename=self.crawled_links_filename, out_filename=self.scrapped_data_filename,
+                                      inference=self.inference)
+            self.breality_scraper.run(in_filename=self.crawled_links_filename, out_filename=self.scrapped_data_filename,
+                                      inference=self.inference)
             #  Data are now scrapped in two separate files
             #           `../data/prodej_breality.csv` and `../data/prodej_sreality.csv` so synchronization is needed
             #            to get one csv with same sets of attributes
@@ -119,9 +121,11 @@ class ETL(object):
             # input from user | used in inference
             # TODO in future it shouldbe prepared to handle user input as text, own tabular data etc. but for now just
             #  links
-            if os.path.isfile('..data/predict_links.txt'):
-                self.sreality_scraper.run(in_filename='predict_links.txt', out_filename='predict')
-                self.breality_scraper.run(in_filename='predict_links.txt', out_filename='predict')
+            if os.path.isfile('../data/predict_links.txt'):
+                self.sreality_scraper.run(in_filename='predict_links.txt', out_filename='predict',
+                                          inference=self.inference)
+                self.breality_scraper.run(in_filename='predict_links.txt', out_filename='predict',
+                                          inference=self.inference)
                 #  ### Data are now scrapped in two separate files
                 #           ../data/predict_breality.csv and ../data/predict_sreality.csv so synchronization is needed
                 #            to get one csv with same sets of attributes
