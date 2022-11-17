@@ -9,6 +9,11 @@ from streamlit_folium import folium_static
 import folium
 import streamlit as st
 import joblib
+import pickle
+import py7zr
+import requests
+
+from main import ETL
 
 st.set_page_config(page_title='Real e-state', page_icon="chart_with_upwards_trend", initial_sidebar_state="collapsed")
 
@@ -80,32 +85,21 @@ if selected == "Prediction by URL":
         pass
     else:
         url = str(url)
-        if 'bezrealitky' or 'sreality' not in url:
-            pass
-        else:
-            filename = os.path.join('../data/predict_links.txt')
-            if not os.path.exists(filename):
-                with open(filename, 'w') as f:
-                    f.write(url)
-                    print(url)
-                    pass
-            print(filename)
+        if 'bezrealitky' or 'sreality' in url:
+            with open('../data/predict_links.txt', 'w') as f:
+                f.write(url)
 
-
-    X = np.array([60, 5, 2, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1]).reshape(1, 13) # for ETL pipeline, for example
-    # Y true = 11 190 000
     # MODELS
     result_url = st.button('Predict house price with URL')
     if result_url:
         
         st.write(f'Scraping data from {result_url} ...')
         
-        from main import ETL
-        
         etl = ETL(inference=True)
         data = etl()
         
         ## just for now only fitted gaussian process is used
+        model_path = 'models/fitted_gp_low'
         if not os.path.isfile(model_path):
             with requests.get('https://zenodo.org/record/7319710/files/fitted_gp_low.7z?download=1', stream=True) as r:
                 with open('models/fitted_gp_low.7z', 'wb') as f:
@@ -126,7 +120,7 @@ if selected == "Prediction by URL":
         mean_price, std_price = gp_model.predict(X, return_std=True)
         
         st.write(f'Estimated price of apartment is {mean_price}. \n' 
-                 f'95% confidece interval is {(mean_pred - 2 * std_pred, mean_pred + 2 * std_pred)}')
+                 f'95% confidece interval is {(mean_price - 2 * std_price, mean_price + 2 * std_price)}')
 
         # OTHER MODELS
 
