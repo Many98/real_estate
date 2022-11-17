@@ -11,8 +11,8 @@ from compress_fasttext.models import CompressedFastTextKeyedVectors
 
 from tqdm import tqdm
 
-from src.models.gaussian_process import gp_inference
-from src.preprocessing.utils import prepare_rasters, osmnx_nearest, osmnx_call
+from models.gaussian_process import gp_inference
+from preprocessing.utils import prepare_rasters, osmnx_nearest, osmnx_call
 
 
 class Enricher(object):
@@ -236,9 +236,3 @@ class Generator(object):
 
     def add_roberta_embeddings(self):
         pass
-
-
-if __name__ == '__main__':
-    data = pd.read_csv('../data/prodej_breality_scraped.csv')
-    en = Enricher(data)
-    en()

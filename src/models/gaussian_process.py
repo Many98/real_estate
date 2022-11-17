@@ -1,8 +1,9 @@
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic
 from sklearn.model_selection import train_test_split, GridSearchCV
-from src.preprocessing.utils import prepare_atlas_cen_data
+
+from preprocessing.utils import prepare_atlas_cen_data
+
 import numpy as np
 from typing import Union
 import os
@@ -104,31 +105,4 @@ def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path:
     mean = np.where(ci_low_pred <= 0, (ci_high_pred + ci_low) / 2, mean_pred)
 
     return mean, std_pred, ci_low, ci_high_pred
-
-
-if __name__ == '__main__':
-    # define hyper-param space for brute force "optimization"
-    # its done in few steps because of lack of computing resources
-    # RBF performs poorly best cross val score is ~ 0.23
-    """
-    grid1 = [
-        {
-            "normalize_y": [True, False],
-            "kernel": [RBF(length_scale=l, length_scale_bounds="fixed") for l in np.logspace(-5, 1, 7)]
-        }
-    ]
-    model1 = gp_train(grid=grid1, csv_path='../../data/_atlas_cen_scraped.csv')
-    """
-    # Matern kernel is generalization of RBF
-    grid2 = {
-        "normalize_y": [True],
-        "kernel": [Matern(length_scale=l, length_scale_bounds="fixed", nu=n) for l in
-                   [0.1, 0.01, 0.001, 0.0001, 0.0008] for n in
-                   [0.001, 0.01, 0.1, 0.2, 0.5]]
-    }
-    model2 = gp_train(grid=grid2, csv_path='../../data/_atlas_cen_scraped.csv')
-
-    # best models was {'kernel': Matern(length_scale=0.1, nu=0.01), 'normalize_y': True} on "low" prices
-
-    print('f')
 
