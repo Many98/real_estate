@@ -93,8 +93,8 @@ if selected == "Prediction by URL":
     result_url = st.button('Predict house price with URL')
     if result_url:
         
-        st.write(f'Scraping data from {result_url} ...')
-        
+        st.write(f'Scraping data from {url} ...')
+        st.write('Model is thinking...')
         etl = ETL(inference=True)
         data = etl()
         
@@ -114,13 +114,13 @@ if selected == "Prediction by URL":
             gp_model = pickle.load(open(model_path, 'rb'))
         else:
             raise Exception('model not found')
-         
-        st.write('Model is thinking...')
+
         X = data[['long', 'lat']].to_numpy()
         mean_price, std_price = gp_model.predict(X, return_std=True)
-        
-        st.write(f'Estimated price of apartment is {mean_price}. \n' 
-                 f'95% confidece interval is {(mean_price - 2 * std_price, mean_price + 2 * std_price)}')
+        price = mean_price * data["usable_area"].to_numpy()
+        std = std_price * data["usable_area"].to_numpy()
+        st.write(f'Estimated price of apartment is {price} Kc. \n' 
+                 f'95% confidece interval is {(price - 2 * std, price + 2 * std)} Kc')
 
         # OTHER MODELS
 
