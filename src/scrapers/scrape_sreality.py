@@ -33,24 +33,55 @@ class SRealityScraper(BaseScraper):
             -------
             dict with specific keys and scraped values
         """
-        out = {  # basic sort of required info
-            'name': self.name,
-            'date': datetime.today().strftime('%Y-%m-%d'),
-            'header': None,  # text description of disposition e.g. 3 + kk
+        out = {
+            'header': None,
+            # text description of disposition e.g. 3 + kk
             'price': None,  # Celková cena
-            'note': None,  # poznamka (k cene) sometimes can have valid info like
+            'note': None,
+            # poznamka (k cene) sometimes can have valid info like
             # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
             'usable_area': None,  # Užitná plocha
             'floor_area': None,  # Plocha podlahová
             'floor': None,  # podlazie
-            'energy_effeciency': None,  # Energetická náročnost (letters A-G) A=best, G=shitty
-            'ownership': None,  # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
+            'energy_effeciency': None,
+            # Energetická náročnost (letters A-G) A=best, G=shitty
+            'ownership': None,
+            # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
             'description': None,
             'long': None,
             'lat': None,
             'hash': None,
 
-            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti)
+            # other - done
+            'gas': None,  # Plyn
+            'waste': None,  # Odpad
+            'equipment': None,  # Vybavení
+            'state': None,
+            # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
+            'construction_type': None,
+            # Stavba (3 states possible ) panel, cihla, ostatni
+            'place': None,  # Umístění objektu
+            'electricity': None,  # elektrina
+            'heating': None,  # topeni
+            'transport': None,  # doprava
+            'year_reconstruction': None,  # rok rekonstrukce
+            'telecomunication': None,  # telekomunikace
+
+            # binary info - done
+            'has_lift': None,  # Výtah: True, False
+            'has_garage': None,  # garaz
+            'has_cellar': None,  # sklep presence
+            'no_barriers': None,  # ci je bezbarierovy bezbarierovy
+            'has_loggia': None,  # lodzie
+            'has_balcony': None,  # balkon
+            'has_garden': None,  # zahrada
+            'has_parking': None,
+
+            # what has b reality in addition
+            'tags': None,
+            'disposition': None,
+
+            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
             'bus_station_dist': None,
             'train_station_dist': None,
             'subway_station_dist': None,
@@ -64,41 +95,16 @@ class SRealityScraper(BaseScraper):
             'supermarket_grocery_dist': None,
             'restaurant_pub_dist': None,
             'playground_dist': None,
-            # or similar kind of leisure amenity probably OSM would be better
             'sports_field_dist': None,
+            # or similar kind of leisure amenity probably OSM would be better
             # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
             'theatre_cinema_dist': None,
             'pharmacy_dist': None,
-
-            # other
-            'gas': None,  # Plyn
-            'waste': None,  # Odpad:
-            'equipment': None,  # Vybavení:
-            'state': None,
-            # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
-            'construction_type': None,  # Stavba (3 states possible ) panel, cihla, ostatni
-            'place': None,  # Umístění objektu
-            'electricity': None,  # elektrina
-            'heating': None,  # topeni
-            'transport': None,  # doprava
-            'year_reconstruction': None,  # rok rekonstrukce
-            'telecomunication': None,  # telekomunikace
-
-            # what has b reality in addition
-            'tags': None,
-            'disposition': None,
-
-            # binary info
-            'has_lift': None,  # Výtah: True, False
-            'has_garage': None,  # garaz
-            'has_cellar': None,  # sklep presence or  m2 ???
-            'no_barriers': None,  # ci je bezbarierovy bezbarierovy
-            'has_loggia': None,  # lodzie m2
-            'has_balcony': None,  # balkon
-            'has_garden': None,  # zahrada,
-            'has_parking': None,
+            'name': self.name,
+            'date': datetime.today().strftime('%Y-%m-%d')
 
         }
+
         if 'sreality' not in url:  # ensures correct link
             return {}
         else:

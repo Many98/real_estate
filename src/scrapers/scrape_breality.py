@@ -61,8 +61,6 @@ class BezRealitkyScraper(BaseScraper):
                     dict_3 = dict_.get('gps', {})
 
                 out = {
-                    'name': self.name,
-                    'date': datetime.today().strftime('%Y-%m-%d'),
                     'header': dict_.get('imageAltText', None),
                     # text description of disposition e.g. 3 + kk
                     'price': dict_.get('price', None),  # Celková cena
@@ -128,7 +126,9 @@ class BezRealitkyScraper(BaseScraper):
                     # or similar kind of leisure amenity probably OSM would be better
                     # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
                     'theatre_cinema_dist': None,
-                    'pharmacy_dist': None
+                    'pharmacy_dist': None,
+                    'name': self.name,
+                    'date': datetime.today().strftime('%Y-%m-%d')
 
                 }
 
