@@ -48,9 +48,11 @@ class Synchronizer(object):
             pass
 
         if not self.sreality_df.empty or not self.breality_df.empty:
-            self.extract_sreality_data()
-            self.extract_breality_data()
-            self.check_dtypes()  # checks dtypes on both dataframes
+            if not self.sreality_df.empty:
+                self.extract_sreality_data()
+            if not self.breality_df.empty:
+                self.extract_breality_data()
+                self.set_breality_dtypes()
             self.unify()
             self.merge_text()
             self.remove()
@@ -217,7 +219,7 @@ class Synchronizer(object):
             self.final_df['description'] += ' ' + self.final_df[col]
             self.final_df[col] = self.final_df[col].replace('', np.nan)
 
-    def check_dtypes(self):
+    def set_breality_dtypes(self):
         """
         method to check and ensure correct dtypes on relevant columns on both dataframes
         Returns
