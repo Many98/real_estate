@@ -132,12 +132,6 @@ class BezRealitkyScraper(BaseScraper):
 
                 }
 
-                dj = dict_.get('dataJson', None)
-                estim_price = json.loads(dj) if dj is not None else None
-
-                if estim_price is not None:
-                    out.update({'estimated_sale_price': estim_price.get('estimationSale', {}).get('price', None)})
-                    out.update({'estimated_rent_price': estim_price.get('estimationRent', {}).get('price', None)})
                 geo_data = {}
                 if dict_2 is not None and dict_2 != []:
                     geo_data = {
@@ -145,8 +139,6 @@ class BezRealitkyScraper(BaseScraper):
                         # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
                         # using `get` method it is more robust see https://www.w3schools.com/python/ref_dictionary_get.asp
                         'post_office_dist': dict_2.get('post', {}).get('properties', {}).get('walkDistance', None),
-                        'bank_dist': dict_2.get('bank', {}).get('properties', {}).get('walkDistance', None),
-
                         'primary_school_dist': dict_2.get('school', {}).get('properties', {}).get('walkDistance', None),
                         'kindergarten_dist': dict_2.get('kindergartne', {}).get('properties', {}).get('walkDistance', None),
                         'supermarket_grocery_dist': dict_2.get('shop', {}).get('properties', {}).get('walkDistance', None),
