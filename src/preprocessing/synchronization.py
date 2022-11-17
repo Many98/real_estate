@@ -74,7 +74,8 @@ class Synchronizer(object):
             '`ownership` contains unexpected value'
         assert self.final_df.price.min() > 1000, '`price` must be positive'
         assert self.final_df.usable_area.min() > 0, '`usable_area` must be positive'
-        assert -5 < self.final_df.floor.min() and self.final_df.floor.max() < 100, '`floor` must be >-5'
+        assert -5 < self.final_df.floor.min() and self.final_df.floor.max() < 100 or self.final_df.floor.min() is np.nan,\
+            '`floor` must be >-5'
         assert self.final_df.energy_effeciency.isin(np.array([np.nan, 'G', 'E', 'B', 'D', 'C',
                                                               'A', 'F'], dtype=object)).all(), \
             '`energy_effeciency` contains unexpected value'
@@ -98,7 +99,7 @@ class Synchronizer(object):
         assert self.final_df.additional_disposition.isin(np.array([np.nan, 'Podkrovní', 'Loft', 'Mezonet'],
                                                                   dtype=object)).all(), \
             '`additional_disposition` contains unexpected value'
-        assert 0 <= self.final_df.year_reconstruction.min(), \
+        assert 0 <= self.final_df.year_reconstruction.min() or self.final_df.year_reconstruction.min() is np.nan, \
             '`year_reconstruction` must be within positive'
 
         bool_cols = ['gas', 'electricity', 'waste', 'heating', 'telecomunication'] + \
@@ -109,7 +110,7 @@ class Synchronizer(object):
 
         dist_cols = [col for col in self.final_df if 'dist' in col]
         for col in dist_cols:
-            assert self.final_df[col].min() >= 0, f'`{col}` must be  positive'
+            assert self.final_df[col].min() >= 0 or self.final_df[col].min() is np.nan, f'`{col}` must be  positive'
 
         return True
 
