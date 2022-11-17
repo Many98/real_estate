@@ -22,7 +22,9 @@ class Synchronizer(object):
                                              from_row[1] -> breality TODO make this more robust
         """
         self.from_row = from_row
-        self.final_df = None
+        self.final_df = pd.DataFrame()
+        self.sreality_df = pd.DataFrame()
+        self.breality_df = pd.DataFrame()
 
     def __call__(self, sreality_csv_path: str, breality_csv_path: str, *args, **kwargs) -> pd.DataFrame:
         """
@@ -42,18 +44,21 @@ class Synchronizer(object):
             # dataframes to be synchronized
             self.sreality_df = pd.read_csv(sreality_csv_path).iloc[self.from_row[0]:, :]
             self.breality_df = pd.read_csv(breality_csv_path).iloc[self.from_row[1]:, :]
-        except Exception as e:
-            print(e)
+        except:
+            pass
 
-        self.extract_sreality_data()
-        self.extract_breality_data()
-        self.check_dtypes()  # checks dtypes on both dataframes
-        self.unify()
-        self.merge_text()
-        self.remove()
+        if not self.sreality_df.empty or not self.breality_df.empty:
+            if not self.sreality_df.empty:
+                self.extract_sreality_data()
+            if not self.breality_df.empty:
+                self.extract_breality_data()
+                self.set_breality_dtypes()
+            self.unify()
+            self.merge_text()
+            self.remove()
 
-        if self.integrity_check():
-            self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
+            if self.integrity_check():
+                self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
 
         return self.final_df
 
@@ -84,11 +89,11 @@ class Synchronizer(object):
             '`state` contains unexpected value'
         assert self.final_df.construction_type.isin(
             np.array([np.nan, 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná',
-                      'Montovaná', 'Nízkoenergetická'], dtype=object)).all(), \
+                      'Montovaná', 'Nízkoenergetická', 'Drevostavba'], dtype=object)).all(), \
             '`construction_type` contains unexpected value'
         assert self.final_df.disposition.isin(
             np.array([np.nan, '1+kk', '1+1', '3+1', '3+kk', '2+kk', '4+1', '2+1', '5+kk', '4+kk',
-                      'atypické', '6', '5+1', '6+kk'], dtype=object)).all(), \
+                      'atypické', '6 pokojů a více', '5+1', '6+kk'], dtype=object)).all(), \
             '`disposition` contains unexpected value'
         assert self.final_df.additional_disposition.isin(np.array([np.nan, 'Podkrovní', 'Loft', 'Mezonet'],
                                                                   dtype=object)).all(), \
@@ -108,10 +113,32 @@ class Synchronizer(object):
 
         return True
 
+    def _clean_description(self):
+        """
+        auxiliary method to clean a bit description column
+        by removing price from it
+        Returns
+        -------
+
+        """
+        self.final_df['description'] = self.final_df['description'].apply(lambda x: re.sub(r'[0-9]{6,10}', '', x))
+        for i in ['Zlevněno', 'Původní cena', 'price']:
+            self.final_df['description'] = self.final_df['description'].apply(lambda x: re.sub(i, '', x))
+
+    def _hash_it(self):
+        """
+        auxiliary method to add hashes based on every record values and based on description value
+        Returns
+        -------
+
+        """
+        self.final_df['hash'] = pd.util.hash_pandas_object(self.final_df, index=False).astype(str)
+        self.final_df['desc_hash'] = pd.util.hash_pandas_object(self.final_df['description'], index=False).astype(str)
+
     def remove(self):
         """
         auxiliary method to remove some records with unexpected values e.g. price <=0; rental price instead
-        of sellling price
+        of sellling price & also records with same hashes (remove duplicates)
         Returns
         -------
 
@@ -142,6 +169,8 @@ class Synchronizer(object):
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("PANEL", "Panelová")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("NIZKOENERGETICKY",
                                                                                         "Nízkoenergetická")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("DREVOSTAVBA",
+                                                                                        "Drevostavba")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("UNDEFINED", np.nan)
 
         self.final_df["state"] = self.final_df["state"].replace("UNDEFINED", np.nan)
@@ -166,6 +195,8 @@ class Synchronizer(object):
         self.final_df["disposition"] = self.final_df["disposition"].replace("GARSONIERA", "1+kk")
         self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_5_1", "5+1")
 
+        self._hash_it()
+
     def merge_text(self):
         """
         method for merging all columns which should be processed by NLP
@@ -179,6 +210,8 @@ class Synchronizer(object):
         -------
 
         """
+        self._clean_description()  # remove prices from description
+
         cols = ['note', 'tags', 'place', 'transport', 'telecomunication_txt', 'heating_txt', 'additional_disposition',
                 'waste_txt', 'electricity_txt']
         for col in cols:
@@ -186,7 +219,7 @@ class Synchronizer(object):
             self.final_df['description'] += ' ' + self.final_df[col]
             self.final_df[col] = self.final_df[col].replace('', np.nan)
 
-    def check_dtypes(self):
+    def set_breality_dtypes(self):
         """
         method to check and ensure correct dtypes on relevant columns on both dataframes
         Returns
@@ -318,8 +351,10 @@ class Synchronizer(object):
             lambda x: x.split('(')[-1].split(')')[0].replace(x.split('(')[0].split(')')[0],
                                                              '') if x is not np.nan else np.nan)
         self.sreality_df['additional_disposition'] = self.sreality_df['additional_disposition'].replace('', np.nan)
-        self.sreality_df['disposition'] = self.sreality_df['header'].apply(
-            lambda x: x.split()[2] if x is not np.nan else np.nan)
+        disp = self.sreality_df['header'].str.extract(
+            r'(1\+kk)|(1\+1)|(3\+1)|(3\+kk)|(2\+kk)|(4\+1)|(2\+1)|(5\+kk)|(4\+kk)|(atypické)|(6 pokojů a více)|(5\+1)')
+        disp.fillna('', inplace=True)
+        self.sreality_df['disposition'] = disp.sum(axis=1).replace('', np.nan).astype(str)
 
         # equipment
         # ok because its string features

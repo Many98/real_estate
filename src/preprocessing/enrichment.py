@@ -11,8 +11,8 @@ from compress_fasttext.models import CompressedFastTextKeyedVectors
 
 from tqdm import tqdm
 
-from src.models.gaussian_process import gp_inference
-from src.preprocessing.utils import prepare_rasters, osmnx_nearest, osmnx_call
+from models.gaussian_process import gp_inference
+from preprocessing.utils import prepare_rasters, osmnx_nearest, osmnx_call
 
 
 class Enricher(object):
@@ -25,15 +25,11 @@ class Enricher(object):
         self.df = df  # dataframe to be enriched
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.add_gp('models/fitted_gp_low')
-        self.add_quality_data('../data/geodata/')
-        self.add_criminality_data()
-        self.add_osm_data()
-        self.add_fasttext_embeddings()
-        self.add_electra_embeddings()
-        self.add_roberta_embeddings()
-
-        self.df.to_csv('../data/tmp_enriched.csv', mode='w', index=False)
+        if not self.df.empty:
+            self.add_gp('models/fitted_gp_low')
+            self.add_quality_data('../data/geodata/')
+            self.add_criminality_data()
+            self.add_osm_data()
 
         return self.df
 
@@ -157,7 +153,7 @@ class Enricher(object):
 
         for _, row in tqdm(self.df.iterrows(), total=self.df.shape[0], desc='Processing OSM data'):  #
 
-            relevant = joined[joined.index_right == _]
+            relevant = joined.loc[joined.index_right == _, :]
 
             # presence of attribute disposition => breality record
             if row['disposition'] is not np.nan or row[
@@ -170,7 +166,7 @@ class Enricher(object):
                 self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
                 self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
                 self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
-                self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atn')]['dist'].min())
+                self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atm')]['dist'].min())
                 self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
                 self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
                 self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
@@ -187,6 +183,25 @@ class Enricher(object):
                 nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
                                         dist_type='great_circle')
                 self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
+
+
+class Generator(object):
+    """
+        Class handling generation of new aggregated features from existing features
+        Some research is required prior to defining relevant aggregated features
+        TODO consider using decorators as it would be probably more elegant solution
+        """
+
+    def __init__(self, df: pd.DataFrame):
+        self.df = df  # dataframe to be enriched
+
+    def __call__(self, *args, **kwargs) -> pd.DataFrame:
+        if not self.df.empty:
+            self.add_fasttext_embeddings()
+            self.add_electra_embeddings()
+            self.add_roberta_embeddings()
+
+        return self.df
 
     def add_fasttext_embeddings(self):
         """
@@ -221,25 +236,3 @@ class Enricher(object):
 
     def add_roberta_embeddings(self):
         pass
-
-
-class Generator(object):
-    """
-        Class handling generation of new aggregated features from existing features
-        Some research is required prior to defining relevant aggregated features
-        TODO consider using decorators as it would be probably more elegant solution
-        """
-
-    def __init__(self, df: pd.DataFrame):
-        self.df = df  # dataframe to be enriched
-
-    def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.df.to_csv('../data/tmp_final.csv', mode='w', index=False)
-
-        return self.df
-
-
-if __name__ == '__main__':
-    data = pd.read_csv('../data/prodej_breality_scraped.csv')
-    en = Enricher(data)
-    en()
