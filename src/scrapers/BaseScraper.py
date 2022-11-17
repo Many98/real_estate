@@ -37,9 +37,9 @@ class BaseScraper(ABC):
 
         print(f'New data appended successfully in {path}!', end="\r", flush=True)
 
-    def _update_scrapped_links(self) -> None:
+    def _update_scrapped_links(self, **kwargs) -> None:
         """update `already_scraped_links.txt` file"""
-        if self.new_scraped_links:
+        if self.new_scraped_links and not kwargs.get('inference', False):
             with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'a') as f:
                 f.writelines(['\n' + i for i in self.new_scraped_links])
 
@@ -79,12 +79,13 @@ class BaseScraper(ABC):
             with open(os.path.join('../', 'data', in_filename), 'r') as f:
                 self.prepared_links = [line.rstrip() for line in f.readlines()]
 
-            if not glob.glob(os.path.join('../', 'data', 'already_scraped_links.txt')):
-                with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'w') as f:
-                    pass
+            if not kwargs.get('inference', False):
+                if not glob.glob(os.path.join('../', 'data', 'already_scraped_links.txt')):
+                    with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'w') as f:
+                        pass
 
-            with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'r') as f:
-                self.scraped_links = [line.rstrip() for line in f.readlines()]
+                with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'r') as f:
+                    self.scraped_links = [line.rstrip() for line in f.readlines()]
 
     def _process(self, **kwargs) -> None:
         """this method implements looping logic and expects `_scrape` method to return """
@@ -111,7 +112,7 @@ class BaseScraper(ABC):
                         self.new_scraped_links = []
 
                 self._export_tabular_data(**kwargs)
-                self._update_scrapped_links()
+                self._update_scrapped_links(**kwargs)
             else:  # used for other scrappers which implement logic only in `scrape` method and return list of data
                 self.data = self.scrape(driver, '')
                 self._export_tabular_data(**kwargs)
