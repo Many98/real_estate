@@ -1,30 +1,134 @@
+import os
+
 import pandas as pd
 import numpy as np
+import pickle
 
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler, MinMaxScaler
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 
 
 class Preprocessor(object):
     """
     Class handling missing values, categorization, categorical encodings & standardization.
     Input dataframe is required to have "synchronized" values (two data sources needs to be unified/synchronized)
+    https://towardsdatascience.com/pipeline-columntransformer-and-featureunion-explained-f5491f815f
 
     TODO consider using decorators as it would be probably more elegant solution
     """
 
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, inference: bool):
         self.df = df  # dataframe to be preprocessed
+        self.inference = inference
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
         if not self.df.empty:
             self.expand()
-            self.impute()
+            self.impute()  # impute in pandas-like way too lazy to overwrite
             self.categorize()
-            self.encode()
+            self.encode_ordinal()  # ordinal encoding in pandas-like way too lazy to overwrite
+
+            if not self.inference:
+                # this breaks consistency a bit but is necessary because we need to hold state of imputer and
+                # one-hot encoder from train dataset and use it on test dataset
+                dist_cols = [i for i in self.df.columns if
+                                      'dist' in i and 'ord' not in i and 'num' not in i]
+                categorical_to_ohe = ['energy_effeciency', 'ownership', 'equipment',
+                                      'state',
+                                      'disposition',
+                                      'construction_type', 'year_reconstruction',
+                                      'air_quality', 'built_density', 'sun_glare',
+                                      'gas', 'waste', 'telecomunication', 'electricity', 'heating',
+                                      ] + dist_cols
+
+                noise_cols = ['daily_noise', 'nightly_noise']
+
+                noise_imputer = SimpleImputer(strategy='median')
+                ohe = OneHotEncoder(categories=[['unknown', 'G', 'E', 'B', 'D', 'C', 'A', 'F'],
+                                                ['Osobní', 'Státní/obecní', 'Družstevní', 'unknown'],
+                                                ['unknown', 'ne', 'Částečně', 'ano'],
+                                                ['unknown', 'V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci',
+                                                 'Novostavba', 'Velmi dobrý', 'Dobrý', 'Ve výstavbě', 'Projekt',
+                                                 'Špatný', ],
+                                                ['unknown', '1+kk', '1+1', '3+1', '3+kk', '2+kk', '4+1', '2+1', '5+kk',
+                                                 '4+kk', 'atypické', '6 pokojů a více', '5+1', '6+kk'],
+                                                ['unknown', 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná',
+                                                 'Montovaná', 'Nízkoenergetická', 'Drevostavba'],
+                                                ['<1950', '1951-1980', '1981-2000', '2001-2010', '2011-2015',
+                                                 '2016-2020',
+                                                 '2021-2025',
+                                                 'undefined'],
+                                                ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
+                                                ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
+                                                ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
+                                                ['unknown', True, False],
+                                                ['unknown', True, False],
+                                                ['unknown', True, False],
+                                                ['unknown', True, False],
+                                                ['unknown', True, False],
+                                                ] + [['>=1500m', '0-99m', '100-199m', '200-299m', '300-399m', '400-499m',
+                                                      '500-599m', '600-699m', '700-799m', '800-899m', '900-999m',
+                                                      '1000-1099m', '1100-1199m', '1200-1299m', '1300-1399m',
+                                                      '1400-1499m'
+                                                      ] for _ in range(len(dist_cols))],
+                                    handle_unknown='error',  # TODO for now raise error
+                                    sparse=False)
+
+                self.subprocessor = ColumnTransformer([
+                    ('impute', noise_imputer, noise_cols),
+                    ('ohe', ohe, categorical_to_ohe)
+                ], remainder='passthrough', n_jobs=1)
+
+                transformed = self.subprocessor.fit_transform(self.df)
+                col_names = ['_'.join(
+                    i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split()) for
+                    i in self.subprocessor.get_feature_names_out()]
+
+                self._set_state()  # save state of subprocessor
+
+                self.df = pd.DataFrame(transformed, columns=col_names)
+
+            else:
+                self._get_state()  # obtain latest state of subprocessor (apply to test data / inference)
+
+                transformed = self.subprocessor.transform(self.df)
+                col_names = ['_'.join(
+                    i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split()) for
+                             i in self.subprocessor.get_feature_names_out()]
+
+                self.df = pd.DataFrame(transformed, columns=col_names)
+
             self.scale()
             self.remove()
 
         return self.df
+
+    def _get_state(self):
+        """
+        auxiliary method to obtain state of `self.subprocessor` in `inference` phase
+        Returns
+        -------
+
+        """
+        if os.path.isfile('preprocessing/subprocessor_state.pickle'):
+            with open('preprocessing/subprocessor_state.pickle', 'rb') as handle:
+                self.subprocessor = pickle.load(handle)
+        else:
+            raise Exception('Subprocessor state dict not found. Consider running `ETL` in train phase first'
+                            'to get properly fitted subprocessor. \n '
+                            'subprocessor ~ (SimpleImputer + OneHotEncoder)')
+
+    def _set_state(self):
+        """
+        auxiliary method to save state of `self.subprocessor` in `train` phase
+        Returns
+        -------
+
+        """
+        with open('preprocessing/subprocessor_state.pickle', 'wb') as handle:
+            pickle.dump(self.subprocessor, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     def expand(self):
         """
@@ -95,7 +199,7 @@ class Preprocessor(object):
 
         """
 
-        self.df.dropna(how='any', subset=['price', 'usable_area', 'header', 'long', 'lat'], inplace=True)
+        self.df.dropna(how='any', subset=['price', 'usable_area', 'header', 'long', 'lat', 'disposition'], inplace=True)
 
         # fill unknown/undefined
         self.df[['air_quality', 'built_density', 'sun_glare']] = \
@@ -132,10 +236,6 @@ class Preprocessor(object):
         self.df[has_cols] = self.df[has_cols].astype(bool)
         self.df.fillna(value={i: False for i in dist_cols}, inplace=True)
 
-        # fill daily/nightly noise with simple mean imputation
-        self.df.fillna(value={'daily_noise': float(self.df['daily_noise'].mean(skipna=True))}, inplace=True)
-        self.df.fillna(value={'nightly_noise': float(self.df['nightly_noise'].mean(skipna=True))}, inplace=True)
-
     def categorize(self):
         """
         method to categorize some numeric features
@@ -169,14 +269,15 @@ class Preprocessor(object):
                                                             '2021-2025',
                                                             'arbitrary'])
 
-    def encode(self):
+    def encode_ordinal(self):
         """
         method to handle one-hot and nominal encoding of categorical features
         Returns
         -------
 
         """
-        # one-hot encoding
+        # one-hot encoding | handled by `OneHotEncoder` (because we need to hold state from train to test)
+        """
         self.df = pd.get_dummies(self.df, columns=['energy_effeciency', 'ownership', 'equipment',
                                                    'state',
                                                    'disposition',
@@ -187,6 +288,7 @@ class Preprocessor(object):
                                                   [i for i in self.df.columns if
                                                    'dist' in i and 'ord' not in i and 'num' not in i],
                                  drop_first=False)  # TODO do we want drop first ???
+        """
 
         # ordinal encoding
         self.df['energy_effeciency_ord'] = self.df['energy_effeciency_ord'].replace({'X': 0, 'A': 1, 'B': 2, 'C': 3,
