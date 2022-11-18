@@ -97,10 +97,10 @@ class BezRealitkyScraper(BaseScraper):
                     # binary info - done
                     'has_lift': dict_.get('lift', None),  # Výtah: True, False
                     'has_garage': dict_.get('garage', None),  # garaz
-                    'has_cellar': dict_.get('cellar', None),  # sklep presence
+                    'has_cellar': dict_.get('cellar', False) or dict_.get('cellarSurface', False),  # sklep presence
                     'no_barriers': None,  # ci je bezbarierovy bezbarierovy
-                    'has_loggia': dict_.get('loggia', None),  # lodzie
-                    'has_balcony': dict_.get('balcony', None),  # balkon
+                    'has_loggia': dict_.get('loggia', False) or dict_.get('loggiaSurface', False),  # lodzie
+                    'has_balcony': dict_.get('balcony', False) or dict_.get('balconySurface', False),  # balkon
                     'has_garden': dict_.get('frontGarden', None),  # zahrada
                     'has_parking': dict_.get('parking', None),
 
