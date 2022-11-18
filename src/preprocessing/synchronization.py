@@ -264,6 +264,8 @@ class Synchronizer(object):
             lambda x: True if pd.notnull(x) else False)
         self.breality_df["has_loggia"] = self.breality_df["has_loggia"].apply(
             lambda x: True if pd.notnull(x) else False)
+        self.breality_df["has_balcony"] = self.breality_df["has_balcony"].apply(
+            lambda x: True if pd.notnull(x) else False)
 
         self.breality_df["has_garden"] = self.breality_df["has_garden"].apply(
             lambda x: True if pd.notnull(x) else False)
