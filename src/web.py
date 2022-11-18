@@ -14,6 +14,7 @@ import py7zr
 import requests
 
 from main import ETL
+from models.gaussian_process import get_gp
 
 st.set_page_config(page_title='Real e-state', page_icon="chart_with_upwards_trend", initial_sidebar_state="collapsed")
 
@@ -100,20 +101,7 @@ if selected == "Prediction by URL":
         
         ## just for now only fitted gaussian process is used
         model_path = 'models/fitted_gp_low'
-        if not os.path.isfile(model_path):
-            with requests.get('https://zenodo.org/record/7319710/files/fitted_gp_low.7z?download=1', stream=True) as r:
-                with open('models/fitted_gp_low.7z', 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
-        if '7z' in model_path:
-            if not os.path.isfile(os.path.split(model_path)[0]):
-                with py7zr.SevenZipFile(model_path, mode='r') as z:
-                    z.extractall(path=os.path.split(model_path)[0])
-            model_path = os.path.split(model_path)[0]
-        if os.path.isfile(model_path):
-            gp_model = pickle.load(open(model_path, 'rb'))
-        else:
-            raise Exception('model not found')
+        gp_model = get_gp(model_path)
 
         X = data[['long', 'lat']].to_numpy()
         mean_price, std_price = gp_model.predict(X, return_std=True)
