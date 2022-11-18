@@ -229,6 +229,7 @@ class Synchronizer(object):
         -------
 
         """
+        self.breality_df = self.breality_df.replace("nan", np.nan)
 
         self.breality_df["price"] = self.breality_df["price"].astype("float64")
         self.breality_df["note"] = self.breality_df["note"].astype("str")
@@ -260,18 +261,15 @@ class Synchronizer(object):
         self.breality_df['additional_disposition'] = np.array([np.nan] * self.breality_df.shape[0])
 
         self.breality_df["has_cellar"] = self.breality_df["has_cellar"].apply(
-            lambda x: True if x == True else False)
+            lambda x: True if pd.notnull(x) else False)
         self.breality_df["has_loggia"] = self.breality_df["has_loggia"].apply(
-            lambda x: True if x == True else False)
+            lambda x: True if pd.notnull(x) else False)
 
         self.breality_df["has_garden"] = self.breality_df["has_garden"].apply(
-            lambda x: True if pd.notnull(x) else np.nan)
+            lambda x: True if pd.notnull(x) else False)
 
         self.breality_df["has_parking"] = self.breality_df["has_parking"].apply(
-            lambda x: True if x == True else False)
-
-        if self.breality_df.state.isin(np.array(['INTERNAL', 'ALL', 'EXTERNAL', 'CORE', np.nan], dtype=object)).all():
-            self.breality_df.state = self.breality_df.condition
+            lambda x: True if pd.notnull(x) else False)
 
         self.breality_df['heating'] = self.breality_df['heating'].apply(
             lambda x: bool(x) if pd.notnull(x) else np.nan)
