@@ -74,7 +74,7 @@ class ETL(object):
         self.scraped_init_state = self._check_state()
         self.synchronizer = Synchronizer(from_row=self.scraped_init_state)
 
-        self.preprocessor = Preprocessor(df=pd.DataFrame())  # TODO not ideal init with empty dataframe
+        self.preprocessor = Preprocessor(df=pd.DataFrame(), inference=inference)  # TODO not ideal init with empty dataframe
 
         self.generator = Generator(df=pd.DataFrame())  # TODO not ideal init with empty dataframe
 
@@ -263,6 +263,11 @@ class ETL(object):
         """
         if os.path.isfile('../data/tmp_synchronized.csv'):
             os.remove('../data/tmp_synchronized.csv')
+        if self.inference:
+            if os.path.isfile('../data/predict_breality_scraped.csv'):
+                os.remove('../data/predict_breality_scraped.csv')
+            if os.path.isfile('../data/predict_sreality_scraped.csv'):
+                os.remove('../data/predict_sreality_scraped.csv')
 
 
 class Model(object):
