@@ -292,7 +292,7 @@ if __name__ == "__main__":
     # parser.add_argument('-c', '--config-name', help='Name of the config file', default='config.yaml')
     # arguments = parser.parse_args()
 
-    etl = ETL(inference=True, debug=True)
+    etl = ETL(inference=False, debug=False)
     final_data = etl()
     # TODO handle what to do when empty df
     # TODO handle correct state creation/updates
