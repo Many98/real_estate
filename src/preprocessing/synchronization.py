@@ -261,17 +261,17 @@ class Synchronizer(object):
         self.breality_df['additional_disposition'] = np.array([np.nan] * self.breality_df.shape[0])
 
         self.breality_df["has_cellar"] = self.breality_df["has_cellar"].apply(
-            lambda x: True if pd.notnull(x) else False)
+            lambda x: bool(x) if pd.notnull(x) else False)
         self.breality_df["has_loggia"] = self.breality_df["has_loggia"].apply(
-            lambda x: True if pd.notnull(x) else False)
+            lambda x: bool(x) if pd.notnull(x) and x else False)
         self.breality_df["has_balcony"] = self.breality_df["has_balcony"].apply(
-            lambda x: True if pd.notnull(x) else False)
+            lambda x: bool(x) if pd.notnull(x) else False)
 
         self.breality_df["has_garden"] = self.breality_df["has_garden"].apply(
-            lambda x: True if pd.notnull(x) else False)
+            lambda x: bool(x) if pd.notnull(x) else False)
 
         self.breality_df["has_parking"] = self.breality_df["has_parking"].apply(
-            lambda x: True if pd.notnull(x) else False)
+            lambda x: bool(x) if pd.notnull(x) else False)
 
         self.breality_df['heating'] = self.breality_df['heating'].apply(
             lambda x: bool(x) if pd.notnull(x) else np.nan)
