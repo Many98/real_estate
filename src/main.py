@@ -51,10 +51,11 @@ class ETL(object):
                  breality_init_url: str = 'https://www.bezrealitky.cz/vyhledat?offerType=PRODEJ&estateType=BYT&page=1&order=TIMEORDER_DESC&regionOsmIds=R435541&osm_value=Praha%2C+%C4%8Cesko',
                  crawled_links_filename: str = 'prodej_links.txt',
                  scrapped_data_filename: str = 'prodej',
-                 inference: bool = False):
+                 inference: bool = False,
+                 debug: bool = False):
 
-        self.data = None
         self.inference = inference  # whether ETL is in INFERENCE phase
+        self.debug = debug  # this mode turns off scrapers and crawlers in train phase
         self.crawled_links_filename = crawled_links_filename
         self.scrapped_data_filename = scrapped_data_filename
 
@@ -99,14 +100,20 @@ class ETL(object):
         # ### 1,2 OBTAIN RAW DATA
         if not self.inference:
             # links firstly obtained by crawlers and appended to `../data/prodej_links.txt`
-            self.sreality_crawler.crawl()
-            self.breality_crawler.crawl()
+            if not self.debug:
+                self.sreality_crawler.crawl()
+                self.breality_crawler.crawl()
 
-            # already scrapped links are appended to `../data/already_scraped_links.txt`
-            self.sreality_scraper.run(in_filename=self.crawled_links_filename, out_filename=self.scrapped_data_filename,
-                                      inference=self.inference)
-            self.breality_scraper.run(in_filename=self.crawled_links_filename, out_filename=self.scrapped_data_filename,
-                                      inference=self.inference)
+                # already scrapped links are appended to `../data/already_scraped_links.txt`
+                self.sreality_scraper.run(in_filename=self.crawled_links_filename,
+                                          out_filename=self.scrapped_data_filename,
+                                          inference=self.inference)
+                self.breality_scraper.run(in_filename=self.crawled_links_filename,
+                                          out_filename=self.scrapped_data_filename,
+                                          inference=self.inference)
+            else:
+                self.synchronizer.from_row = (0, 0)
+
             #  Data are now scrapped in two separate files
             #           `../data/prodej_breality.csv` and `../data/prodej_sreality.csv` so synchronization is needed
             #            to get one csv with same sets of attributes
@@ -164,9 +171,6 @@ class ETL(object):
         self.preprocessor.df = generated_data  # TODO not ideal
         preprocessed_data = self.preprocessor()
 
-        if not self.inference:
-            self._update_state()
-
         return preprocessed_data
 
     def update_price_map(self):
@@ -219,40 +223,25 @@ class ETL(object):
         -------
 
         """
-        if not os.path.isfile('../data/etl_state.json') or self.inference:
+        if self.inference:
             return 0, 0
         else:
-            with open('../data/etl_state.json', 'r') as f:
-                state = json.load(f)
-            return state['state']
+            s_state = 0
+            b_state = 0
+            try:
+                sreality_scrapped = pd.read_csv(
+                    f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv')
+                s_state = sreality_scrapped.shape[0]
+            except:
+                pass
+            try:
+                breality_scrapped = pd.read_csv(
+                    f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv')
+                b_state = breality_scrapped.shape[0]
+            except:
+                pass
 
-    def _update_state(self):
-        """
-        auxiliary method to update state of ETL object. state is meant as index of rows to continue
-        Returns
-        -------
-
-        """
-        # TODO handle cases when no scraped csv are present
-        # TODO check if +-1 row is not needed
-        try:
-            sreality_scrapped = pd.read_csv(
-                f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv')
-            breality_scrapped = pd.read_csv(
-                f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv')
-        except Exception('Something went wrong with loading of scraped.csv files. \n'
-                         f'Files `../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv` and \n'
-                         f'`../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv` are'
-                         f'probably not present') as e:
-            print(e)
-            raise
-
-        state = {'state': (sreality_scrapped.shape[0], breality_scrapped.shape[0])}
-
-        out = json.dumps(state, indent=4)
-
-        with open("../data/etl_state.json", "w") as outfile:
-            outfile.write(out)
+            return s_state, b_state
 
     def _clean(self):
         """
@@ -303,7 +292,7 @@ if __name__ == "__main__":
     # parser.add_argument('-c', '--config-name', help='Name of the config file', default='config.yaml')
     # arguments = parser.parse_args()
 
-    etl = ETL(inference=False)
+    etl = ETL(inference=True, debug=True)
     final_data = etl()
     # TODO handle what to do when empty df
     # TODO handle correct state creation/updates
