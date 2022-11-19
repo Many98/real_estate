@@ -88,7 +88,7 @@ def osmnx_call(long: float, lat: float, dist: int, tags: dict) -> gpd.GeoDataFra
     # remove not needed tags
     not_drop = list(tags.keys())
     not_drop.extend(['geometry', 'unique_id', 'name'])
-    gdf.drop(gdf.columns.difference(not_drop), 1, inplace=True)
+    gdf.drop(gdf.columns.difference(not_drop), axis=1, inplace=True)
 
     values = list(itertools.chain.from_iterable(list(tags.values())))
 
@@ -104,7 +104,7 @@ def osmnx_call(long: float, lat: float, dist: int, tags: dict) -> gpd.GeoDataFra
     gdf['what'] = gdf[list(tags.keys())].agg("&".join, axis=1)
     #gdf['what'] = gdf['what'].apply(lambda x: '&')  not needed anymore
 
-    gdf.drop(list(tags.keys()), 1, inplace=True)
+    gdf.drop(list(tags.keys()), axis=1, inplace=True)
 
     # replace collection of geometries like Multipolygon with multiple single geometries
     gdf = gdf.explode(ignore_index=True)
