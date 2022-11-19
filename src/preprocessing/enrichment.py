@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import warnings
 
 import geopandas as gpd
 import xarray as xr
@@ -155,34 +156,35 @@ class Enricher(object):
 
             relevant = joined.loc[joined.index_right == _, :]
 
-            # presence of attribute disposition => breality record
-            if row['disposition'] is not np.nan or row[
-                [i for i in self.df.columns if 'dist' in i and 'park' not in i]].isnull().values.any():
-                nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
-                                        dist_type='great_circle')
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                if row['name'] == 'breality' or row[
+                    [i for i in self.df.columns if 'dist' in i and 'park' not in i]].isnull().values.any():
+                    nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
+                                            dist_type='great_circle')
 
-                self.df.at[_, 'bus_station_dist'] = float(nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
-                self.df.at[_, 'train_station_dist'] = float(nearest[nearest.what.str.contains('train')]['dist'].min())
-                self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
-                self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
-                self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
-                self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atm')]['dist'].min())
-                self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
-                self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
-                self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
-                self.df.at[_, 'kindergarten_dist'] = float(nearest[nearest.what.str.contains('kinder')]['dist'].min())
-                self.df.at[_, 'supermarket_grocery_dist'] = float(nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
-                self.df.at[_, 'restaurant_pub_dist'] = float(nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
-                self.df.at[_, 'playground_dist'] = float(nearest[nearest.what.str.contains('playground')]['dist'].min())
-                self.df.at[_, 'sports_field_dist'] = float(nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
-                self.df.at[_, 'theatre_cinema_dist'] = float(nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
-                self.df.at[_, 'pharmacy_dist'] = float(nearest[nearest.what.str.contains('pharmacy')]['dist'].min())
-                self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
-            else:
-                relevant = relevant[relevant.what.str.contains('park')]  # TODO handle cases when df is empty
-                nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
-                                        dist_type='great_circle')
-                self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
+                    self.df.at[_, 'bus_station_dist'] = float(nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
+                    self.df.at[_, 'train_station_dist'] = float(nearest[nearest.what.str.contains('train')]['dist'].min())
+                    self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
+                    self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
+                    self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
+                    self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atm')]['dist'].min())
+                    self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
+                    self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
+                    self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
+                    self.df.at[_, 'kindergarten_dist'] = float(nearest[nearest.what.str.contains('kinder')]['dist'].min())
+                    self.df.at[_, 'supermarket_grocery_dist'] = float(nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
+                    self.df.at[_, 'restaurant_pub_dist'] = float(nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
+                    self.df.at[_, 'playground_dist'] = float(nearest[nearest.what.str.contains('playground')]['dist'].min())
+                    self.df.at[_, 'sports_field_dist'] = float(nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
+                    self.df.at[_, 'theatre_cinema_dist'] = float(nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
+                    self.df.at[_, 'pharmacy_dist'] = float(nearest[nearest.what.str.contains('pharmacy')]['dist'].min())
+                    self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
+                else:
+                    relevant = relevant[relevant.what.str.contains('park')]  # TODO handle cases when df is empty
+                    nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
+                                            dist_type='great_circle')
+                    self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
 
 
 class Generator(object):
