@@ -22,7 +22,9 @@ class Synchronizer(object):
                                              from_row[1] -> breality TODO make this more robust
         """
         self.from_row = from_row
-        self.final_df = None
+        self.final_df = pd.DataFrame()
+        self.sreality_df = pd.DataFrame()
+        self.breality_df = pd.DataFrame()
 
     def __call__(self, sreality_csv_path: str, breality_csv_path: str, *args, **kwargs) -> pd.DataFrame:
         """
@@ -38,22 +40,27 @@ class Synchronizer(object):
         -------
 
         """
+        # dataframes to be synchronized
         try:
-            # dataframes to be synchronized
             self.sreality_df = pd.read_csv(sreality_csv_path).iloc[self.from_row[0]:, :]
+        except:
+            pass
+        try:
             self.breality_df = pd.read_csv(breality_csv_path).iloc[self.from_row[1]:, :]
-        except Exception as e:
-            print(e)
+        except:
+            pass
 
-        self.extract_sreality_data()
-        self.extract_breality_data()
-        self.check_dtypes()  # checks dtypes on both dataframes
-        self.unify()
-        self.merge_text()
-        self.remove()
-
-        if self.integrity_check():
-            self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
+        if not self.sreality_df.empty or not self.breality_df.empty:
+            if not self.sreality_df.empty:
+                self.extract_sreality_data()
+            if not self.breality_df.empty:
+                self.extract_breality_data()
+                self.set_breality_dtypes()
+            self.unify()
+            self.merge_text()
+            self.remove()
+            if self.integrity_check():
+                self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
 
         return self.final_df
 
@@ -69,7 +76,8 @@ class Synchronizer(object):
             '`ownership` contains unexpected value'
         assert self.final_df.price.min() > 1000, '`price` must be positive'
         assert self.final_df.usable_area.min() > 0, '`usable_area` must be positive'
-        assert -5 < self.final_df.floor.min() and self.final_df.floor.max() < 100, '`floor` must be >-5'
+        assert -5 < self.final_df.floor.min() and self.final_df.floor.max() < 100 or self.final_df.floor.min() is np.nan,\
+            '`floor` must be >-5'
         assert self.final_df.energy_effeciency.isin(np.array([np.nan, 'G', 'E', 'B', 'D', 'C',
                                                               'A', 'F'], dtype=object)).all(), \
             '`energy_effeciency` contains unexpected value'
@@ -84,16 +92,16 @@ class Synchronizer(object):
             '`state` contains unexpected value'
         assert self.final_df.construction_type.isin(
             np.array([np.nan, 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná',
-                      'Montovaná', 'Nízkoenergetická'], dtype=object)).all(), \
+                      'Montovaná', 'Nízkoenergetická', 'Drevostavba'], dtype=object)).all(), \
             '`construction_type` contains unexpected value'
         assert self.final_df.disposition.isin(
             np.array([np.nan, '1+kk', '1+1', '3+1', '3+kk', '2+kk', '4+1', '2+1', '5+kk', '4+kk',
-                      'atypické', '6', '5+1', '6+kk'], dtype=object)).all(), \
+                      'atypické', '6 pokojů a více', '5+1', '6+kk'], dtype=object)).all(), \
             '`disposition` contains unexpected value'
         assert self.final_df.additional_disposition.isin(np.array([np.nan, 'Podkrovní', 'Loft', 'Mezonet'],
                                                                   dtype=object)).all(), \
             '`additional_disposition` contains unexpected value'
-        assert 0 <= self.final_df.year_reconstruction.min(), \
+        assert 0 <= self.final_df.year_reconstruction.min() or self.final_df.year_reconstruction.min() is np.nan, \
             '`year_reconstruction` must be within positive'
 
         bool_cols = ['gas', 'electricity', 'waste', 'heating', 'telecomunication'] + \
@@ -104,14 +112,36 @@ class Synchronizer(object):
 
         dist_cols = [col for col in self.final_df if 'dist' in col]
         for col in dist_cols:
-            assert self.final_df[col].min() >= 0, f'`{col}` must be  positive'
+            assert self.final_df[col].min() >= 0 or self.final_df[col].min() is np.nan, f'`{col}` must be  positive'
 
         return True
+
+    def _clean_description(self):
+        """
+        auxiliary method to clean a bit description column
+        by removing price from it
+        Returns
+        -------
+
+        """
+        self.final_df['description'] = self.final_df['description'].apply(lambda x: re.sub(r'[0-9]{6,10}', '', x))
+        for i in ['Zlevněno', 'Původní cena', 'price']:
+            self.final_df['description'] = self.final_df['description'].apply(lambda x: re.sub(i, '', x))
+
+    def _hash_it(self):
+        """
+        auxiliary method to add hashes based on every record values and based on description value
+        Returns
+        -------
+
+        """
+        self.final_df['hash'] = pd.util.hash_pandas_object(self.final_df, index=False).astype(str)
+        self.final_df['desc_hash'] = pd.util.hash_pandas_object(self.final_df['description'], index=False).astype(str)
 
     def remove(self):
         """
         auxiliary method to remove some records with unexpected values e.g. price <=0; rental price instead
-        of sellling price
+        of sellling price & also records with same hashes (remove duplicates)
         Returns
         -------
 
@@ -142,6 +172,8 @@ class Synchronizer(object):
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("PANEL", "Panelová")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("NIZKOENERGETICKY",
                                                                                         "Nízkoenergetická")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("DREVOSTAVBA",
+                                                                                        "Drevostavba")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("UNDEFINED", np.nan)
 
         self.final_df["state"] = self.final_df["state"].replace("UNDEFINED", np.nan)
@@ -166,6 +198,8 @@ class Synchronizer(object):
         self.final_df["disposition"] = self.final_df["disposition"].replace("GARSONIERA", "1+kk")
         self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_5_1", "5+1")
 
+        self._hash_it()
+
     def merge_text(self):
         """
         method for merging all columns which should be processed by NLP
@@ -179,6 +213,8 @@ class Synchronizer(object):
         -------
 
         """
+        self._clean_description()  # remove prices from description
+
         cols = ['note', 'tags', 'place', 'transport', 'telecomunication_txt', 'heating_txt', 'additional_disposition',
                 'waste_txt', 'electricity_txt']
         for col in cols:
@@ -186,23 +222,24 @@ class Synchronizer(object):
             self.final_df['description'] += ' ' + self.final_df[col]
             self.final_df[col] = self.final_df[col].replace('', np.nan)
 
-    def check_dtypes(self):
+    def set_breality_dtypes(self):
         """
         method to check and ensure correct dtypes on relevant columns on both dataframes
         Returns
         -------
 
         """
+        self.breality_df = self.breality_df.replace("nan", np.nan)
 
         self.breality_df["price"] = self.breality_df["price"].astype("float64")
-        self.sreality_df["note"] = self.sreality_df["note"].astype("str")
+        self.breality_df["note"] = self.breality_df["note"].astype("str")
         self.breality_df["usable_area"] = self.breality_df["usable_area"].astype("float64")
         self.breality_df["gas"] = self.breality_df["gas"].astype("str")
         self.breality_df["waste"] = self.breality_df["waste"].astype("str")
         self.breality_df["electricity"] = self.breality_df["electricity"].astype("str")
         self.breality_df["transport"] = self.breality_df["transport"].astype("str")
         self.breality_df["telecomunication"] = self.breality_df["telecomunication"].astype("str")
-        self.sreality_df["tags"] = self.sreality_df["tags"].astype("str")
+        self.breality_df["tags"] = self.breality_df["tags"].astype("str")
         self.breality_df["waste_txt"] = self.breality_df["waste_txt"].astype("str")
         self.breality_df["electricity_txt"] = self.breality_df["electricity_txt"].astype("str")
         self.breality_df["telecomunication_txt"] = self.breality_df["telecomunication_txt"].astype("str")
@@ -223,22 +260,21 @@ class Synchronizer(object):
 
         self.breality_df['additional_disposition'] = np.array([np.nan] * self.breality_df.shape[0])
 
-        self.breality_df["has_cellar"] = self.sreality_df["has_cellar"].apply(
-            lambda x: True if x == True else False)
-        self.breality_df["has_loggia"] = self.sreality_df["has_loggia"].apply(
-            lambda x: True if x == True else False)
+        self.breality_df["has_cellar"] = self.breality_df["has_cellar"].apply(
+            lambda x: bool(x) if pd.notnull(x) else False)
+        self.breality_df["has_loggia"] = self.breality_df["has_loggia"].apply(
+            lambda x: bool(x) if pd.notnull(x) and x else False)
+        self.breality_df["has_balcony"] = self.breality_df["has_balcony"].apply(
+            lambda x: bool(x) if pd.notnull(x) else False)
 
         self.breality_df["has_garden"] = self.breality_df["has_garden"].apply(
-            lambda x: True if x is not np.nan else np.nan)
+            lambda x: bool(x) if pd.notnull(x) else False)
 
         self.breality_df["has_parking"] = self.breality_df["has_parking"].apply(
-            lambda x: True if x == True else False)
-
-        if self.breality_df.state.isin(np.array(['INTERNAL', 'ALL', 'EXTERNAL', 'CORE', np.nan], dtype=object)).all():
-            self.breality_df.state = self.breality_df.condition
+            lambda x: bool(x) if pd.notnull(x) else False)
 
         self.breality_df['heating'] = self.breality_df['heating'].apply(
-            lambda x: bool(x) if x is not np.nan else np.nan)
+            lambda x: bool(x) if pd.notnull(x) else np.nan)
 
     def extract_sreality_data(self) -> None:
         """
@@ -249,77 +285,79 @@ class Synchronizer(object):
         """
         # header
         self.sreality_df['header'] = self.sreality_df['header'].apply(
-            lambda x: x.replace("\xa0", " ") if x is not np.nan else np.nan).astype('str')
+            lambda x: x.replace("\xa0", " ") if pd.notnull(x) else np.nan).astype('str')
 
         # price
         self.sreality_df['price'] = self.sreality_df['price'].apply(
-            lambda x: re.sub(r'[^0-9]', '', x.split('K')[0]) if x is not np.nan else np.nan)
+            lambda x: re.sub(r'[^0-9]', '', x.split('K')[0]) if pd.notnull(x) else np.nan)
         self.sreality_df['price'] = self.sreality_df['price'].apply(
             lambda x: x if x != '' else np.nan).astype('float')
 
         # usable area
         self.sreality_df['usable_area'] = self.sreality_df['usable_area'].apply(
-            lambda x: re.sub(r'[^0-9]', '', x.replace('m2', '')) if x is not np.nan else np.nan)
+            lambda x: re.sub(r'[^0-9]', '', x.replace('m2', '')) if pd.notnull(x) else np.nan)
         self.sreality_df['usable_area'] = self.sreality_df['usable_area'].apply(
             lambda x: x if x != '' else np.nan).astype('float')
 
         # floor
         self.sreality_df['floor'] = self.sreality_df['floor'].apply(
-            lambda x: x.replace('přízemí', '0.') if x is not np.nan else np.nan)
+            lambda x: x.replace('přízemí', '0.') if pd.notnull(x) else np.nan)
         self.sreality_df['floor'] = self.sreality_df['floor'].apply(
-            lambda x: x.split('.')[0] if x is not np.nan else np.nan).astype(float)
+            lambda x: x.split('.')[0] if pd.notnull(x) else np.nan).astype(float)
 
         # energy efficiency
         self.sreality_df['energy_effeciency'] = self.sreality_df['energy_effeciency'].apply(
-            lambda x: str(x[6]) if x is not np.nan else np.nan)
+            lambda x: str(x)[6] if pd.notnull(x) else np.nan)
 
         # long
         self.sreality_df['long'] = self.sreality_df['long'].apply(
-            lambda x: x[2:] if x is not np.nan else np.nan).astype('float')
+            lambda x: x[2:] if pd.notnull(x) else np.nan).astype('float')
 
         # lat
         self.sreality_df['lat'] = self.sreality_df['lat'].apply(
-            lambda x: x[2:] if x is not np.nan else np.nan).astype('float')
+            lambda x: x[2:] if pd.notnull(x) else np.nan).astype('float')
 
         #  <>_dist cols
         dist_cols = [i for i in self.sreality_df.columns if 'dist' in i]
         for col in dist_cols:
             self.sreality_df[col] = self.sreality_df[col].apply(
-                lambda x: re.sub(r'[^0-9]', '', str(x).split('(')[-1]) if x is not np.nan else np.nan)
+                lambda x: re.sub(r'[^0-9]', '', str(x).split('(')[-1]) if pd.notnull(x) else np.nan)
             self.sreality_df[col] = self.sreality_df[col].apply(
-                lambda x: x if x is not np.nan and x != '' else np.nan).astype('float')
+                lambda x: x if pd.notnull(x) and x != '' else np.nan).astype('float')
 
         # gas
         self.sreality_df['gas'] = self.sreality_df['gas'].apply(
-            lambda x: bool(x) if x is not np.nan else np.nan)
+            lambda x: bool(x) if pd.notnull(x) else np.nan)
 
         # waste
         self.sreality_df['waste_txt'] = self.sreality_df['waste']
         self.sreality_df['waste'] = self.sreality_df['waste'].apply(
-            lambda x: bool(x) if x is not np.nan else np.nan)
+            lambda x: bool(x) if pd.notnull(x) else np.nan)
 
         # electricity
         self.sreality_df['electricity_txt'] = self.sreality_df['electricity']
         self.sreality_df['electricity'] = self.sreality_df['electricity'].apply(
-            lambda x: bool(x) if x is not np.nan else np.nan)
+            lambda x: bool(x) if pd.notnull(x) else np.nan)
 
         # heating
         self.sreality_df['heating_txt'] = self.sreality_df['heating']
         self.sreality_df['heating'] = self.sreality_df['heating'].apply(
-            lambda x: bool(x) if x is not np.nan else np.nan)
+            lambda x: bool(x) if pd.notnull(x) else np.nan)
 
         # telecomunication
         self.sreality_df['telecomunication_txt'] = self.sreality_df['telecomunication']
         self.sreality_df['telecomunication'] = self.sreality_df['telecomunication'].apply(
-            lambda x: bool(x) if x is not np.nan else np.nan)
+            lambda x: bool(x) if pd.notnull(x) else np.nan)
 
         # disposition
         self.sreality_df['additional_disposition'] = self.sreality_df['header'].apply(
             lambda x: x.split('(')[-1].split(')')[0].replace(x.split('(')[0].split(')')[0],
-                                                             '') if x is not np.nan else np.nan)
+                                                             '') if pd.notnull(x) else np.nan)
         self.sreality_df['additional_disposition'] = self.sreality_df['additional_disposition'].replace('', np.nan)
-        self.sreality_df['disposition'] = self.sreality_df['header'].apply(
-            lambda x: x.split()[2] if x is not np.nan else np.nan)
+        disp = self.sreality_df['header'].str.extract(
+            r'(1\+kk)|(1\+1)|(3\+1)|(3\+kk)|(2\+kk)|(4\+1)|(2\+1)|(5\+kk)|(4\+kk)|(atypické)|(6 pokojů a více)|(5\+1)')
+        disp.fillna('', inplace=True)
+        self.sreality_df['disposition'] = disp.sum(axis=1).replace('', np.nan).astype(str)
 
         # equipment
         # ok because its string features
@@ -337,9 +375,9 @@ class Synchronizer(object):
         has_cols = [i for i in self.sreality_df.columns if 'has' in i and 'hash' not in i]
         for col in has_cols:
             self.sreality_df[col] = self.sreality_df[col].apply(
-                lambda x: str(x).replace('Topení:', '') if x is not np.nan else np.nan)
+                lambda x: str(x).replace('Topení:', '') if pd.notnull(x) else np.nan)
             self.sreality_df[col] = self.sreality_df[col].apply(
-                lambda x: True if x is not np.nan and x not in ('', 'ne') else False)
+                lambda x: True if pd.notnull(x) and x not in ('', 'ne') else False)
             if col == "has_garden":
                 self.sreality_df[col] = False
 

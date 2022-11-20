@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import warnings
 
 import geopandas as gpd
 import xarray as xr
@@ -11,8 +12,8 @@ from compress_fasttext.models import CompressedFastTextKeyedVectors
 
 from tqdm import tqdm
 
-from src.models.gaussian_process import gp_inference
-from src.preprocessing.utils import prepare_rasters, osmnx_nearest, osmnx_call
+from models.gaussian_process import gp_inference
+from preprocessing.utils import prepare_rasters, osmnx_nearest, osmnx_call
 
 
 class Enricher(object):
@@ -25,15 +26,11 @@ class Enricher(object):
         self.df = df  # dataframe to be enriched
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.add_gp('models/fitted_gp_low')
-        self.add_quality_data('../data/geodata/')
-        self.add_criminality_data()
-        self.add_osm_data()
-        self.add_fasttext_embeddings()
-        self.add_electra_embeddings()
-        self.add_roberta_embeddings()
-
-        self.df.to_csv('../data/tmp_enriched.csv', mode='w', index=False)
+        if not self.df.empty:
+            self.add_gp('models/fitted_gp_low')
+            self.add_quality_data('../data/geodata/')
+            self.add_criminality_data()
+            self.add_osm_data()
 
         return self.df
 
@@ -157,36 +154,56 @@ class Enricher(object):
 
         for _, row in tqdm(self.df.iterrows(), total=self.df.shape[0], desc='Processing OSM data'):  #
 
-            relevant = joined[joined.index_right == _]
+            relevant = joined.loc[joined.index_right == _, :]
 
-            # presence of attribute disposition => breality record
-            if row['disposition'] is not np.nan or row[
-                [i for i in self.df.columns if 'dist' in i and 'park' not in i]].isnull().values.any():
-                nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
-                                        dist_type='great_circle')
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                if row['name'] == 'breality' or row[
+                    [i for i in self.df.columns if 'dist' in i and 'park' not in i]].isnull().values.any():
+                    nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
+                                            dist_type='great_circle')
 
-                self.df.at[_, 'bus_station_dist'] = float(nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
-                self.df.at[_, 'train_station_dist'] = float(nearest[nearest.what.str.contains('train')]['dist'].min())
-                self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
-                self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
-                self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
-                self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atn')]['dist'].min())
-                self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
-                self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
-                self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
-                self.df.at[_, 'kindergarten_dist'] = float(nearest[nearest.what.str.contains('kinder')]['dist'].min())
-                self.df.at[_, 'supermarket_grocery_dist'] = float(nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
-                self.df.at[_, 'restaurant_pub_dist'] = float(nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
-                self.df.at[_, 'playground_dist'] = float(nearest[nearest.what.str.contains('playground')]['dist'].min())
-                self.df.at[_, 'sports_field_dist'] = float(nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
-                self.df.at[_, 'theatre_cinema_dist'] = float(nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
-                self.df.at[_, 'pharmacy_dist'] = float(nearest[nearest.what.str.contains('pharmacy')]['dist'].min())
-                self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
-            else:
-                relevant = relevant[relevant.what.str.contains('park')]  # TODO handle cases when df is empty
-                nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
-                                        dist_type='great_circle')
-                self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
+                    self.df.at[_, 'bus_station_dist'] = float(nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
+                    self.df.at[_, 'train_station_dist'] = float(nearest[nearest.what.str.contains('train')]['dist'].min())
+                    self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
+                    self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
+                    self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
+                    self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atm')]['dist'].min())
+                    self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
+                    self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
+                    self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
+                    self.df.at[_, 'kindergarten_dist'] = float(nearest[nearest.what.str.contains('kinder')]['dist'].min())
+                    self.df.at[_, 'supermarket_grocery_dist'] = float(nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
+                    self.df.at[_, 'restaurant_pub_dist'] = float(nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
+                    self.df.at[_, 'playground_dist'] = float(nearest[nearest.what.str.contains('playground')]['dist'].min())
+                    self.df.at[_, 'sports_field_dist'] = float(nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
+                    self.df.at[_, 'theatre_cinema_dist'] = float(nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
+                    self.df.at[_, 'pharmacy_dist'] = float(nearest[nearest.what.str.contains('pharmacy')]['dist'].min())
+                    self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
+                else:
+                    relevant = relevant[relevant.what.str.contains('park')]  # TODO handle cases when df is empty
+                    nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
+                                            dist_type='great_circle')
+                    self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
+
+
+class Generator(object):
+    """
+        Class handling generation of new aggregated features from existing features
+        Some research is required prior to defining relevant aggregated features
+        TODO consider using decorators as it would be probably more elegant solution
+        """
+
+    def __init__(self, df: pd.DataFrame):
+        self.df = df  # dataframe to be enriched
+
+    def __call__(self, *args, **kwargs) -> pd.DataFrame:
+        if not self.df.empty:
+            self.add_fasttext_embeddings()
+            self.add_electra_embeddings()
+            self.add_roberta_embeddings()
+
+        return self.df
 
     def add_fasttext_embeddings(self):
         """
@@ -221,25 +238,3 @@ class Enricher(object):
 
     def add_roberta_embeddings(self):
         pass
-
-
-class Generator(object):
-    """
-        Class handling generation of new aggregated features from existing features
-        Some research is required prior to defining relevant aggregated features
-        TODO consider using decorators as it would be probably more elegant solution
-        """
-
-    def __init__(self, df: pd.DataFrame):
-        self.df = df  # dataframe to be enriched
-
-    def __call__(self, *args, **kwargs) -> pd.DataFrame:
-        self.df.to_csv('../data/tmp_final.csv', mode='w', index=False)
-
-        return self.df
-
-
-if __name__ == '__main__':
-    data = pd.read_csv('../data/prodej_breality_scraped.csv')
-    en = Enricher(data)
-    en()

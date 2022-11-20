@@ -1,8 +1,5 @@
-import pandas as pd
 import time
-import csv
 import os
-import re
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -10,11 +7,10 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 
-from selenium import webdriver
+from datetime import datetime
 from bs4 import BeautifulSoup
 import re
 
-import urllib3
 from scrapers.BaseScraper import BaseScraper
 
 
@@ -23,70 +19,73 @@ class SRealityScraper(BaseScraper):
         super().__init__(name, delay)
 
     def scrape(self, driver: WebDriver, url: str) -> dict:
-        """Here comes custom implementation for sreality
-            E.g.  method must be able to scrape all relevant data from urls like
-                https://sreality.cz/detail/prodej/byt/1+kk/praha-holesovice-veletrzni/3827836492
-            Output should be dictionary e.g. {'header': 'Prodej bytu 1+1 43 m²',
-                                              'price': 7 900 000,
-                                              'text': '...',
-                                              'stav_objektu': 'Před rekonstrukcí',
-                                              'long': 45.1,
-                                              'lat': 15.5} ... etc.
-                dictionary is required 'cause it is straighforward to create pd.DataFrame on it and easily export to csv
-                for details see `scrapers.BaseScraper`
-
-            *    Here should be scraped all tabular data and also longitude and latitude  ...
-                and returned as dictionary
-
-            *    method should also retrieve urls of image data a then call `self._save_image(img_url, url)` (probably in for loop)
-                ( save_image method will create unique hash for web_url which will serve as directory name for all images for
-                that web_url)
-            *  similarly for text data call self._save_text(text, url)
-
-            * finally update dictionary  e.g. result.update({'hash': base64(url)}) (it will append particular hash (filename))
-             to dictionary as we need reference where are stored images and text for specific url
-                for particular `url`
-        TODO update docstring
         """
-        out = {  # basic sort of required info
-            'header': None,  # text description of disposition e.g. 3 + kk
+            Here comes custom implementation for sreality.cz
+            E.g.  method must be able to scrape all relevant data from urls like
+            https://sreality.cz/detail/prodej/byt/1+kk/praha-holesovice-veletrzni/3827836492
+            Parameters
+            ----------
+            driver : WebDriver
+                instance of selenium's WebDriver
+            url : str
+                url link to be scraped
+            Returns
+            -------
+            dict with specific keys and scraped values
+        """
+        out = {
+            'header': None,
+            # text description of disposition e.g. 3 + kk
             'price': None,  # Celková cena
-            'note': None,  # poznamka (k cene) sometimes can have valid info like
+            'note': None,
+            # poznamka (k cene) sometimes can have valid info like
             # Při rychlém jednání možná sleva., včetně provize, včetně právního servisu, cena k jednání
             'usable_area': None,  # Užitná plocha
             'floor_area': None,  # Plocha podlahová
             'floor': None,  # podlazie
-            'energy_effeciency': None,  # Energetická náročnost (letters A-G) A=best, G=shitty
-            'ownership': None,  # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
+            'energy_effeciency': None,
+            # Energetická náročnost (letters A-G) A=best, G=shitty
+            'ownership': None,
+            # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
             'description': None,
             'long': None,
             'lat': None,
             'hash': None,
 
-            # binary civic amenities (obcanska vybavenost binarne info)
-            # TODO DEPRECATED (DIST attributes are enough) -> csv needs updates
-            # 'bus_station': None,
-            # 'train_station': None,
-            # 'post_office': None,
-            # 'atm': None, # bankomat according to google translate :D
-            # 'doctor': None,
-            # 'vet': None,
-            # 'primary_school': None,
-            # 'kindergarten': None,
-            # 'supermarket_grocery': None,
-            # 'restaurant_pub': None,
-            # 'playground_gym_pool': None, # or similar kind of leisure amenity probably OSM would be better
-            # 'subway': None,
-            # 'tram': None,
-            # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
-            # 'theatre_cinema': None,
+            # other - done
+            'gas': None,  # Plyn
+            'waste': None,  # Odpad
+            'equipment': None,  # Vybavení
+            'state': None,
+            # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
+            'construction_type': None,
+            # Stavba (3 states possible ) panel, cihla, ostatni
+            'place': None,  # Umístění objektu
+            'electricity': None,  # elektrina
+            'heating': None,  # topeni
+            'transport': None,  # doprava
+            'year_reconstruction': None,  # rok rekonstrukce
+            'telecomunication': None,  # telekomunikace
 
-            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti)
+            # binary info - done
+            'has_lift': None,  # Výtah: True, False
+            'has_garage': None,  # garaz
+            'has_cellar': None,  # sklep presence
+            'no_barriers': None,  # ci je bezbarierovy bezbarierovy
+            'has_loggia': None,  # lodzie
+            'has_balcony': None,  # balkon
+            'has_garden': None,  # zahrada
+            'has_parking': None,
+
+            # what has b reality in addition
+            'tags': None,
+            'disposition': None,
+
+            # closest distance to civic amenities (in metres) (obcanska vybavenost vzdialenosti) -
             'bus_station_dist': None,
             'train_station_dist': None,
             'subway_station_dist': None,
             'tram_station_dist': None,
-            'MHD_dist': None,
             'post_office_dist': None,
             'atm_dist': None,
             'doctor_dist': None,
@@ -96,49 +95,16 @@ class SRealityScraper(BaseScraper):
             'supermarket_grocery_dist': None,
             'restaurant_pub_dist': None,
             'playground_dist': None,
-            # or similar kind of leisure amenity probably OSM would be better
             'sports_field_dist': None,
+            # or similar kind of leisure amenity probably OSM would be better
             # 'park': None -- probably not present => maybe can be within playground or we will scrape from OSM
             'theatre_cinema_dist': None,
             'pharmacy_dist': None,
+            'name': self.name,
+            'date': datetime.today().strftime('%Y-%m-%d')
 
-            # other
-            'gas': None,  # Plyn
-            'waste': None,  # Odpad:
-            'equipment': None,  # Vybavení:
-            'state': None,
-            # stav objektu e.g. po rekonstrukci/projekt etc  (10 states possible) see https://www.sreality.cz/hledani/byty
-            'construction_type': None,  # Stavba (3 states possible ) panel, cihla, ostatni
-            'place': None,  # Umístění objektu
-            'electricity': None,  # elektrina
-            'heating': None,  # topeni
-            'transport': None,  # doprava
-            'year_reconstruction': None,  # rok rekonstrukce
-            'telecomunication': None,  # telekomunikace
-
-            # what has b reality in addition
-            'tags': None,
-            'disposition': None,
-
-            # binary info
-            'has_lift': None,  # Výtah: True, False
-            'has_garage': None,  # garaz
-            'has_cellar': None,  # sklep presence or  m2 ???
-            'no_barriers': None,  # ci je bezbarierovy bezbarierovy
-            'has_loggia': None,  # lodzie m2
-            'has_balcony': None,  # balkon
-            'has_garden': None,  # zahrada,
-            'has_parking': None,
-
-            # additional info # TODO DEPRECATED (HAS-like attributes are enough) -> needs update csv
-            # 'cellar_area': None, # plocha sklepu (if provided)
-            # 'loggia_area': None,
-            # 'bank_dist': None,
-            # 'age': dict_.get('age', None),
-            # 'condition': dict_.get('condition', None),
-            # 'is_new': dict_.get('newBuilding', None),
-            # 'balcony_area': None
         }
+
         if 'sreality' not in url:  # ensures correct link
             return {}
         else:

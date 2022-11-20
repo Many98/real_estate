@@ -1,8 +1,9 @@
 import pandas as pd
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic
 from sklearn.model_selection import train_test_split, GridSearchCV
-from src.preprocessing.utils import prepare_atlas_cen_data
+
+from preprocessing.utils import prepare_atlas_cen_data
+
 import numpy as np
 from typing import Union
 import os
@@ -10,10 +11,37 @@ import pickle
 import py7zr
 import requests
 
+
 # TODO see https://towardsdatascience.com/tree-boosting-for-spatial-data-789145d6d97d
 #  GPBoost kind of mix of gradient boosted trees with gaussian processes
 #  because XGboost alone cannot accounts for autocorrelation of residuals in spatial data (but GP can)
 #  maybe using output of gaussian process as input to XGboost can help XGB to handle spatial autocorrelation of prices
+
+def get_gp(model_path: str) -> GaussianProcessRegressor:
+    """
+    auxiliary func to download and extract gaussian process model
+    Parameters
+    ----------
+    model_path :
+
+    Returns
+    -------
+
+    """
+    if not os.path.isfile(model_path):
+        if not os.path.isfile(model_path + '.7z'):
+            with requests.get('https://zenodo.org/record/7319710/files/fitted_gp_low.7z?download=1', stream=True) as r:
+                with open('models/fitted_gp_low.7z', 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+        with py7zr.SevenZipFile(model_path + '.7z', mode='r') as z:
+            z.extractall(path=os.path.split(model_path)[0])
+
+    if os.path.isfile(model_path):
+        return pickle.load(open(model_path, 'rb'))
+    else:
+        raise Exception('Something went wrong, model not found')
 
 
 def gp_train(grid: Union[list, dict], bbox: tuple = (14.0, 14.8, 49.9, 50.3),
@@ -61,8 +89,9 @@ def gp_train(grid: Union[list, dict], bbox: tuple = (14.0, 14.8, 49.9, 50.3),
     return gpr_cv_all, gpr_cv_low
 
 
-def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path: str =
-                 '../data/_atlas_cen_scraped.csv') -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str,
+                 data_path: str = '../data/_atlas_cen_scraped.csv') -> \
+        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Performs prediction using pickled model
     Parameters
@@ -75,20 +104,7 @@ def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path:
     -------
 
     """
-    if not os.path.isfile(model_path):
-        with requests.get('https://zenodo.org/record/7319710/files/fitted_gp_low.7z?download=1', stream=True) as r:
-            with open('models/fitted_gp_low.7z', 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-    if '7z' in model_path:
-        if not os.path.isfile(os.path.split(model_path)[0]):
-            with py7zr.SevenZipFile(model_path, mode='r') as z:
-                z.extractall(path=os.path.split(model_path)[0])
-        model_path = os.path.split(model_path)[0]
-    if os.path.isfile(model_path):
-        gp_model = pickle.load(open(model_path, 'rb'))
-    else:
-        raise Exception('model not found')
+    gp_model = get_gp(model_path)
 
     data = prepare_atlas_cen_data(data_path)
 
@@ -104,31 +120,3 @@ def gp_inference(X: Union[np.ndarray, pd.DataFrame], model_path: str, data_path:
     mean = np.where(ci_low_pred <= 0, (ci_high_pred + ci_low) / 2, mean_pred)
 
     return mean, std_pred, ci_low, ci_high_pred
-
-
-if __name__ == '__main__':
-    # define hyper-param space for brute force "optimization"
-    # its done in few steps because of lack of computing resources
-    # RBF performs poorly best cross val score is ~ 0.23
-    """
-    grid1 = [
-        {
-            "normalize_y": [True, False],
-            "kernel": [RBF(length_scale=l, length_scale_bounds="fixed") for l in np.logspace(-5, 1, 7)]
-        }
-    ]
-    model1 = gp_train(grid=grid1, csv_path='../../data/_atlas_cen_scraped.csv')
-    """
-    # Matern kernel is generalization of RBF
-    grid2 = {
-        "normalize_y": [True],
-        "kernel": [Matern(length_scale=l, length_scale_bounds="fixed", nu=n) for l in
-                   [0.1, 0.01, 0.001, 0.0001, 0.0008] for n in
-                   [0.001, 0.01, 0.1, 0.2, 0.5]]
-    }
-    model2 = gp_train(grid=grid2, csv_path='../../data/_atlas_cen_scraped.csv')
-
-    # best models was {'kernel': Matern(length_scale=0.1, nu=0.01), 'normalize_y': True} on "low" prices
-
-    print('f')
-
