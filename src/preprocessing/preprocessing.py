@@ -19,86 +19,97 @@ class Preprocessor(object):
     TODO consider using decorators as it would be probably more elegant solution
     """
 
-    def __init__(self, df: pd.DataFrame, inference: bool):
+    def __init__(self, df: pd.DataFrame, inference: bool, base: bool):
         self.df = df  # dataframe to be preprocessed
         self.inference = inference
+        self.base = base  # whether to only perform imputation
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
         if not self.df.empty:
-            self.expand()
+            if not self.base:
+                self.expand()
+
             self.impute()  # impute in pandas-like way too lazy to overwrite
-            self.categorize()
-            self.encode_ordinal()  # ordinal encoding in pandas-like way too lazy to overwrite
 
-            if not self.inference:
-                # this breaks consistency a bit but is necessary because we need to hold state of imputer and
-                # one-hot encoder from train dataset and use it on test dataset
-                dist_cols = [i for i in self.df.columns if
-                                      'dist' in i and 'ord' not in i and 'num' not in i]
-                categorical_to_ohe = ['energy_effeciency', 'ownership', 'equipment',
-                                      'state',
-                                      'disposition',
-                                      'construction_type', 'year_reconstruction',
-                                      'air_quality', 'built_density', 'sun_glare',
-                                      'gas', 'waste', 'telecomunication', 'electricity', 'heating',
-                                      ] + dist_cols
+            if not self.base:
+                self.categorize()
+                self.encode_ordinal()  # ordinal encoding in pandas-like way too lazy to overwrite
 
-                noise_cols = ['daily_noise', 'nightly_noise']
+                if not self.inference:
+                    # this breaks consistency a bit but is necessary because we need to hold state of imputer and
+                    # one-hot encoder from train dataset and use it on test dataset
+                    dist_cols = [i for i in self.df.columns if
+                                 'dist' in i and 'ord' not in i and 'num' not in i]
+                    categorical_to_ohe = ['energy_effeciency', 'ownership', 'equipment',
+                                          'state',
+                                          'disposition',
+                                          'construction_type', 'year_reconstruction',
+                                          'air_quality', 'built_density', 'sun_glare',
+                                          'gas', 'waste', 'telecomunication', 'electricity', 'heating',
+                                          ] + dist_cols
 
-                noise_imputer = SimpleImputer(strategy='median')
-                ohe = OneHotEncoder(categories=[['unknown', 'G', 'E', 'B', 'D', 'C', 'A', 'F'],
-                                                ['Osobní', 'Státní/obecní', 'Družstevní', 'unknown'],
-                                                ['unknown', 'ne', 'Částečně', 'ano'],
-                                                ['unknown', 'V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci',
-                                                 'Novostavba', 'Velmi dobrý', 'Dobrý', 'Ve výstavbě', 'Projekt',
-                                                 'Špatný', ],
-                                                ['unknown', '1+kk', '1+1', '3+1', '3+kk', '2+kk', '4+1', '2+1', '5+kk',
-                                                 '4+kk', 'atypické', '6 pokojů a více', '5+1', '6+kk'],
-                                                ['unknown', 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná',
-                                                 'Montovaná', 'Nízkoenergetická', 'Drevostavba'],
-                                                ['<1950', '1951-1980', '1981-2000', '2001-2010', '2011-2015',
-                                                 '2016-2020',
-                                                 '2021-2025',
-                                                 'undefined'],
-                                                ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
-                                                ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
-                                                ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
-                                                ['unknown', True, False],
-                                                ['unknown', True, False],
-                                                ['unknown', True, False],
-                                                ['unknown', True, False],
-                                                ['unknown', True, False],
-                                                ] + [['>=1500m', '0-99m', '100-199m', '200-299m', '300-399m', '400-499m',
-                                                      '500-599m', '600-699m', '700-799m', '800-899m', '900-999m',
-                                                      '1000-1099m', '1100-1199m', '1200-1299m', '1300-1399m',
-                                                      '1400-1499m'
-                                                      ] for _ in range(len(dist_cols))],
-                                    handle_unknown='error',  # TODO for now raise error
-                                    sparse=False)
+                    noise_cols = ['daily_noise', 'nightly_noise']
 
-                self.subprocessor = ColumnTransformer([
-                    ('impute', noise_imputer, noise_cols),
-                    ('ohe', ohe, categorical_to_ohe)
-                ], remainder='passthrough', n_jobs=1)
+                    noise_imputer = SimpleImputer(missing_values=0.0, strategy='median')
+                    ohe = OneHotEncoder(categories=[['unknown', 'G', 'E', 'B', 'D', 'C', 'A', 'F'],
+                                                    ['Osobní', 'Státní/obecní', 'Družstevní', 'unknown'],
+                                                    ['unknown', 'ne', 'Částečně', 'ano'],
+                                                    ['unknown', 'V rekonstrukci', 'Před rekonstrukcí',
+                                                     'Po rekonstrukci',
+                                                     'Novostavba', 'Velmi dobrý', 'Dobrý', 'Ve výstavbě', 'Projekt',
+                                                     'Špatný', ],
+                                                    ['unknown', '1+kk', '1+1', '3+1', '3+kk', '2+kk', '4+1', '2+1',
+                                                     '5+kk',
+                                                     '4+kk', 'atypické', '6 pokojů a více', '5+1', '6+kk'],
+                                                    ['unknown', 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová',
+                                                     'Kamenná',
+                                                     'Montovaná', 'Nízkoenergetická', 'Drevostavba'],
+                                                    ['<1950', '1951-1980', '1981-2000', '2001-2010', '2011-2015',
+                                                     '2016-2020',
+                                                     '2021-2025',
+                                                     'undefined'],
+                                                    ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
+                                                    ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
+                                                    ['unknown', '1.0', '2.0', '3.0', '4.0', '5.0'],
+                                                    ['unknown', True, False],
+                                                    ['unknown', True, False],
+                                                    ['unknown', True, False],
+                                                    ['unknown', True, False],
+                                                    ['unknown', True, False],
+                                                    ] + [['>=1500m', '0-99m', '100-199m', '200-299m', '300-399m',
+                                                          '400-499m',
+                                                          '500-599m', '600-699m', '700-799m', '800-899m', '900-999m',
+                                                          '1000-1099m', '1100-1199m', '1200-1299m', '1300-1399m',
+                                                          '1400-1499m'
+                                                          ] for _ in range(len(dist_cols))],
+                                        handle_unknown='error',  # TODO for now raise error
+                                        sparse=False)
 
-                transformed = self.subprocessor.fit_transform(self.df)
-                col_names = ['_'.join(
-                    i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split()) for
-                    i in self.subprocessor.get_feature_names_out()]
+                    self.subprocessor = ColumnTransformer([
+                        ('impute', noise_imputer, noise_cols),
+                        ('ohe', ohe, categorical_to_ohe)
+                    ], remainder='passthrough', n_jobs=1)
 
-                self._set_state()  # save state of subprocessor
+                    transformed = self.subprocessor.fit_transform(self.df)
+                    col_names = ['_'.join(
+                        i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split())
+                        for
+                        i in self.subprocessor.get_feature_names_out()]
 
-                self.df = pd.DataFrame(transformed, columns=col_names)
+                    self._set_state()  # save state of subprocessor
 
-            else:
-                self._get_state()  # obtain latest state of subprocessor (apply to test data / inference)
+                    self.df = pd.DataFrame(transformed, columns=col_names)
 
-                transformed = self.subprocessor.transform(self.df)
-                col_names = ['_'.join(
-                    i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split()) for
-                             i in self.subprocessor.get_feature_names_out()]
+                else:
+                    self._get_state()  # obtain latest state of subprocessor (apply to test data / inference)
 
-                self.df = pd.DataFrame(transformed, columns=col_names)
+                    transformed = self.subprocessor.transform(self.df)
+                    col_names = ['_'.join(
+                        i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split())
+                        for
+                        i in self.subprocessor.get_feature_names_out()]
+
+                    self.df = pd.DataFrame(transformed, columns=col_names)
 
             self.scale()
             self.remove()
@@ -208,33 +219,40 @@ class Preprocessor(object):
 
         self.df.fillna(value={'floor': -99,  # -> arbitrary imputation  (floor handled only as numeric)
                               'year_reconstruction': 2038,
-                              'year_reconstruction_num': 0,  # -> arbitrary
-                              'year_reconstruction_ord': 2038,  # -> arbitrary
-                              'energy_effeciency_ord': 'X',  # -> arbitrary
                               'energy_effeciency': 'unknown', 'ownership': 'unknown', 'description': '',
                               'gas': 'unknown', 'waste': 'unknown', 'equipment': 'unknown', 'state': 'unknown',
                               'construction_type': 'unknown', 'electricity': 'unknown',
                               'heating': 'unknown', 'transport': 'unknown',
                               'telecomunication': 'unknown',
                               # 'age': 'undefined',
-                              'air_quality': 'unknown', 'built_density': 'unknown', 'sun_glare': 'unknown',
-                              'air_quality_ord': 0, 'built_density_ord': 0, 'sun_glare_ord': 0  # -> arbitrary
+                              'air_quality': 'unknown', 'built_density': 'unknown', 'sun_glare': 'unknown'
                               },
                        inplace=True)
 
+        if not self.base:
+            self.df.fillna(value={
+                'year_reconstruction_num': 0,  # -> arbitrary
+                'year_reconstruction_ord': 2038,  # -> arbitrary
+                'energy_effeciency_ord': 'X',  # -> arbitrary
+                'air_quality_ord': 0, 'built_density_ord': 0, 'sun_glare_ord': 0  # -> arbitrary
+            },
+                inplace=True)
         # fill <>_dist features
-        dist_cols = [i for i in self.df.columns if 'dist' in i and 'ord' not in i and 'num' not in i]
+        dist_cols = [i for i in self.df.columns if 'dist' in i and 'ord' not in i and 'num' not in i and 'city' not in i]
         self.df.fillna(value={i: 10000 for i in dist_cols}, inplace=True)
-        self.df.fillna(value={i + '_ord': 10000 for i in dist_cols},
-                       inplace=True)  # -> after categorization mapped to arbitrary highest ordinal value
-        self.df.fillna(value={i + '_num': -999 for i in dist_cols}, inplace=True)  # -> arbitrary to handle >1500m in
+
+        if not self.base:
+            self.df.fillna(value={i + '_ord': 10000 for i in dist_cols},
+                           inplace=True)  # -> after categorization mapped to arbitrary highest ordinal value
+            self.df.fillna(value={i + '_num': -999 for i in dist_cols},
+                           inplace=True)  # -> arbitrary to handle >1500m in
         # numeric feature we will use indicator from one-hot to indicate whether >1500m
 
         # fill has_<> & no_barriers attributes
         has_cols = [i for i in self.df.columns if 'has' in i and 'hash' not in i]
         has_cols.append('no_barriers')  # TODO probably `no_barriers will be removed as we do not have it`
         self.df[has_cols] = self.df[has_cols].astype(bool)
-        self.df.fillna(value={i: False for i in dist_cols}, inplace=True)
+        self.df.fillna(value={i: False for i in has_cols}, inplace=True)
 
     def categorize(self):
         """
@@ -276,20 +294,6 @@ class Preprocessor(object):
         -------
 
         """
-        # one-hot encoding | handled by `OneHotEncoder` (because we need to hold state from train to test)
-        """
-        self.df = pd.get_dummies(self.df, columns=['energy_effeciency', 'ownership', 'equipment',
-                                                   'state',
-                                                   'disposition',
-                                                   'construction_type', 'year_reconstruction',
-                                                   'air_quality', 'built_density', 'sun_glare',
-                                                   'gas', 'waste', 'telecomunication', 'electricity', 'heating',
-                                                   ] +
-                                                  [i for i in self.df.columns if
-                                                   'dist' in i and 'ord' not in i and 'num' not in i],
-                                 drop_first=False)  # TODO do we want drop first ???
-        """
-
         # ordinal encoding
         self.df['energy_effeciency_ord'] = self.df['energy_effeciency_ord'].replace({'X': 0, 'A': 1, 'B': 2, 'C': 3,
                                                                                      'D': 4, 'E': 5, 'F': 6, 'G': 7})
@@ -327,15 +331,3 @@ class Preprocessor(object):
 
         """
         self.df.drop_duplicates(subset=['hash'], ignore_index=True, inplace=True)
-
-
-if __name__ == '__main__':
-    data = pd.read_csv('/home/emanuel/Music/prodej_breality_scraped.csv')
-    pr = Preprocessor(data)
-    pr()
-
-    # TODO changes:
-    #  TODO  some preprocessing will need to be always on whole dataset e.g. robust scaling ???
-    #  TODO maybe preprocessor step should be done as last after all data are appended to final csv so all scalings etc
-    #   will return relevant values
-    #  TODO what about new columns indicating missingness

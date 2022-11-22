@@ -52,10 +52,12 @@ class ETL(object):
                  crawled_links_filename: str = 'prodej_links.txt',
                  scrapped_data_filename: str = 'prodej',
                  inference: bool = False,
-                 debug: bool = False):
+                 debug: bool = False,
+                 base: bool = False):
 
         self.inference = inference  # whether ETL is in INFERENCE phase
         self.debug = debug  # this mode turns off scrapers and crawlers in train phase
+        self.base = base  # whether to basic transformations on dataset (no one hot/ no embeddings etc)
         self.crawled_links_filename = crawled_links_filename
         self.scrapped_data_filename = scrapped_data_filename
 
@@ -75,9 +77,9 @@ class ETL(object):
         self.scraped_init_state = self._check_state()
         self.synchronizer = Synchronizer(from_row=self.scraped_init_state)
 
-        self.preprocessor = Preprocessor(df=pd.DataFrame(), inference=inference)  # TODO not ideal init with empty dataframe
+        self.preprocessor = Preprocessor(df=pd.DataFrame(), inference=inference, base=base)  # TODO not ideal init with empty dataframe
 
-        self.generator = Generator(df=pd.DataFrame())  # TODO not ideal init with empty dataframe
+        self.generator = Generator(df=pd.DataFrame(), base=base)  # TODO not ideal init with empty dataframe
 
     def __call__(self, update_price_map: bool = False, *args, **kwargs) -> pd.DataFrame:
         """
@@ -156,7 +158,7 @@ class ETL(object):
         self.enricher.df = data  # TODO not ideal
         enriched_data = self.enricher()
 
-        if not self.inference:
+        if not self.inference and not self.base:
             self._export_data(enriched_data)
             dataset = pd.read_csv('../data/dataset.csv')
             # Data are now enriched with new geospatial attributes etc. and appended to`../data/dataset.csv`
@@ -170,6 +172,9 @@ class ETL(object):
         # ### 5 b PREPROCESS DATA (on-the-fly)
         self.preprocessor.df = generated_data  # TODO not ideal
         preprocessed_data = self.preprocessor()
+
+        if self.base:
+            self._export_data(preprocessed_data)
 
         return preprocessed_data
 
@@ -292,7 +297,7 @@ if __name__ == "__main__":
     # parser.add_argument('-c', '--config-name', help='Name of the config file', default='config.yaml')
     # arguments = parser.parse_args()
 
-    etl = ETL(inference=False, debug=False)
+    etl = ETL(inference=False, debug=True, base=True)
     final_data = etl()
     # TODO handle what to do when empty df
     # TODO handle correct state creation/updates
