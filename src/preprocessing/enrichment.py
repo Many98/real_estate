@@ -30,6 +30,7 @@ class Enricher(object):
             self.add_gp('models/fitted_gp_low')
             self.add_quality_data('../data/geodata/')
             self.add_criminality_data()
+            self.add_location('../data/geodata/TMMESTSKECASTI_P.json')
             self.add_osm_data()
 
         return self.df
@@ -100,6 +101,32 @@ class Enricher(object):
         #  just needs easy loop using requests library on https://kriminalita.policie.cz/api/v2/downloads/201406.geojson
         #   where will be used always another year and month ... there are data from 2012
         pass
+
+    def add_location(self, geojson: str):
+        """
+        method to add information about location (part of prague)
+        Parameters
+        ----------
+        geojson :
+
+        Returns
+        -------
+
+        """
+        gdf = gpd.read_file(geojson)
+        gdf = gdf.to_crs('epsg:4326')
+
+        gdf_from_df = gpd.GeoDataFrame(self.df,
+                                       geometry=gpd.points_from_xy(
+                                           self.df.long,
+                                           self.df.lat,
+                                       ),
+                                       crs=gdf.crs,
+                                       )
+        pointInPoly = gpd.sjoin(gdf_from_df, gdf[['NAZEV_MC', 'geometry']], how='left', predicate='within')
+
+        self.df = pd.DataFrame(pointInPoly[pointInPoly.columns.difference(['index_right'])])
+        self.df.rename(columns={"NAZEV_MC": "city_district"}, inplace=True)
 
     def add_osm_data(self, dist: int = 1500):
         """
@@ -194,12 +221,14 @@ class Generator(object):
         TODO consider using decorators as it would be probably more elegant solution
         """
 
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, base: bool):
         self.df = df  # dataframe to be enriched
+        self.base = base  # whether to perform only some transformations
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
         if not self.df.empty:
-            self.add_fasttext_embeddings()
+            if not self.base:
+                self.add_fasttext_embeddings()  # fastext embeddings did not added anything to model performance
             self.add_electra_embeddings()
             self.add_roberta_embeddings()
 
