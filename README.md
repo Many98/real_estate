@@ -3,7 +3,7 @@
 ### Team members
 
 * Hanka Nguyenová (Team leader) 
-* Adam Šumník
+* Daniel Karlík (Adam Šumník)
 * Emanuel Frátrik
 
 ### Requirements

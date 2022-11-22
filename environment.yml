@@ -43,5 +43,6 @@ dependencies:
     - torch==1.12.0
     - torchvision==0.14.0
     - transformers==4.24.0
-
+    - gpboost==0.7.10
+    - category-encoders==2.5.1
 
