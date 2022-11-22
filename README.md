@@ -11,6 +11,7 @@
 ``python 3.10.6 is used``
 
 just use ``conda env create -f environment.yml`` to create conda env 
+or ``conda env create re && conda activate re && pip install -r requirements.txt``
 
 
 ### Processing logic is as follows
