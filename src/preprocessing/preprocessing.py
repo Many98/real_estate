@@ -40,3 +40,32 @@ def prepare_atlas_cen_data(csv_path: str, dtypes: dict = {'when': str, 'href': s
 
     return df
 
+
+def data_filtering(csv_path: str) -> pd.DataFrame:
+    """
+    function to filter reality data from outliers caused by wrong data inputs
+    Parameters
+    ----------
+    csv_path
+
+    Returns
+    -------
+
+    """
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(e)
+
+    # Not sure if this is done before
+    if 'price_m2' not in df.columns:
+        df['price_m2'] = df["price"] / df["usable_area"]
+
+    # Maybe better to put those "empirical" values into the input of the function
+    threshold_low = 47000
+    threshold_high = 400000
+
+    df = df[df['price_m2'] > threshold_low]
+    df = df[df['price_m2'] < threshold_high]
+
+    return df
