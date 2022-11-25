@@ -8,6 +8,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler,
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from category_encoders import TargetEncoder
 
 
 class Preprocessor(object):
@@ -84,13 +85,25 @@ class Preprocessor(object):
                                                           ] for _ in range(len(dist_cols))],
                                         handle_unknown='error',  # TODO for now raise error
                                         sparse=False)
+                    # TODO Target encoders using TargetEncoder()
+                    # some theory https://www.kaggle.com/code/ryanholbrook/target-encoding/tutorial
+                    categorical_to_tenc = ['has_balcony', 'has_cellar', 'has_garage',
+                                           'has_garden', 'has_lift', 'has_loggia',
+                                           'has_parking']
+                    tenc = TargetEncoder(handle_unknown='error', sparse=False)
 
                     self.subprocessor = ColumnTransformer([
                         ('impute', noise_imputer, noise_cols),
-                        ('ohe', ohe, categorical_to_ohe)
+                        ('ohe', ohe, categorical_to_ohe),
+                        ('tenc', tenc, categorical_to_tenc)
                     ], remainder='passthrough', n_jobs=1)
 
-                    transformed = self.subprocessor.fit_transform(self.df)
+                    # adding price_m2 column
+                    self.df['price_m2'] = self.df['price']/self.df['usable_area']
+
+                    # possible problem with noise_imputer in fit_transform, added "self.df['price_m2']" because of
+                    # TargetEncoding
+                    transformed = self.subprocessor.fit_transform(self.df, self.df['price_m2'])
                     col_names = ['_'.join(
                         i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split())
                         for
