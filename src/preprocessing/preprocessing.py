@@ -105,7 +105,8 @@ class Preprocessor(object):
                     # TargetEncoding
                     transformed = self.subprocessor.fit_transform(self.df, self.df['price_m2'])
                     col_names = ['_'.join(
-                        i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split())
+                        i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '')
+                        .replace('tenc', 'target').split())
                         for
                         i in self.subprocessor.get_feature_names_out()]
 
