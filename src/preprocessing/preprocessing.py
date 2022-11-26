@@ -346,3 +346,12 @@ class Preprocessor(object):
 
         """
         self.df.drop_duplicates(subset=['hash'], ignore_index=True, inplace=True)
+
+        # removing data based on "empirical" values
+        threshold_low = 47000
+        threshold_high = 400000
+        wrong_floor = [-3, -2]
+
+        self.df = self.df[self.df['price_m2'] > threshold_low]
+        self.df = self.df[self.df['price_m2'] < threshold_high]
+        self.df = self.df[self.df['floor'] not in wrong_floor]
