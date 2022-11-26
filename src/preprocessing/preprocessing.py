@@ -117,9 +117,10 @@ class Preprocessor(object):
                 else:
                     self._get_state()  # obtain latest state of subprocessor (apply to test data / inference)
 
-                    transformed = self.subprocessor.transform(self.df)
+                    transformed = self.subprocessor.transform(self.df, self.df['price_m2'])
                     col_names = ['_'.join(
-                        i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '').split())
+                        i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '')
+                        .replace('tenc', 'target').split())
                         for
                         i in self.subprocessor.get_feature_names_out()]
 
