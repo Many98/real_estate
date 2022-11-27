@@ -39,4 +39,9 @@ def compute_metrics(eval_pred) -> dict:
             'r2': r2_score(labels, predictions)}
 
 
+def standardize(example, mean, std):
+    example['label'] = (example['label'] - mean) / std
+    return example
+
+
 # TODO implement pytorch lightning datamodule if needed
