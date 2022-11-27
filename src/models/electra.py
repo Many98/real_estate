@@ -3,8 +3,9 @@ from transformers.integrations import TensorBoardCallback
 from torch import nn
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer,\
     AutoFeatureExtractor
-from utils import prepare_text_dataset, compute_metrics
+from utils import prepare_text_dataset, compute_metrics, standardize
 import os
+import numpy as np
 
 
 class RETrainer(Trainer):
@@ -49,7 +50,12 @@ if __name__ == '__main__':
     tokenizer = ElectraTokenizerFast.from_pretrained("Seznam/small-e-czech")
 
     datasets = prepare_text_dataset('/home/fratrik/real_estate/data/dataset.csv', split_on='Kč',
-                                    use_price_m2=True, use_gp_residual=True)
+                                    use_price_m2=False, use_gp_residual=False)
+
+    #mean = np.array(datasets['train']['label']).mean()
+    #std = np.array(datasets['train']['label']).std()
+
+    #datasets = datasets.map(lambda x: standardize(x, mean, std))
 
     datasets = datasets.rename_column('description', 'text')
 
@@ -58,7 +64,16 @@ if __name__ == '__main__':
                                       batched=True)
 
     # num_labels=1 --> regression
-    model = AutoModelForSequenceClassification.from_pretrained("Seznam/small-e-czech", num_labels=1).to("cuda")
+    model = AutoModelForSequenceClassification.from_pretrained("Seznam/small-e-czech", num_labels=1)
+
+    # freeze all except classifier
+    for p in model.parameters():
+        p.requires_grad = False
+
+    for p in model.classifier.parameters():
+        p.requires_grad = True
+
+    model = model.to("cuda")
 
     # to use as feature extractor
     #feature_extractor = AutoFeatureExtractor.from_pretrained("Seznam/small-e-czech")
@@ -70,7 +85,7 @@ if __name__ == '__main__':
                                       evaluation_strategy="epoch",
                                       #eval_steps=200,
                                       #save_steps=200,
-                                      learning_rate=2e-1,
+                                      learning_rate=2e-2,
                                       weight_decay=0.001,
                                       per_device_train_batch_size=32,
                                       per_device_eval_batch_size=32,
@@ -87,7 +102,9 @@ if __name__ == '__main__':
         train_dataset=tokenized_datasets["train"],
         eval_dataset=tokenized_datasets["test"],
         compute_metrics=compute_metrics,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=10), TensorBoardCallback()]
+        callbacks=[
+            EarlyStoppingCallback(early_stopping_patience=10),
+            TensorBoardCallback()]
     )
 
     trainer.train()
