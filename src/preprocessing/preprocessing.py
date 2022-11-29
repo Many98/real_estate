@@ -19,6 +19,7 @@ class Preprocessor(object):
     TODO consider using decorators as it would be probably more elegant solution
     """
 
+
     def __init__(self, df: pd.DataFrame, inference: bool, base: bool):
         self.df = df  # dataframe to be preprocessed
         self.inference = inference
@@ -331,3 +332,4 @@ class Preprocessor(object):
 
         """
         self.df.drop_duplicates(subset=['hash'], ignore_index=True, inplace=True)
+
