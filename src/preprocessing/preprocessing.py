@@ -32,6 +32,7 @@ class Preprocessor(object):
     """
 
     def __init__(self, df: pd.DataFrame, inference: bool):
+
         self.df = df  # dataframe to be preprocessed
         self.inference = inference
 
@@ -374,6 +375,7 @@ class Preprocessor(object):
         """
         self.df.drop_duplicates(subset=['hash'], ignore_index=True, inplace=True)
 
+
         # removing data based on "empirical" values
         threshold_low = 47000
         threshold_high = 380000
@@ -404,3 +406,4 @@ class Preprocessor(object):
         self.df.columns = self.df.columns.str.replace(r'[', '_')
         self.df.columns = self.df.columns.str.replace(r']', '_')
         self.df.columns = self.df.columns.str.replace(r'<', 'less')
+
