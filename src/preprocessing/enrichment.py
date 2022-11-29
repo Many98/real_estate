@@ -221,14 +221,13 @@ class Generator(object):
         TODO consider using decorators as it would be probably more elegant solution
         """
 
-    def __init__(self, df: pd.DataFrame, base: bool):
+    def __init__(self, df: pd.DataFrame):
         self.df = df  # dataframe to be enriched
-        self.base = base  # whether to perform only some transformations
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
+
         if not self.df.empty:
-            if not self.base:
-                self.add_fasttext_embeddings()  # fastext embeddings did not added anything to model performance
+            self.add_fasttext_embeddings()  # fastext embeddings did not added anything to model performance
             self.add_electra_embeddings()
             self.add_roberta_embeddings()
 
