@@ -7,6 +7,9 @@ from tqdm import tqdm
 
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 
 
 class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
@@ -43,9 +46,18 @@ class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
                 links = set([i.get("href") for i in ap_list_elem if 'nemovitosti-byty-domy' in i.get('href')])
 
                 if not links:
-                    stop += 1
-                    if stop == 3:  # after 3 unsuccessful fetching break
-                        break
+                    try:
+                        hrefs = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.XPATH,
+                                                                                                         '//*[@id="__next"]/main/section/div/div[2]/div/div[4]/section/article[*]/div[1]/a')))
+                        h = [i.get_attribute("href") for i in hrefs]
+                        links = set([i for i in h if 'nemovitosti-byty-domy' in i])
+                        if not links:
+                            print(f'No links found on this page')
+                            raise Exception('links not present')
+                    except:
+                        stop += 1
+                        if stop == 3:  # after 4 unsuccessful fetching break
+                            break
                 # for each link, get the url from href
                 for link_url in tqdm(links, desc=f'Fetching valid urls on page {page}'):
 
@@ -63,7 +75,7 @@ class KindOfCrawlerForBezRealitky(BaseKindOfCrawler):
                     href = href.replace(f'page={page}', f'page={page + 1}')
                     driver.get(href)
                     time.sleep(4.5)
-                    soup = BeautifulSoup(driver.page_source, 'lxml') # if href is empty it will raise exception which is wanted
+                    soup = BeautifulSoup(driver.page_source, 'lxml')
                 except:
                     pagination = False
                     continue

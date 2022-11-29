@@ -31,15 +31,17 @@ class BaseScraper(ABC):
     def _export_tabular_data(self, out_filename: str = '', **kwargs) -> None:
         """method to export(append) tabular data to .csv file"""
         path = os.path.join('../', 'data', f"{out_filename}_{self.name}_scraped.csv")
-        df_to_be_written = pd.DataFrame(self.data)
-        df_to_be_written.to_csv(path, mode='a', index=False, header=not os.path.exists(path))
+        if self.data:
+            df_to_be_written = pd.DataFrame(self.data)
+            df_to_be_written.to_csv(path, mode='a', index=False, header=not os.path.exists(path))
 
         print(f'New data appended successfully in {path}!', end="\r", flush=True)
 
-    def _update_scrapped_links(self) -> None:
+    def _update_scrapped_links(self, **kwargs) -> None:
         """update `already_scraped_links.txt` file"""
-        with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'a') as f:
-            f.writelines(['\n' + i for i in self.new_scraped_links])
+        if self.new_scraped_links and not kwargs.get('inference', False):
+            with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'a') as f:
+                f.writelines(['\n' + i for i in self.new_scraped_links])
 
     def _save_image(self, img_url: str, web_url: str) -> None:
         """Method to save image from `img_url`"""
@@ -77,12 +79,13 @@ class BaseScraper(ABC):
             with open(os.path.join('../', 'data', in_filename), 'r') as f:
                 self.prepared_links = [line.rstrip() for line in f.readlines()]
 
-            if not glob.glob(os.path.join('../', 'data', 'already_scraped_links.txt')):
-                with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'w') as f:
-                    pass
+            if not kwargs.get('inference', False):
+                if not glob.glob(os.path.join('../', 'data', 'already_scraped_links.txt')):
+                    with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'w') as f:
+                        pass
 
-            with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'r') as f:
-                self.scraped_links = [line.rstrip() for line in f.readlines()]
+                with open(os.path.join('../', 'data', 'already_scraped_links.txt'), 'r') as f:
+                    self.scraped_links = [line.rstrip() for line in f.readlines()]
 
     def _process(self, **kwargs) -> None:
         """this method implements looping logic and expects `_scrape` method to return """
@@ -93,7 +96,11 @@ class BaseScraper(ABC):
                 for link in tqdm(self.prepared_links, desc='Scraping links...'):
                     if link not in self.scraped_links and link != '':
                         data = self.scrape(driver, link)
-                        if data:
+                        if data.get('status', None) is not None and data.get('status', None) == 'expired':
+                            self.new_scraped_links.append(link)
+                            self.scraped_links.append(link)
+                            i += 1
+                        elif data:
                             self.data.append(data)
                             self.new_scraped_links.append(link)
                             self.scraped_links.append(link)
@@ -103,9 +110,9 @@ class BaseScraper(ABC):
                         self._update_scrapped_links()
                         self.data = []  # flush list
                         self.new_scraped_links = []
-                if self.data:
-                    self._export_tabular_data(**kwargs)
-                    self._update_scrapped_links()
+
+                self._export_tabular_data(**kwargs)
+                self._update_scrapped_links(**kwargs)
             else:  # used for other scrappers which implement logic only in `scrape` method and return list of data
                 self.data = self.scrape(driver, '')
                 self._export_tabular_data(**kwargs)
