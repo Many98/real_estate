@@ -101,11 +101,13 @@ class Synchronizer(object):
         assert self.final_df.additional_disposition.isin(np.array([np.nan, 'Podkrovní', 'Loft', 'Mezonet'],
                                                                   dtype=object)).all(), \
             '`additional_disposition` contains unexpected value'
-        assert 0 <= self.final_df.year_reconstruction.min() or self.final_df.year_reconstruction.min() is np.nan, \
-            '`year_reconstruction` must be within positive'
 
-        bool_cols = ['gas', 'electricity', 'waste', 'heating', 'telecomunication'] + \
-                    [col for col in self.final_df if 'has' in col and 'hash' not in col]
+        # TODO not useful
+        #assert 0 <= self.final_df.year_reconstruction.min() or self.final_df.year_reconstruction.min() is np.nan, \
+        #    '`year_reconstruction` must be within positive'
+
+        # TODO this columns are not very useful #['gas', 'electricity', 'waste', 'heating', 'telecomunication']
+        bool_cols = [col for col in self.final_df if 'has' in col and 'hash' not in col]
         for col in bool_cols:
             assert self.final_df[col].isin(np.array([np.nan, True, False])).all(), \
                 f'`{col}` contains unexpected value'
