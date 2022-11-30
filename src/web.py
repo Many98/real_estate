@@ -11,11 +11,12 @@ import streamlit as st
 import joblib
 import pickle
 import py7zr
+from folium.plugins import MousePosition
 import requests
 
 from main import ETL
 
-st.set_page_config(page_title='Real e-state', page_icon="chart_with_upwards_trend", initial_sidebar_state="collapsed")
+st.set_page_config(page_title='Real e-state', page_icon="house_buildings", initial_sidebar_state="collapsed")
 
 # Navigation menu from: https://github.com/Sven-Bo/streamlit-navigation-menu
 # 1=sidebar menu, 2=horizontal menu, 3=horizontal menu w/ custom menu
@@ -49,14 +50,14 @@ def streamlit_menu(example=1):
         # 2. horizontal menu with custom style
         selected = option_menu(
             menu_title=None,  # required
-            options=["Home", "Prediction by URL", "Handmade prediction", "Contact"],  # required
-            icons=["house", "book", "book", "envelope"],  # optional
+            options=["Domů", "Predikce pomocí URL", "Predikce pomocí ručně zadaných příznaků", "Kontakt"],  # required
+            icons=["house", "graph-down", "graph-up", "envelope"],  # optional
             menu_icon="cast",  # optional
             default_index=0,  # optional
-            orientation="horizontal",
+            orientation="vertical",
             styles={
                 "container": {"padding": "0!important", "background-color": "#fafafa"},
-                "icon": {"color": "black", "font-size": "20px"},
+                "icon": {"color": "black", "font-size": "25px"},
                 "nav-link": {
                     "font-size": "25px",
                     "text-align": "left",
@@ -71,16 +72,18 @@ def streamlit_menu(example=1):
 selected = streamlit_menu(example=EXAMPLE_NO)
 
 ############## 1. stránka ##############
-if selected == "Home":
-    st.title(f"Real e-state")
-    st.header("This application is able to predict a price of property in Prague. "
-              "Prediction using parametres of the property, description, images and GPS.")
+if selected == "Domů":
+    st.header(f"Real e-state")
+    st.markdown(":sparkles: Naše vize je pomoci lidem predikovat ceny nemovitostí (bytů v Praze). Predikovat lze pomocí zadaného "
+                 "URL, z sreality.cz nebo bezrealitky.cz, nebo pomocí ručně zadaných vlastností. Dále můžeme investorům pomoci detekovat, "
+              "jaké nemovitosti na trhu jsou podceněné nebo nadceněné a do kterých je lepší investovat. "
+              "Bonusem bude dodání dalších informací o nemovitosti.")
 
 ############## 2. stránka ##############
-if selected == "Prediction by URL":
-    st.title(f"Price prediction of property with URL")
+if selected == "Predikce pomocí URL":
+    st.header("Predikce ceny nemovitosti pomocí URL")
     # url
-    url = st.text_input('URL of property on sreality or bezrealitky')
+    url = st.text_input('URL nemovitosti (bytu v Praze) z sreality.cz or bezrealitky.cz')
     if url is None:
         pass
     else:
@@ -90,11 +93,11 @@ if selected == "Prediction by URL":
                 f.write(url)
 
     # MODELS
-    result_url = st.button('Predict house price with URL')
+    result_url = st.button('Predikuj!')
     if result_url:
         
-        st.write(f'Scraping data from {url} ...')
-        st.write('Model is thinking...')
+        st.markdown(f'Získávám data z {url}...')
+        st.markdown(':robot_face: Robot přemýšlí...')
         etl = ETL(inference=True)
         data = etl()
         
@@ -125,10 +128,10 @@ if selected == "Prediction by URL":
         # OTHER MODELS
 
 
-if selected == "Handmade prediction":
-    st.title(f"Price prediction of property with handmade features")
+if selected == "Predikce pomocí ručně zadaných příznaků":
+    st.header(f"Predikce pomocí ručně zadaných příznaků")
     # type
-    type = st.radio("Type of flat", (
+    type = st.radio("Typ", (
     '1+kk', '1+1', '2+kk', '2+1', '3+kk', '3+1', '4+kk', '4+1', '5+kk', '5+1', '6', '6+kk', 'atypické'))
     if type == '1+kk':
         c = 1
@@ -160,14 +163,14 @@ if selected == "Handmade prediction":
         c = np.NaN
 
     # usable area
-    usable_area = st.number_input('Usable area in m^2', step = 1)
+    usable_area = st.number_input('Užitná plocha v m^2', step = 1)
     if usable_area == 0:
         pass
     else:
         b = 1  # využijeme text pro model
 
     # energy eficiency
-    energy = st.radio("Energy efficiency", ('A', 'B', 'C', 'D', 'E', 'F', 'G'))
+    energy = st.radio("Energetická eficience", ('A', 'B', 'C', 'D', 'E', 'F', 'G'))
     if energy == 'A':
         d = 1
     elif energy == 'B':
@@ -186,26 +189,27 @@ if selected == "Handmade prediction":
         d = np.NaN
 
     # floor
-    floor = st.number_input('Floor', step = 1)
+    floor = st.number_input('Patro', step = 1)
     if floor == 0:
         pass
     else:
         f = 1 # využijeme text pro model
 
-    # description of your house
-    text = st.text_input('Write a description of your house in few sentences')
-    if text is None:
-        pass
-    else:
-        a = 1 # využijeme text pro model
-
     col1, col2, col3 = st.columns(3)
     with col1:
-        ownership = st.radio("Ownership", ('Osobní', 'Státní/obecní', 'Družstevní'))
+        ownership = st.radio("Vlastnictví", ('Osobní', 'Státní/obecní', 'Družstevní'))
     with col2:
-        equipment = st.radio("Equipment", ('Yes', 'No', 'Partly'))
+        equipment = st.radio("Vybavenost", ('Plně', 'Nevybaveno', 'Částečně'))
     with col3:
-        addictional = st.radio("Addictional dispositon", ('Studio apartment', 'Loft', 'Mezonet'))
+        podkrovni = st.checkbox('Podkrovní')
+        loft = st.checkbox('Loft')
+        mezonet = st.checkbox('Mezonet')
+        if podkrovni:
+            pass
+        if loft:
+            pass
+        if mezonet:
+            pass
 
     # ownership
     if ownership == 'Osobní':
@@ -218,49 +222,39 @@ if selected == "Handmade prediction":
         e = np.NaN
 
     # equipment
-    if equipment == 'Yes':
+    if equipment == 'Plně':
         g = 1
-    elif equipment == 'No':
+    elif equipment == 'Nevybaveno':
         g = 1
-    elif equipment == 'Partly':
+    elif equipment == 'Částečně':
         g = 1
     else:
         g = np.NaN
 
-    # addictional dispositon
-    if addictional == 'Studio apartment':
-        i = 1
-    elif addictional == 'Loft':
-        i = 1
-    elif addictional == 'Mezonet':
-        i = 1
-    else:
-        i = np.NaN
-
-
     with col1:
-        state = st.radio("State", ('In reconstruction', 'Before reconstruction', 'After reconstruction', 'New building', 'Very good', 'Good', 'Building-up', 'Project', 'Bad'))
+        state = st.radio("Stav", ('V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci', 'Nová budova',
+                                  'Velmi dobrý', 'Dobrý', 'Staví se', 'Projekt', 'Špatný'))
     with col2:
-        construction = st.radio("Construction type", ('Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická'))
+        construction = st.radio("Konstrukce", ('Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická'))
 
     # state
-    if state == 'In reconstruction':
+    if state == 'V rekonstrukci':
         h = 1
-    elif state == 'Before reconstruction':
+    elif state == 'Před rekonstrukcí':
         h = 1
-    elif state == 'After reconstruction':
+    elif state == 'Po rekonstrukci':
         h = 1
-    elif state == 'New building':
+    elif state == 'Nová budova':
         h = 1
-    elif state == 'Very good':
+    elif state == 'Velmi dobrý':
         h = 1
-    elif state == 'Good':
+    elif state == 'Dobrý':
         h = 1
-    elif state == 'Building-up':
+    elif state == 'Staví se':
         h = 1
-    elif state == 'Project':
+    elif state == 'Projekt':
         h = 1
-    elif state == 'Bad':
+    elif state == 'Špatný':
         h = 1
     else:
         h = np.NaN
@@ -272,47 +266,52 @@ if selected == "Handmade prediction":
     # balcony, terrace, parking, lift, loggia, cellar, garage, garden
     col4, col5, col6 = st.columns(3)
     with col4:
-        balcony = st.checkbox('Has balcony')
+        balcony = st.checkbox('Má balkón')
         if balcony:
             pass
-        terrace = st.checkbox('Has terrace')
+        terrace = st.checkbox('Má terasu')
         if terrace:
             pass
-        parking = st.checkbox('Has parking')
+        parking = st.checkbox('Má prakování (venkovní)')
         if parking:
             pass
-        lift = st.checkbox('Has lift')
+        lift = st.checkbox('Má výtah')
         if lift:
             pass
     with col5:
-        loggia = st.checkbox('Has loggia')
+        loggia = st.checkbox('Má lodžie')
         if loggia:
             pass
-        cellar = st.checkbox('Has cellar')
+        cellar = st.checkbox('Má sklep')
         if cellar:
             pass
-        garage = st.checkbox('Has garage')
+        garage = st.checkbox('Má garáž')
         if garage:
             pass
-        garden = st.checkbox('Has garden')
+        garden = st.checkbox('Má zahradu')
         if garden:
             pass
 
     # TODO GPS - map: https://discuss.streamlit.io/t/ann-streamlit-folium-a-component-for-rendering-folium-maps/4367/4
     x = st.number_input('GPS N')
     y = st.number_input('GPS E')
+    # starting point
+    if x == 0:
+        x = 50.0818633
+    if y == 0:
+        y = 14.4255628
     # 49.2107581, 16.6188150
-    m = folium.Map(location=[x, y], zoom_start=16)
+    m = folium.Map(location=[x, y], zoom_start=10)
+    folium.LatLngPopup().add_to(m)
     # add marker for Liberty Bell
     tooltip = "Liberty Bell"
-    folium.Marker(
-        [x, y], tooltip=tooltip
-    ).add_to(m)
+    folium.Marker([x, y], tooltip=tooltip).add_to(m)
     # call to render Folium map in Streamlit
     folium_static(m)
     #save data
+
     ############## MODELS ##############
-    result = st.button('Predict house price with handmade inputs')
+    result = st.button('Predikuj!')
     ''' if result:
         # st.write('Calculating results...')
         # RANDOM FOREST
@@ -320,8 +319,8 @@ if selected == "Handmade prediction":
         loaded_rf = joblib.load("./random_forest.joblib") # https://mljar.com/blog/save-load-random-forest/
         rf_price = loaded_rf.predict(X)
         st.write('Predicting price of the flat is: ', rf_price)'''
-
-        #OTHER MODELS
+    if result:
+        st.markdown(':robot_face: Robot přemýšlí...')
 
 
 
@@ -329,9 +328,9 @@ if selected == "Handmade prediction":
 
 
 ############## 3. stránka ##############
-if selected == "Contact":
-    st.title(f"Contact")
-    st.markdown("Check out our repository on GitHub [link](https://github.com/Many98/real_estate).")
+if selected == "Kontakt":
+    st.header(f"Kontakt")
+    st.markdown(":copyright: Zkoukněte náš [GitHub](https://github.com/Many98/real_estate).")
 
 # background
 def add_bg_from_local(image_file):
