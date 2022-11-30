@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import warnings
 
 import geopandas as gpd
 import xarray as xr
@@ -29,6 +30,7 @@ class Enricher(object):
             self.add_gp('models/fitted_gp_low')
             self.add_quality_data('../data/geodata/')
             self.add_criminality_data()
+            self.add_location('../data/geodata/TMMESTSKECASTI_P.json')
             self.add_osm_data()
 
         return self.df
@@ -100,6 +102,32 @@ class Enricher(object):
         #   where will be used always another year and month ... there are data from 2012
         pass
 
+    def add_location(self, geojson: str):
+        """
+        method to add information about location (part of prague)
+        Parameters
+        ----------
+        geojson :
+
+        Returns
+        -------
+
+        """
+        gdf = gpd.read_file(geojson)
+        gdf = gdf.to_crs('epsg:4326')
+
+        gdf_from_df = gpd.GeoDataFrame(self.df,
+                                       geometry=gpd.points_from_xy(
+                                           self.df.long,
+                                           self.df.lat,
+                                       ),
+                                       crs=gdf.crs,
+                                       )
+        pointInPoly = gpd.sjoin(gdf_from_df, gdf[['NAZEV_MC', 'geometry']], how='left', predicate='within')
+
+        self.df = pd.DataFrame(pointInPoly[pointInPoly.columns.difference(['index_right'])])
+        self.df.rename(columns={"NAZEV_MC": "city_district"}, inplace=True)
+
     def add_osm_data(self, dist: int = 1500):
         """
         adds geospatial data retrieved from OSM
@@ -155,34 +183,35 @@ class Enricher(object):
 
             relevant = joined.loc[joined.index_right == _, :]
 
-            # presence of attribute disposition => breality record
-            if row['disposition'] is not np.nan or row[
-                [i for i in self.df.columns if 'dist' in i and 'park' not in i]].isnull().values.any():
-                nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
-                                        dist_type='great_circle')
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                if row['name'] == 'breality' or row[
+                    [i for i in self.df.columns if 'dist' in i and 'park' not in i]].isnull().values.any():
+                    nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
+                                            dist_type='great_circle')
 
-                self.df.at[_, 'bus_station_dist'] = float(nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
-                self.df.at[_, 'train_station_dist'] = float(nearest[nearest.what.str.contains('train')]['dist'].min())
-                self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
-                self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
-                self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
-                self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atm')]['dist'].min())
-                self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
-                self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
-                self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
-                self.df.at[_, 'kindergarten_dist'] = float(nearest[nearest.what.str.contains('kinder')]['dist'].min())
-                self.df.at[_, 'supermarket_grocery_dist'] = float(nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
-                self.df.at[_, 'restaurant_pub_dist'] = float(nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
-                self.df.at[_, 'playground_dist'] = float(nearest[nearest.what.str.contains('playground')]['dist'].min())
-                self.df.at[_, 'sports_field_dist'] = float(nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
-                self.df.at[_, 'theatre_cinema_dist'] = float(nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
-                self.df.at[_, 'pharmacy_dist'] = float(nearest[nearest.what.str.contains('pharmacy')]['dist'].min())
-                self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
-            else:
-                relevant = relevant[relevant.what.str.contains('park')]  # TODO handle cases when df is empty
-                nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
-                                        dist_type='great_circle')
-                self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
+                    self.df.at[_, 'bus_station_dist'] = float(nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
+                    self.df.at[_, 'train_station_dist'] = float(nearest[nearest.what.str.contains('train')]['dist'].min())
+                    self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
+                    self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
+                    self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
+                    self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atm')]['dist'].min())
+                    self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
+                    self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
+                    self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
+                    self.df.at[_, 'kindergarten_dist'] = float(nearest[nearest.what.str.contains('kinder')]['dist'].min())
+                    self.df.at[_, 'supermarket_grocery_dist'] = float(nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
+                    self.df.at[_, 'restaurant_pub_dist'] = float(nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
+                    self.df.at[_, 'playground_dist'] = float(nearest[nearest.what.str.contains('playground')]['dist'].min())
+                    self.df.at[_, 'sports_field_dist'] = float(nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
+                    self.df.at[_, 'theatre_cinema_dist'] = float(nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
+                    self.df.at[_, 'pharmacy_dist'] = float(nearest[nearest.what.str.contains('pharmacy')]['dist'].min())
+                    self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
+                else:
+                    relevant = relevant[relevant.what.str.contains('park')]  # TODO handle cases when df is empty
+                    nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
+                                            dist_type='great_circle')
+                    self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
 
 
 class Generator(object):
@@ -196,8 +225,9 @@ class Generator(object):
         self.df = df  # dataframe to be enriched
 
     def __call__(self, *args, **kwargs) -> pd.DataFrame:
+
         if not self.df.empty:
-            self.add_fasttext_embeddings()
+            self.add_fasttext_embeddings()  # fastext embeddings did not added anything to model performance
             self.add_electra_embeddings()
             self.add_roberta_embeddings()
 

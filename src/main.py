@@ -2,7 +2,13 @@ import pandas as pd
 import numpy as np
 import json
 import os
+import pickle
+
+import xgboost
 from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import median_absolute_error, max_error, mean_absolute_error
 
 from preprocessing.enrichment import Enricher, Generator
 from preprocessing.preprocessing import Preprocessor
@@ -13,6 +19,7 @@ from scrapers.scrape_sreality import SRealityScraper
 from scrapers.scrape_breality import BezRealitkyScraper
 from scrapers.scrape_atlas_cen import AtlasCenScraper
 from models.gaussian_process import gp_train
+from models.xgb_tuning import xgb_tune
 
 import argparse
 from typing import Union
@@ -51,10 +58,15 @@ class ETL(object):
                  breality_init_url: str = 'https://www.bezrealitky.cz/vyhledat?offerType=PRODEJ&estateType=BYT&page=1&order=TIMEORDER_DESC&regionOsmIds=R435541&osm_value=Praha%2C+%C4%8Cesko',
                  crawled_links_filename: str = 'prodej_links.txt',
                  scrapped_data_filename: str = 'prodej',
-                 inference: bool = False):
+                 inference: bool = False,
+                 scrape: bool = True,
+                 load_dataset: bool = False,
+                 ):
 
-        self.data = None
         self.inference = inference  # whether ETL is in INFERENCE phase
+        self.scrape = scrape  # whether to scrape data before processing
+        self.load_dataset = load_dataset  # whether to jump right to loading prepared dataset in `../data/dataset.csv`
+                                          # not functional in `inference` phase
         self.crawled_links_filename = crawled_links_filename
         self.scrapped_data_filename = scrapped_data_filename
 
@@ -74,7 +86,7 @@ class ETL(object):
         self.scraped_init_state = self._check_state()
         self.synchronizer = Synchronizer(from_row=self.scraped_init_state)
 
-        self.preprocessor = Preprocessor(df=pd.DataFrame())  # TODO not ideal init with empty dataframe
+        self.preprocessor = Preprocessor(df=pd.DataFrame(), inference=inference)  # TODO not ideal init with empty dataframe
 
         self.generator = Generator(df=pd.DataFrame())  # TODO not ideal init with empty dataframe
 
@@ -98,26 +110,33 @@ class ETL(object):
 
         # ### 1,2 OBTAIN RAW DATA
         if not self.inference:
-            # links firstly obtained by crawlers and appended to `../data/prodej_links.txt`
-            self.sreality_crawler.crawl()
-            self.breality_crawler.crawl()
+            if not self.load_dataset:
+                # links firstly obtained by crawlers and appended to `../data/prodej_links.txt`
+                if self.scrape:
+                    self.sreality_crawler.crawl()
+                    self.breality_crawler.crawl()
 
-            # already scrapped links are appended to `../data/already_scraped_links.txt`
-            self.sreality_scraper.run(in_filename=self.crawled_links_filename, out_filename=self.scrapped_data_filename,
-                                      inference=self.inference)
-            self.breality_scraper.run(in_filename=self.crawled_links_filename, out_filename=self.scrapped_data_filename,
-                                      inference=self.inference)
-            #  Data are now scrapped in two separate files
-            #           `../data/prodej_breality.csv` and `../data/prodej_sreality.csv` so synchronization is needed
-            #            to get one csv with same sets of attributes
+                    # already scrapped links are appended to `../data/already_scraped_links.txt`
+                    self.sreality_scraper.run(in_filename=self.crawled_links_filename,
+                                              out_filename=self.scrapped_data_filename,
+                                              inference=self.inference)
+                    self.breality_scraper.run(in_filename=self.crawled_links_filename,
+                                              out_filename=self.scrapped_data_filename,
+                                              inference=self.inference)
 
-            # ### 3 SYNCHRONIZE DATA
-            # TODO handle cases when empty df is returned
-            data = self.synchronizer(
-                sreality_csv_path=f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv',
-                breality_csv_path=f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv')
+                #  Data are now scrapped in two separate files
+                #           `../data/prodej_breality.csv` and `../data/prodej_sreality.csv` so synchronization is needed
+                #            to get one csv with same sets of attributes
+
+                # ### 3 SYNCHRONIZE DATA
+                # TODO handle cases when empty df is returned
+                data = self.synchronizer(
+                    sreality_csv_path=f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv',
+                    breality_csv_path=f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv')
 
             # Data are now synchronized in one ../data/tmp_synchronized.csv (TRAIN)
+            else:
+                data = pd.DataFrame()
 
         else:
             # input from user | used in inference
@@ -141,31 +160,30 @@ class ETL(object):
                 breality_csv_path=f'../data/predict_{self.breality_scraper.name}_scraped.csv')
 
             # Data are now synchronized in one ../data/tmp_synchronized.csv (INFERENCE)
+        if self.inference or (not self.inference and not self.load_dataset):
+            if not self.load_dataset and data.empty:
+                print('Something went wrong. Data not obtained !')
 
-        if data.empty:
-            raise Exception('Something went wrong. Data not obtained !')
+            # ### 4 ENRICH DATA
+            self.enricher.df = data  # TODO not ideal
+            enriched_data = self.enricher()
 
-        # ### 4 ENRICH DATA
-        self.enricher.df = data  # TODO not ideal
-        enriched_data = self.enricher()
-
-        if not self.inference:
+        if not self.inference and not self.load_dataset:
             self._export_data(enriched_data)
             dataset = pd.read_csv('../data/dataset.csv')
             # Data are now enriched with new geospatial attributes etc. and appended to`../data/dataset.csv`
+        elif not self.inference and self.load_dataset:
+            dataset = pd.read_csv('../data/dataset.csv')
         else:
             dataset = enriched_data
 
         # ### 5 a GENERATE AGGREGATED FEATURES (on-the-fly)
-        self.generator.df = dataset  # TODO not ideal
-        generated_data = self.generator()
+        #self.generator.df = dataset  # TODO not ideal
+        #generated_data = self.generator()  # TODO embeddings are not used
 
         # ### 5 b PREPROCESS DATA (on-the-fly)
-        self.preprocessor.df = generated_data  # TODO not ideal
+        self.preprocessor.df = dataset #generated_data  # TODO not ideal
         preprocessed_data = self.preprocessor()
-
-        if not self.inference:
-            self._update_state()
 
         return preprocessed_data
 
@@ -219,40 +237,25 @@ class ETL(object):
         -------
 
         """
-        if not os.path.isfile('../data/etl_state.json') or self.inference:
+        if self.inference:
             return 0, 0
         else:
-            with open('../data/etl_state.json', 'r') as f:
-                state = json.load(f)
-            return state['state']
+            s_state = 0
+            b_state = 0
+            try:
+                sreality_scrapped = pd.read_csv(
+                    f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv')
+                s_state = sreality_scrapped.shape[0]
+            except:
+                pass
+            try:
+                breality_scrapped = pd.read_csv(
+                    f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv')
+                b_state = breality_scrapped.shape[0]
+            except:
+                pass
 
-    def _update_state(self):
-        """
-        auxiliary method to update state of ETL object. state is meant as index of rows to continue
-        Returns
-        -------
-
-        """
-        # TODO handle cases when no scraped csv are present
-        # TODO check if +-1 row is not needed
-        try:
-            sreality_scrapped = pd.read_csv(
-                f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv')
-            breality_scrapped = pd.read_csv(
-                f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv')
-        except Exception('Something went wrong with loading of scraped.csv files. \n'
-                         f'Files `../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv` and \n'
-                         f'`../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv` are'
-                         f'probably not present') as e:
-            print(e)
-            raise
-
-        state = {'state': (sreality_scrapped.shape[0], breality_scrapped.shape[0])}
-
-        out = json.dumps(state, indent=4)
-
-        with open("../data/etl_state.json", "w") as outfile:
-            outfile.write(out)
+            return s_state, b_state
 
     def _clean(self):
         """
@@ -263,6 +266,11 @@ class ETL(object):
         """
         if os.path.isfile('../data/tmp_synchronized.csv'):
             os.remove('../data/tmp_synchronized.csv')
+        if self.inference:
+            if os.path.isfile('../data/predict_breality_scraped.csv'):
+                os.remove('../data/predict_breality_scraped.csv')
+            if os.path.isfile('../data/predict_sreality_scraped.csv'):
+                os.remove('../data/predict_sreality_scraped.csv')
 
 
 class Model(object):
@@ -286,11 +294,71 @@ class Model(object):
              -- Adam Random forest
              -- Emanuel Electra (small-e-czech)
     """
-    def __init__(self, data: pd.DataFrame, inference: bool = False):
-        pass
+    def __init__(self, data: pd.DataFrame, response='log_price',
+                 inference: bool = False, tune: bool = False):
+        self.data = data
+        self.response = response
+
+        if self.data.empty:
+            raise Exception('Input dataset is empty')
+
+        if self.response not in ['log_price', 'price', 'price_m2', 'scaled_price']:
+            raise Exception(f"Response column must be one of ['log_price', 'price', 'price_m2', 'scaled_price']")
+
+        self.inference = inference
+        self.tune = tune
+        self.final_model = None
 
     def __call__(self, *args, **kwargs) -> Union[str, pd.DataFrame]:
-        pass
+        if not self.inference:
+            X_train, X_test, y_train, y_test = train_test_split(self.data[self.data.columns.difference(['price',
+                                                                                                        'log_price',
+                                                                                                        'price_m2',
+                                                                                                        'scaled_price'])],
+                                                                self.data[self.response], test_size=0.2,
+                                                                random_state=42, shuffle=True)
+            if self.tune:
+                self.final_model = xgb_tune(X_train, y_train)
+                self.final_model.fit(X_train, y_train)
+
+                y_pred = self.final_model.predict(X_test)
+
+                print("The model training score is ", self.final_model.score(X_train, y_train))
+                print("The model testing score is ", self.final_model.score(X_test, y_test))
+
+                if self.response == 'log_price':
+                    y_test2 = np.exp(y_test)
+                    y_pred2 = np.exp(y_pred)
+                elif self.response == 'scaled_price':
+                    subprocessor = Preprocessor._get_state()
+                    y_test2 = subprocessor.named_transformers_.standardize.inverse_transform(y_test[None, :])
+                    y_pred2 = subprocessor.named_transformers_.standardize.inverse_transform(y_pred[None, :])
+                else:
+                    y_test2 = y_test
+                    y_pred2 = y_pred
+
+                print("The model testing mean absolute error is ", mean_absolute_error(y_test2, y_pred2))
+                print("The model max error is ", max_error(y_test2, y_pred2))
+                print("The model median absolute error is ", median_absolute_error(y_test2, y_pred2))
+
+                self._save_model()
+        else:
+            self.final_model = Model.load_model()
+            pass
+        # TODO in inference phase it will need to load subprocessor to use its fitted mean
+
+    @staticmethod
+    def load_model() -> xgboost.XGBRegressor:
+        if os.path.isfile('models/xgb.pickle'):
+            with open('models/xgb.pickle', 'rb') as handle:
+                model = pickle.load(handle)
+        else:
+            raise Exception('Model not found in `models/xgb.pickle`')
+        return model
+
+    def _save_model(self):
+        with open('models/xgb.pickle', 'wb') as handle:
+            pickle.dump(self.final_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == "__main__":
@@ -298,14 +366,14 @@ if __name__ == "__main__":
     # parser.add_argument('-c', '--config-name', help='Name of the config file', default='config.yaml')
     # arguments = parser.parse_args()
 
-    etl = ETL(inference=False)
+    etl = ETL(inference=False, scrape=False, load_dataset=True)
     final_data = etl()
     # TODO handle what to do when empty df
     # TODO handle correct state creation/updates
     # TODO prepare final data and perform final corrections and checks on `ETL` class
     # TODO unit-test / asserts sanity checks would be nice to have
 
-    model = Model(data=final_data, inference=False)
+    model = Model(data=final_data, inference=False, tune=True, response='log_price')
     # inference phase pd.DataFrame with features and predicted prices
     # train phase will returned path to serialized trained model
     trained = model()
