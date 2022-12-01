@@ -26,7 +26,7 @@ class Synchronizer(object):
         self.sreality_df = pd.DataFrame()
         self.breality_df = pd.DataFrame()
 
-    def __call__(self, sreality_csv_path: str, breality_csv_path: str, *args, **kwargs) -> pd.DataFrame:
+    def __call__(self, sreality_csv_path: str, breality_csv_path: str, inference: bool, *args, **kwargs) -> pd.DataFrame:
         """
 
         Parameters
@@ -58,7 +58,8 @@ class Synchronizer(object):
                 self.set_breality_dtypes()
             self.unify()
             self.merge_text()
-            self.remove()
+            if not inference:
+                self.remove()
             if self.integrity_check():
                 self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
 
@@ -74,8 +75,8 @@ class Synchronizer(object):
         assert self.final_df.ownership.isin(np.array(['Osobní', 'Státní/obecní', 'Družstevní', np.nan],
                                                      dtype=object)).all(), \
             '`ownership` contains unexpected value'
-        assert self.final_df.price.min() > 1000, '`price` must be positive'
-        assert self.final_df.usable_area.min() > 0, '`usable_area` must be positive'
+        assert self.final_df.price.min() > 1000 or self.final_df.price.min() is np.nan, '`price` must be positive'
+        assert self.final_df.usable_area.min() > 0 or self.final_df.usable_area.min() is np.nan, '`usable_area` must be positive'
         assert -5 < self.final_df.floor.min() and self.final_df.floor.max() < 100 or self.final_df.floor.min() is np.nan,\
             '`floor` must be >-5'
         assert self.final_df.energy_effeciency.isin(np.array([np.nan, 'G', 'E', 'B', 'D', 'C',
