@@ -16,7 +16,7 @@ import py7zr
 from folium.plugins import MousePosition
 import requests
 
-from main import ETL
+from main import ETL, Model
 from models.gaussian_process import get_gp
 
 st.set_page_config(page_title='Real e-state', page_icon="house_buildings", initial_sidebar_state="collapsed")
@@ -385,20 +385,27 @@ if selected == "Predikce pomocí URL":
         st.markdown(f'Získávám data z {url}...')
         st.markdown(':robot_face: Robot přemýšlí...')
         etl = ETL(inference=True)
-        data = etl()
-        
-        ## just for now only fitted gaussian process is used
-        model_path = 'models/fitted_gp_low'
-        gp_model = get_gp(model_path)
+        out = etl()
 
-        X = data[['long', 'lat']].to_numpy()
-        mean_price, std_price = gp_model.predict(X, return_std=True)
-        price = mean_price * data["usable_area"].to_numpy()
-        std = std_price * data["usable_area"].to_numpy()
-        st.write(f'Estimated price of apartment is {price} Kc. \n' 
-                 f'95% confidece interval is {(price - 2 * std, price + 2 * std)} Kc')
+        if out['status'] != 'OK':
+            st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
+        else:
+            ## just for now only fitted gaussian process is used
 
-        # OTHER MODELS
+            model_path = 'models/fitted_gp_low'
+            gp_model = get_gp(model_path)
+    
+            X = out['data'][['long', 'lat']].to_numpy()
+            mean_price, std_price = gp_model.predict(X, return_std=True)
+            price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
+            std = (std_price * out['data']["usable_area"].to_numpy()).item()
+            st.write(f'Cena bytu podla GP je {price_gp} Kc. \n' 
+                     f'95% konfidencni interval {(price_gp - 2 * std, price_gp + 2 * std)} Kc')
+
+            # OTHER MODELS
+            model = Model(data=out['data'], inference=True, tune=False, response='log_price')
+            price = model()
+            st.write(f'Cena tohto bytu je odhadnuta podla XGB na {price.item()} Kc. \n')
 
 
 if selected == "Predikce pomocí ručně zadaných příznaků":
