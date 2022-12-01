@@ -90,7 +90,11 @@ class BaseScraper(ABC):
     def _process(self, **kwargs) -> None:
         """this method implements looping logic and expects `_scrape` method to return """
         i = 1
-        with webdriver.Chrome(ChromeDriverManager().install()) as driver:  # this assumes that chrome is installed and was at least once launched
+        chrome_options = Options()
+        if kwargs.get('inference', False):
+            chrome_options.add_argument("--headless")
+        with webdriver.Chrome(ChromeDriverManager().install(),
+                              chrome_options=chrome_options) as driver:  # this assumes that chrome is installed and was at least once launched
             driver.implicitly_wait(self.delay * 5)
             if self.prepared_links:  # used for scrapers based on specific urls
                 for link in tqdm(self.prepared_links, desc='Scraping links...'):
