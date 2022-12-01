@@ -66,7 +66,7 @@ class ETL(object):
         self.inference = inference  # whether ETL is in INFERENCE phase
         self.scrape = scrape  # whether to scrape data before processing
         self.load_dataset = load_dataset  # whether to jump right to loading prepared dataset in `../data/dataset.csv`
-                                          # not functional in `inference` phase
+        # not functional in `inference` phase
         self.crawled_links_filename = crawled_links_filename
         self.scrapped_data_filename = scrapped_data_filename
 
@@ -86,11 +86,12 @@ class ETL(object):
         self.scraped_init_state = self._check_state()
         self.synchronizer = Synchronizer(from_row=self.scraped_init_state)
 
-        self.preprocessor = Preprocessor(df=pd.DataFrame(), inference=inference)  # TODO not ideal init with empty dataframe
+        self.preprocessor = Preprocessor(df=pd.DataFrame(),
+                                         inference=inference)  # TODO not ideal init with empty dataframe
 
         self.generator = Generator(df=pd.DataFrame())  # TODO not ideal init with empty dataframe
 
-    def __call__(self, update_price_map: bool = False, *args, **kwargs) -> pd.DataFrame:
+    def __call__(self, update_price_map: bool = False, *args, **kwargs) -> dict:
         """
         call all instances of crawlers, scrapers, enricher etc.
         Parameters
@@ -132,7 +133,8 @@ class ETL(object):
                 # TODO handle cases when empty df is returned
                 data = self.synchronizer(
                     sreality_csv_path=f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv',
-                    breality_csv_path=f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv')
+                    breality_csv_path=f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv',
+                    inference=self.inference)
 
             # Data are now synchronized in one ../data/tmp_synchronized.csv (TRAIN)
             else:
@@ -157,7 +159,7 @@ class ETL(object):
             # TODO handle cases when empty df is returned
             data = self.synchronizer(
                 sreality_csv_path=f'../data/predict_{self.sreality_scraper.name}_scraped.csv',
-                breality_csv_path=f'../data/predict_{self.breality_scraper.name}_scraped.csv')
+                breality_csv_path=f'../data/predict_{self.breality_scraper.name}_scraped.csv', inference=self.inference)
 
             # Data are now synchronized in one ../data/tmp_synchronized.csv (INFERENCE)
         if self.inference or (not self.inference and not self.load_dataset):
@@ -178,11 +180,11 @@ class ETL(object):
             dataset = enriched_data
 
         # ### 5 a GENERATE AGGREGATED FEATURES (on-the-fly)
-        #self.generator.df = dataset  # TODO not ideal
-        #generated_data = self.generator()  # TODO embeddings are not used
+        # self.generator.df = dataset  # TODO not ideal
+        # generated_data = self.generator()  # TODO embeddings are not used
 
         # ### 5 b PREPROCESS DATA (on-the-fly)
-        self.preprocessor.df = dataset #generated_data  # TODO not ideal
+        self.preprocessor.df = dataset  # generated_data  # TODO not ideal
         preprocessed_data = self.preprocessor()
 
         return preprocessed_data
@@ -294,6 +296,7 @@ class Model(object):
              -- Adam Random forest
              -- Emanuel Electra (small-e-czech)
     """
+
     def __init__(self, data: pd.DataFrame, response='log_price',
                  inference: bool = False, tune: bool = False):
         self.data = data
@@ -346,6 +349,7 @@ class Model(object):
             self.final_model = Model.load_model()
             pass
         # TODO in inference phase it will need to load subprocessor to use its fitted mean
+        # TODO we will need somehow deal with inconsistent predictions model_upper vs model_mean
 
     @staticmethod
     def load_model() -> xgboost.XGBRegressor:
@@ -373,8 +377,7 @@ if __name__ == "__main__":
     # TODO prepare final data and perform final corrections and checks on `ETL` class
     # TODO unit-test / asserts sanity checks would be nice to have
 
-    model = Model(data=final_data, inference=False, tune=True, response='log_price')
+    model = Model(data=final_data['data'], inference=False, tune=True, response='log_price')
     # inference phase pd.DataFrame with features and predicted prices
     # train phase will returned path to serialized trained model
     trained = model()
-
