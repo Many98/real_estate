@@ -36,7 +36,7 @@ class Preprocessor(object):
         self.df = df  # dataframe to be preprocessed
         self.inference = inference
 
-    def __call__(self, *args, **kwargs) -> pd.DataFrame:
+    def __call__(self, *args, **kwargs) -> dict:
         if not self.df.empty:
 
             self.expand()
@@ -106,7 +106,7 @@ class Preprocessor(object):
                 categorical_to_tenc = [i for i in self.df.columns if 'has_' in i and '_te' in i] + \
                                       categorical_to_te + dist_cols
 
-                tenc = CustomTargetEncoder(handle_unknown='error')
+                tenc = CustomTargetEncoder(handle_unknown='value', handle_missing='value')
                 standardizer = StandardScaler()
 
                 self.subprocessor = ColumnTransformer([
@@ -145,7 +145,7 @@ class Preprocessor(object):
 
             self.adjust()
 
-        return self.df.astype(float)
+        return {'data': self.df.astype(float), 'status': 'OK'}
 
     @staticmethod
     def _get_state():
@@ -198,10 +198,14 @@ class Preprocessor(object):
             self.df[d + '_te'] = self.df[d]
 
         # adding price_m2 column
+
         self.df['price_m2'] = self.df['price'] / self.df['usable_area']
 
         self.df['log_price'] = np.log(self.df['price'])
         self.df['scaled_price'] = self.df['price']
+        if self.inference and self.df['scaled_price'].isna().any():
+            self.df['scaled_price'] = 0.
+
         self.df['gp'] = self.df['gp_mean_price'] * self.df['usable_area']
 
     def impute(self):
@@ -256,8 +260,13 @@ class Preprocessor(object):
         -------
 
         """
-        # TODO how to handle case when in inference data will be dropped ????
-        self.df.dropna(how='any', subset=['price', 'usable_area', 'header', 'long', 'lat', 'disposition'], inplace=True)
+        if not self.inference:
+            self.df.dropna(how='any', subset=['price', 'usable_area', 'long', 'lat', 'disposition'],
+                           inplace=True)
+        else:
+            if self.df[['usable_area', 'long', 'lat']].isna().any():
+                return {'data': self.df,
+                        'status': f"Input does not contain some of required attributes ['usable_area', 'long', 'lat']"}
 
         # fill unknown/undefined
         self.df[['air_quality', 'built_density', 'sun_glare']] = \
@@ -373,15 +382,16 @@ class Preprocessor(object):
         -------
 
         """
-        self.df.drop_duplicates(subset=['hash'], ignore_index=True, inplace=True)
+        if not self.inference:
+            self.df.drop_duplicates(subset=['hash'], ignore_index=True, inplace=True)
 
 
-        # removing data based on "empirical" values
-        threshold_low = 47000
-        threshold_high = 380000
+            # removing data based on "empirical" values
+            threshold_low = 40000
+            threshold_high = 380000
 
-        self.df = self.df[(self.df['price_m2'] > threshold_low) & (self.df['price_m2'] < threshold_high)]
-        self.df = self.df[(self.df['floor'] > -2) & (self.df['floor'] < 30)]
+            self.df = self.df[(self.df['price_m2'] > threshold_low) & (self.df['price_m2'] < threshold_high)]
+            self.df = self.df[(self.df['floor'] > -2) & (self.df['floor'] < 30)]
 
         ok_cols = self.df.columns.difference(["note", "description", "hash", "name", "desc_hash",
                                               "floor_area", "geometry", "place", "tags",
