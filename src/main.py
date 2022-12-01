@@ -3,6 +3,8 @@ import numpy as np
 import json
 import os
 import pickle
+import requests
+import py7zr
 
 import xgboost
 from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic
@@ -347,17 +349,43 @@ class Model(object):
                 self._save_model()
         else:
             self.final_model = Model.load_model()
-            pass
+            print(self.data.columns.difference(['price',
+                                                                                      'log_price',
+                                                                                      'price_m2',
+                                                                                      'scaled_price']))
+            y_pred = self.final_model.predict(self.data[self.data.columns.difference(['price',
+                                                                                      'log_price',
+                                                                                      'price_m2',
+                                                                                      'scaled_price'])])
+            if self.response == 'log_price':
+                y_pred2 = np.exp(y_pred)
+            elif self.response == 'scaled_price':
+                subprocessor = Preprocessor._get_state()
+                y_pred2 = subprocessor.named_transformers_.standardize.inverse_transform(y_pred[None, :])
+            else:
+                y_pred2 = y_pred
+
+            return y_pred2
         # TODO in inference phase it will need to load subprocessor to use its fitted mean
         # TODO we will need somehow deal with inconsistent predictions model_upper vs model_mean
 
     @staticmethod
     def load_model() -> xgboost.XGBRegressor:
-        if os.path.isfile('models/xgb.pickle'):
-            with open('models/xgb.pickle', 'rb') as handle:
-                model = pickle.load(handle)
-        else:
-            raise Exception('Model not found in `models/xgb.pickle`')
+        # TODO repo is private therefore content cannot be downloaded -> make it public
+        """
+        if not os.path.isfile('models/xgb.pickle'):
+            if not os.path.isfile('models/xgb.7z'):
+                with requests.get('https://github.com/Many98/real_estate/raw/main/src/models/xgb.7z',
+                                  stream=True) as r:
+                    with open('models/xgb.7z', 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=8192):
+                            f.write(chunk)
+            with py7zr.SevenZipFile('models/xgb.7z', mode='r') as z:
+                z.extractall(path='models/xgb.pickle')
+        """
+        with open('models/xgb.pickle', 'rb') as handle:
+            model = pickle.load(handle)
+
         return model
 
     def _save_model(self):
@@ -377,7 +405,8 @@ if __name__ == "__main__":
     # TODO prepare final data and perform final corrections and checks on `ETL` class
     # TODO unit-test / asserts sanity checks would be nice to have
 
-    model = Model(data=final_data['data'], inference=False, tune=True, response='log_price')
+    model = Model(data=final_data['data'], inference=True, tune=False, response='log_price')
     # inference phase pd.DataFrame with features and predicted prices
     # train phase will returned path to serialized trained model
     trained = model()
+    print('f')
