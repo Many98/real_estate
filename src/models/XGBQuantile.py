@@ -3,12 +3,20 @@ import numpy as np
 from functools import partial
 
 
+def coverage_fraction(y, y_low, y_high):
+    return np.mean(np.logical_and(y >= y_low, y <= y_high))
+
+
 class XGBQuantile(XGBRegressor):
     def __init__(self, quant_alpha=0.5, quant_delta=1.0, quant_thres=1.0,
-                 quant_var=1.0, base_score=0.5, booster='gbtree', colsample_bylevel=1,
+                 quant_var=1.0, base_score=0.5,
+                 booster='gbtree', colsample_bylevel=1,
                  colsample_bytree=1, colsample_bynode=1, gamma=0,
                  learning_rate=0.1, max_delta_step=0, max_depth=3,
-                 min_child_weight=1, missing=1, n_estimators=100,
+                 min_child_weight=1,
+                 tree_method='hist',
+                 missing=1,
+                 n_estimators=100,
                  n_jobs=1,
                  # nthread=None,
                  objective='reg:squarederror',
@@ -16,6 +24,7 @@ class XGBQuantile(XGBRegressor):
                  random_state=0, reg_alpha=0, reg_lambda=1, scale_pos_weight=1,
                  # seed=None,
                  # silent=True,
+                 callbacks=None,
                  subsample=1):
         self.quant_alpha = quant_alpha
         self.quant_delta = quant_delta
@@ -29,6 +38,7 @@ class XGBQuantile(XGBRegressor):
                          gamma=gamma, learning_rate=learning_rate,
                          max_delta_step=max_delta_step,
                          max_depth=max_depth, min_child_weight=min_child_weight,
+                         tree_method=tree_method,
                          # missing=missing,
                          n_estimators=n_estimators,
                          n_jobs=n_jobs,
@@ -39,7 +49,8 @@ class XGBQuantile(XGBRegressor):
                          # silent=silent,
                          subsample=subsample,
                          early_stopping_rounds=early_stopping_rounds,
-                         eval_metric=eval_metric)
+                         eval_metric=eval_metric,
+                         callbacks=callbacks)
 
         self.test = None
 
