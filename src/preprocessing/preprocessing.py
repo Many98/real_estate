@@ -135,7 +135,7 @@ class Preprocessor(object):
                 transformed = self.subprocessor.transform(self.df)
                 col_names = ['_'.join(
                     i.replace('_', ' ').replace('impute', '').replace('remainder', '').replace('ohe', '')
-                        .replace('tenc', '').split())
+                        .replace('tenc', '').replace('standardize', '').split())
                     for
                     i in self.subprocessor.get_feature_names_out()]
 
@@ -264,7 +264,7 @@ class Preprocessor(object):
             self.df.dropna(how='any', subset=['price', 'usable_area', 'long', 'lat', 'disposition'],
                            inplace=True)
         else:
-            if self.df[['usable_area', 'long', 'lat']].isna().any():
+            if self.df[['usable_area', 'long', 'lat']].isna().any().any():
                 return {'data': self.df,
                         'status': f"Input does not contain some of required attributes ['usable_area', 'long', 'lat']"}
 
