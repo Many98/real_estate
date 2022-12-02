@@ -383,11 +383,13 @@ class Model(object):
             with py7zr.SevenZipFile('models/xgb.7z', mode='r') as z:
                 z.extractall(path='models/xgb.pickle')
         """
-        if not os.path.isfile('models/xgb.pickle'):
+        if not os.path.isfile('models/xgb.json'):
             with py7zr.SevenZipFile('models/xgb.7z', mode='r') as z:
                 z.extractall(path='models/')
-        with open('models/xgb.pickle', 'rb') as handle:
-            model = pickle.load(handle)
+        #with open('models/xgb.pickle', 'rb') as handle:
+        #    model = pickle.load(handle)
+        model = xgboost.XGBRegressor()
+        model.load_model('models/xgb.json')
 
         return model
 
@@ -401,7 +403,7 @@ if __name__ == "__main__":
     # parser.add_argument('-c', '--config-name', help='Name of the config file', default='config.yaml')
     # arguments = parser.parse_args()
 
-    etl = ETL(inference=False, scrape=True, load_dataset=False)
+    etl = ETL(inference=False, scrape=False, load_dataset=False)
     final_data = etl()
     # TODO handle what to do when empty df
     # TODO handle correct state creation/updates
