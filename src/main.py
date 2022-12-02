@@ -174,7 +174,7 @@ class ETL(object):
 
         if not self.inference and not self.load_dataset:
             self._export_data(enriched_data)
-            dataset = pd.read_csv('../data/dataset.csv')
+            dataset = pd.read_csv('../data/dataset2.csv')
             # Data are now enriched with new geospatial attributes etc. and appended to`../data/dataset.csv`
         elif not self.inference and self.load_dataset:
             dataset = pd.read_csv('../data/dataset.csv')
@@ -228,8 +228,8 @@ class ETL(object):
         method to export final dataframe to csv database
         """
         if not data.empty:
-            data.to_csv("../data/dataset.csv", mode='a', index=False,
-                        header=not os.path.exists("../data/dataset.csv"))
+            data.to_csv("../data/dataset2.csv", mode='a', index=False,
+                        header=not os.path.exists("../data/dataset2.csv"))
 
         print(f'New data appended successfully in {"../data/dataset.csv"}!', end="\r", flush=True)
 
@@ -383,6 +383,9 @@ class Model(object):
             with py7zr.SevenZipFile('models/xgb.7z', mode='r') as z:
                 z.extractall(path='models/xgb.pickle')
         """
+        if not os.path.isfile('models/xgb.pickle'):
+            with py7zr.SevenZipFile('models/xgb.7z', mode='r') as z:
+                z.extractall(path='models/')
         with open('models/xgb.pickle', 'rb') as handle:
             model = pickle.load(handle)
 
@@ -398,7 +401,7 @@ if __name__ == "__main__":
     # parser.add_argument('-c', '--config-name', help='Name of the config file', default='config.yaml')
     # arguments = parser.parse_args()
 
-    etl = ETL(inference=False, scrape=False, load_dataset=True)
+    etl = ETL(inference=False, scrape=True, load_dataset=False)
     final_data = etl()
     # TODO handle what to do when empty df
     # TODO handle correct state creation/updates
