@@ -182,7 +182,7 @@ def prepare_rasters(path: str) -> tuple:
     if not os.path.isdir(os.path.join(path, 'geodata')):
         if os.path.isfile(os.path.join(path, 'geodata.7z')):
             with py7zr.SevenZipFile(os.path.join(path, 'geodata.7z'), mode='r') as z:
-                z.extractall(path=path)
+                z.extractall(path=os.path.join(os.path.split(os.getcwd())[0], path.split('../')[-1]))
         else:
             raise Exception('Geodata not found !')
 
