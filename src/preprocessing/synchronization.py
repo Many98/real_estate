@@ -74,34 +74,34 @@ class Synchronizer(object):
         """
         assert self.final_df.ownership.isin(np.array(['Osobní', 'Státní/obecní', 'Družstevní', np.nan],
                                                      dtype=object)).all(), \
-            '`ownership` contains unexpected value'
+            f'`ownership` contains unexpected value {self.final_df.ownership.unique()}'
         assert self.final_df.price.min() > 1000 or self.final_df.price.min() is np.nan, '`price` must be positive'
         assert self.final_df.usable_area.min() > 0 or self.final_df.usable_area.min() is np.nan, '`usable_area` must be positive'
         assert -5 < self.final_df.floor.min() and self.final_df.floor.max() < 100 or self.final_df.floor.min() is np.nan,\
             '`floor` must be >-5'
         assert self.final_df.energy_effeciency.isin(np.array([np.nan, 'G', 'E', 'B', 'D', 'C',
                                                               'A', 'F'], dtype=object)).all(), \
-            '`energy_effeciency` contains unexpected value'
+            f'`energy_effeciency` contains unexpected value {self.final_df.energy_effeciency.unique()}'
         assert 13 < self.final_df.long.min() and self.final_df.long.max() < 16, '`long` must be within [14, 16]'
         assert 49 < self.final_df.lat.min() and self.final_df.lat.max() < 51, '`lat` must be within [49, 51]'
 
         assert self.final_df.equipment.isin(np.array(['ne', np.nan, 'Částečně', 'ano'], dtype=object)).all(), \
-            '`equipment` contains unexpected value'
+            f'`equipment` contains unexpected value {self.final_df.equipment.unique()}'
         assert self.final_df.state.isin(np.array([np.nan, 'V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci',
                                                   'Novostavba', 'Velmi dobrý', 'Dobrý', 'Ve výstavbě', 'Projekt',
                                                   'Špatný', ], dtype=object)).all(), \
-            '`state` contains unexpected value'
+            f'`state` contains unexpected value {self.final_df.state.unique()}'
         assert self.final_df.construction_type.isin(
             np.array([np.nan, 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná',
                       'Montovaná', 'Nízkoenergetická', 'Drevostavba'], dtype=object)).all(), \
-            '`construction_type` contains unexpected value'
+            f'`construction_type` contains unexpected value {self.final_df.construction_type.unique()}'
         assert self.final_df.disposition.isin(
             np.array([np.nan, '1+kk', '1+1', '3+1', '3+kk', '2+kk', '4+1', '2+1', '5+kk', '4+kk',
                       'atypické', '6 pokojů a více', '5+1', '6+kk'], dtype=object)).all(), \
-            '`disposition` contains unexpected value'
+            f'`disposition` contains unexpected value {self.final_df.disposition.unique()}'
         assert self.final_df.additional_disposition.isin(np.array([np.nan, 'Podkrovní', 'Loft', 'Mezonet'],
                                                                   dtype=object)).all(), \
-            '`additional_disposition` contains unexpected value'
+            f'`additional_disposition` contains unexpected value {self.final_df.additional_disposition.unique()}'
 
         # TODO not useful
         #assert 0 <= self.final_df.year_reconstruction.min() or self.final_df.year_reconstruction.min() is np.nan, \
@@ -111,7 +111,7 @@ class Synchronizer(object):
         bool_cols = [col for col in self.final_df if 'has' in col and 'hash' not in col]
         for col in bool_cols:
             assert self.final_df[col].isin(np.array([np.nan, True, False])).all(), \
-                f'`{col}` contains unexpected value'
+                f'`{col}` contains unexpected value {self.final_df[col].unique()}'
 
         dist_cols = [col for col in self.final_df if 'dist' in col]
         for col in dist_cols:
@@ -164,6 +164,7 @@ class Synchronizer(object):
         self.final_df["ownership"] = self.final_df["ownership"].replace("OSOBNI", "Osobní")
         self.final_df["ownership"] = self.final_df["ownership"].replace("DRUZSTEVNI", "Družstevní")
         self.final_df["ownership"] = self.final_df["ownership"].replace("UNDEFINED", np.nan)
+        self.final_df["ownership"] = self.final_df["ownership"].replace("OSTATNI", np.nan)
 
         self.final_df["equipment"] = self.final_df["equipment"].replace("VYBAVENY", "ano")
         self.final_df["equipment"] = self.final_df["equipment"].replace("NEVYBAVENY", "ne")
@@ -176,6 +177,8 @@ class Synchronizer(object):
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("NIZKOENERGETICKY",
                                                                                         "Nízkoenergetická")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("DREVOSTAVBA",
+                                                                                        "Drevostavba")
+        self.final_df["construction_type"] = self.final_df["construction_type"].replace("Dřevěná",
                                                                                         "Drevostavba")
         self.final_df["construction_type"] = self.final_df["construction_type"].replace("UNDEFINED", np.nan)
 
@@ -200,6 +203,7 @@ class Synchronizer(object):
         self.final_df["disposition"] = self.final_df["disposition"].replace("OSTATNI", "atypické")
         self.final_df["disposition"] = self.final_df["disposition"].replace("GARSONIERA", "1+kk")
         self.final_df["disposition"] = self.final_df["disposition"].replace("DISP_5_1", "5+1")
+        self.final_df["disposition"] = self.final_df["disposition"].replace("UNDEFINED", "atypické")
 
         self._hash_it()
 
