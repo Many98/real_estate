@@ -425,11 +425,11 @@ if selected == "Predikce pomocí URL":
             st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
                      f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kc')
 
-            labels = ["Průměr GP", "Nízký GP", "Vysoké GP", "XGBoost"]
+            labels = ["Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
             values = [price_gp - 2 * std, price_gp, price_gp + 2 * std, pred_mean.item()]
             source = pd.DataFrame({
                 'Cena (Kč)': values,
-                'Predikce': ["Průměr GP", "Nízký GP", "Vysoké GP", "XGBoost"]
+                'Predikce': [ "Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
             })
 
             bar_chart = alt.Chart(source).mark_bar().encode(
