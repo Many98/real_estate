@@ -5,11 +5,19 @@ import csv
 # pip install streamlit_option_menu
 from streamlit_option_menu import option_menu
 import numpy as np
+import plotly.express as px
 import os
+import matplotlib.pyplot as plt
 from streamlit_folium import folium_static
 import folium
+import pandas as pd
 import streamlit as st
 from datetime import datetime
+from pyecharts import options as opts
+from pyecharts.charts import Bar
+import altair as alt
+from streamlit_echarts import st_pyecharts
+from streamlit_echarts import st_echarts
 import joblib
 import pickle
 import py7zr
@@ -403,14 +411,41 @@ if selected == "Predikce pomocí URL":
             mean_price, std_price = gp_model.predict(X, return_std=True)
             price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
             std = (std_price * out['data']["usable_area"].to_numpy()).item()
-            st.write(f'Cena bytu podla GP je {price_gp} Kc. \n' 
-                     f'95% konfidencni interval {(price_gp - 2 * std, price_gp + 2 * std)} Kc')
 
+            st.write(
+                f'--------------------------------------------- Predikce ceny Vaší nemovitosti :house: ---------------------------------------------')
+            st.write(f':world_map: Predikovaná cena Vašeho bytu pomocí GP je {round(price_gp)}Kč.')
+            st.write(f'95% konfidenční interval GP je {(round(price_gp - 2 * std), round(price_gp + 2 * std))}Kč')
+
+
+            # OTHER MODELS
             model = Model(data=out['data'], inference=True, tune=False)
             pred_lower, pred_mean, pred_upper = model()
 
-            st.write(f'Cena tohto bytu je odhadnuta podla XGB na {pred_mean.item()} Kc. \n'
-                     f'90% konfidencni interval {(pred_lower.item(), pred_upper.item())} Kc')
+            st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
+                     f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kc')
+
+            labels = ["Průměr GP", "Nízký GP", "Vysoké GP", "XGBoost"]
+            values = [price_gp - 2 * std, price_gp, price_gp + 2 * std, pred_mean.item()]
+            source = pd.DataFrame({
+                'Cena (Kč)': values,
+                'Predikce': ["Průměr GP", "Nízký GP", "Vysoké GP", "XGBoost"]
+            })
+
+            bar_chart = alt.Chart(source).mark_bar().encode(
+                x="Cena (Kč):Q",
+                y=alt.Y("Predikce:N", sort="-x")
+            )
+            st.altair_chart(bar_chart, use_container_width=True)
+            # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
+            st.write(' ')
+            st.write(' ')
+            st.write('----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
+            st.write(f':sun_with_face: Slunečnost: ')
+            st.write(f':musical_note: Hlučnost: ')
+            st.write(f':couple: Obydlenost: ')
+            st.write(f':knife: Kriminalita: ')
+            st.write(f':tornado: Kvalita vzduchu: ')
 
 
 if selected == "Predikce pomocí ručně zadaných příznaků":
@@ -422,13 +457,6 @@ if selected == "Predikce pomocí ručně zadaných příznaků":
 
     ############## MODELS ##############
     result = st.button('Predikuj!')
-    ''' if result:
-        # st.write('Calculating results...')
-        # RANDOM FOREST
-        # regr = RandomForestRegressor(n_estimators=350, max_depth=7, max_features=10, min_samples_leaf=3, criterion='absolute_error', random_state=42)
-        loaded_rf = joblib.load("./random_forest.joblib") # https://mljar.com/blog/save-load-random-forest/
-        rf_price = loaded_rf.predict(X)
-        st.write('Predicting price of the flat is: ', rf_price)'''
 
     if result:
         with open('../data/predict_handmade.csv', 'w') as csvfile:
@@ -436,8 +464,8 @@ if selected == "Predikce pomocí ručně zadaných příznaků":
             writer.writeheader()
             writer.writerows([out])
             print('csv done!')
-        st.markdown(':robot_face: Robot přemýšlí...')
 
+        st.markdown(':robot_face: Robot přemýšlí...')
 
 
 ############## 3. stránka ##############
