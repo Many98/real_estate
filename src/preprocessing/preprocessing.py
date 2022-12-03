@@ -1,19 +1,6 @@
 import pandas as pd
 import numpy as np
 
-from category_encoders import TargetEncoder
-
-
-class CustomTargetEncoder(TargetEncoder):
-    def __init__(self, verbose=0, cols=None, drop_invariant=False, return_df=True, handle_missing='value',
-                 handle_unknown='value', min_samples_leaf=1, smoothing=1.0, hierarchy=None):
-        super().__init__(verbose=verbose, cols=cols, drop_invariant=drop_invariant, return_df=return_df,
-                         handle_missing=handle_missing, handle_unknown=handle_unknown,
-                         min_samples_leaf=min_samples_leaf, smoothing=smoothing, hierarchy=hierarchy)
-
-    def get_feature_names_out(self, input_features=None):
-        return self.get_feature_names()
-
 
 class Preprocessor(object):
     """
