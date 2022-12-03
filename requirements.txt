@@ -8,12 +8,12 @@ numpy==1.23.3
 pandas==1.5.0
 Pillow==9.2.0
 pip==22.2.2
-pyecharts=1.9.1
+pyecharts==1.9.1
 scikit-learn==1.1.2
 scipy==1.9.1
 selenium==4.2.0
 streamlit==1.13.0
-streamlit-echarts=0.4.0
+streamlit-echarts==0.4.0
 tqdm==4.64.1
 urllib3==1.26.9
 webdriver-manager==3.7.0

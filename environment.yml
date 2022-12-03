@@ -44,4 +44,6 @@ dependencies:
     - torchvision==0.14.0
     - transformers==4.24.0
     - category-encoders==2.5.1
+    - pyecharts==1.9.1
+    - streamlit-echarts==0.4.0
 
