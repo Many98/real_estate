@@ -4,6 +4,19 @@ from functools import partial
 
 
 def coverage_fraction(y, y_low, y_high):
+    """
+    auxiliary function to estimate coverage fraction of quantile regression
+    i.e. whether it really estimates e.g. 90% confidence interval
+    Parameters
+    ----------
+    y : np.ndarray
+    y_low : np.ndarray
+    y_high : np.ndarray
+
+    Returns
+    -------
+
+    """
     return np.mean(np.logical_and(y >= y_low, y <= y_high))
 
 
@@ -15,15 +28,28 @@ class XGBQuantile(XGBRegressor):
                  learning_rate=0.1, max_delta_step=0, max_depth=3,
                  min_child_weight=1,
                  tree_method='hist',
-                 missing=1,
+                 missing=np.nan,
                  n_estimators=100,
-                 n_jobs=1,
-                 # nthread=None,
+                 n_jobs=0,
+                 #nthread=0,
                  objective='reg:squarederror',
                  eval_metric=None, early_stopping_rounds=None,
                  random_state=0, reg_alpha=0, reg_lambda=1, scale_pos_weight=1,
-                 # seed=None,
-                 # silent=True,
+                 enable_categorical=False,
+                 gpu_id=-1,
+                 grow_policy='depthwise',
+                 importance_type=None,
+                 interaction_constraints='',
+                 max_bin=256,
+                 max_cat_to_onehot=4,
+                 max_leaves=0,
+                 monotone_constraints='()',
+                 num_parallel_tree=1,
+                 predictor='auto',
+                 sampling_method='uniform',
+                 validate_parameters=1,
+                 verbosity=None,
+                 #njobs=None,
                  callbacks=None,
                  subsample=1):
         self.quant_alpha = quant_alpha
@@ -39,18 +65,32 @@ class XGBQuantile(XGBRegressor):
                          max_delta_step=max_delta_step,
                          max_depth=max_depth, min_child_weight=min_child_weight,
                          tree_method=tree_method,
-                         # missing=missing,
+                         missing=missing,
                          n_estimators=n_estimators,
                          n_jobs=n_jobs,
-                         # nthread=nthread,
+                         #nthread=nthread,
                          objective=objective, random_state=random_state,
                          reg_alpha=reg_alpha, reg_lambda=reg_lambda, scale_pos_weight=scale_pos_weight,
-                         # seed=seed,
-                         # silent=silent,
                          subsample=subsample,
                          early_stopping_rounds=early_stopping_rounds,
                          eval_metric=eval_metric,
-                         callbacks=callbacks)
+                         enable_categorical=enable_categorical,
+                         gpu_id=gpu_id,
+                         callbacks=callbacks,
+                         grow_policy=grow_policy,
+                         importance_type=importance_type,
+                         interaction_constraints=interaction_constraints,
+                         max_bin=max_bin,
+                         max_cat_to_onehot=max_cat_to_onehot,
+                         max_leaves=max_leaves,
+                         monotone_constraints=monotone_constraints,
+                         num_parallel_tree=num_parallel_tree,
+                         predictor=predictor,
+                         sampling_method=sampling_method,
+                         validate_parameters=validate_parameters,
+                         verbosity=verbosity,
+                         #njobs=njobs,
+                         )
 
         self.test = None
 
