@@ -3,14 +3,21 @@ import numpy as np
 import json
 import os
 import pickle
+import joblib
 import requests
 import py7zr
 
 import xgboost
 from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import median_absolute_error, max_error, mean_absolute_error
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import TransformedTargetRegressor
+
+from category_encoders import TargetEncoder
 
 from preprocessing.enrichment import Enricher, Generator
 from preprocessing.preprocessing import Preprocessor
@@ -22,6 +29,8 @@ from scrapers.scrape_breality import BezRealitkyScraper
 from scrapers.scrape_atlas_cen import AtlasCenScraper
 from models.gaussian_process import gp_train
 from models.xgb_tuning import xgb_tune
+from xgboost import XGBRegressor
+from models.XGBQuantile import XGBQuantile
 
 import argparse
 from typing import Union
@@ -88,10 +97,10 @@ class ETL(object):
         self.scraped_init_state = self._check_state()
         self.synchronizer = Synchronizer(from_row=self.scraped_init_state)
 
+        self.generator = Generator(df=pd.DataFrame())  # TODO not ideal init with empty dataframe
+
         self.preprocessor = Preprocessor(df=pd.DataFrame(),
                                          inference=inference)  # TODO not ideal init with empty dataframe
-
-        self.generator = Generator(df=pd.DataFrame())  # TODO not ideal init with empty dataframe
 
     def __call__(self, update_price_map: bool = False, *args, **kwargs) -> dict:
         """
@@ -132,12 +141,10 @@ class ETL(object):
                 #            to get one csv with same sets of attributes
 
                 # ### 3 SYNCHRONIZE DATA
-                # TODO handle cases when empty df is returned
                 data = self.synchronizer(
                     sreality_csv_path=f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv',
                     breality_csv_path=f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv',
                     inference=self.inference)
-
             # Data are now synchronized in one ../data/tmp_synchronized.csv (TRAIN)
             else:
                 data = pd.DataFrame()
@@ -174,7 +181,8 @@ class ETL(object):
 
         if not self.inference and not self.load_dataset:
             self._export_data(enriched_data)
-            dataset = pd.read_csv('../data/dataset2.csv')
+            self._set_state()
+            dataset = pd.read_csv('../data/dataset.csv')
             # Data are now enriched with new geospatial attributes etc. and appended to`../data/dataset.csv`
         elif not self.inference and self.load_dataset:
             dataset = pd.read_csv('../data/dataset.csv')
@@ -183,13 +191,12 @@ class ETL(object):
 
         # ### 5 a GENERATE AGGREGATED FEATURES (on-the-fly)
         # self.generator.df = dataset  # TODO not ideal
-        # generated_data = self.generator()  # TODO embeddings are not used
+        # generated_data = self.generator()  #  embeddings are not used therefore generator is not needed
 
-        # ### 5 b PREPROCESS DATA (on-the-fly)
-        self.preprocessor.df = dataset  # generated_data  # TODO not ideal
-        preprocessed_data = self.preprocessor()
+        self.preprocessor.df = dataset
+        final_data = self.preprocessor()
 
-        return preprocessed_data
+        return final_data
 
     def update_price_map(self):
         """
@@ -228,10 +235,30 @@ class ETL(object):
         method to export final dataframe to csv database
         """
         if not data.empty:
-            data.to_csv("../data/dataset2.csv", mode='a', index=False,
-                        header=not os.path.exists("../data/dataset2.csv"))
+            data.to_csv("../data/dataset.csv", mode='a', index=False,
+                        header=not os.path.exists("../data/dataset.csv"))
 
         print(f'New data appended successfully in {"../data/dataset.csv"}!', end="\r", flush=True)
+
+    def _set_state(self):
+        s_state = 0
+        b_state = 0
+        try:
+            sreality_scrapped = pd.read_csv(
+                f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv', usecols=['header'])
+            s_state = sreality_scrapped.shape[0]
+        except:
+            pass
+        try:
+            breality_scrapped = pd.read_csv(
+                f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv', usecols=['header'])
+            b_state = breality_scrapped.shape[0]
+        except:
+            pass
+
+        with open('preprocessing/sync_state.json', 'w') as f:
+            json.dump({'sreality': s_state,
+                       'breality': b_state}, f)
 
     def _check_state(self) -> tuple[int, int]:
         """
@@ -244,22 +271,11 @@ class ETL(object):
         if self.inference:
             return 0, 0
         else:
-            s_state = 0
-            b_state = 0
-            try:
-                sreality_scrapped = pd.read_csv(
-                    f'../data/{self.scrapped_data_filename}_{self.sreality_scraper.name}_scraped.csv')
-                s_state = sreality_scrapped.shape[0]
-            except:
-                pass
-            try:
-                breality_scrapped = pd.read_csv(
-                    f'../data/{self.scrapped_data_filename}_{self.breality_scraper.name}_scraped.csv')
-                b_state = breality_scrapped.shape[0]
-            except:
-                pass
-
-            return s_state, b_state
+            if not os.path.isfile('preprocessing/sync_state.json'):
+                self._set_state()
+            with open('preprocessing/sync_state.json', 'r') as f:
+                data = json.load(f)
+            return data['sreality'], data['breality']
 
     def _clean(self):
         """
@@ -283,61 +299,130 @@ class Model(object):
     [ETL] => pd.DataFrame -> [model] => prediction
     .
     .
-    .
-    6. [model] Independent model generation handled by class `Model` see below:
-        fit final model/s
-            * ideas to be tested are transform all textual data to tabular data (via embeddings to get representation) and fit probably XGboost
-                also test if providing embeddings gives non-marginal boost of prediction skill
-            * use more sophisticated methods to mine information from text
-                -* use transformer to predict price then use ensemble on (xgboost+transformer)
-                -* or use probably some transformer for keyword extraction to creaate tabular data of relevant data in text
-                -* or just define some query words and measure some type of distances (edit distance, dot product)
-                    between every word of text and query words (probably more robust than just regexing)
+    6. [model] Independent model generation handled by class `Model`
 
-        TODO -- Hanka XGboost
-             -- Adam Random forest
-             -- Emanuel Electra (small-e-czech)
     """
 
-    def __init__(self, data: pd.DataFrame, response='log_price',
+    def __init__(self, data: pd.DataFrame, response: str = 'price_m2', log_transform: bool = False,
                  inference: bool = False, tune: bool = False):
         self.data = data
         self.response = response
+        self.log_transform = log_transform
+        self.inference = inference
+
+        if not self.inference and self.response not in ['price', 'price_m2']:
+            raise Exception(f"Response column must be one of ['price', 'price_m2']")
 
         if self.data.empty:
             raise Exception('Input dataset is empty')
 
-        if self.response not in ['log_price', 'price', 'price_m2', 'scaled_price']:
-            raise Exception(f"Response column must be one of ['log_price', 'price', 'price_m2', 'scaled_price']")
-
-        self.inference = inference
         self.tune = tune
-        self.final_model = None
 
-    def __call__(self, *args, **kwargs) -> Union[str, pd.DataFrame]:
+        self.model_mean = None
+        self.model_lower = None
+        self.model_upper = None
+
+    def __call__(self, *args, **kwargs) -> Union[tuple[Pipeline, Pipeline, Pipeline],
+                                                 tuple[np.ndarray, np.ndarray, np.ndarray]]:
         if not self.inference:
             X_train, X_test, y_train, y_test = train_test_split(self.data[self.data.columns.difference(['price',
-                                                                                                        'log_price',
                                                                                                         'price_m2',
-                                                                                                        'scaled_price'])],
-                                                                self.data[self.response], test_size=0.2,
+                                                                                                        ])],
+                                                                self.data[self.response], test_size=0.1,
                                                                 random_state=42, shuffle=True)
+
+            # some theory https://www.kaggle.com/code/ryanholbrook/target-encoding/tutorial
+            dist_cols = [i for i in self.data.columns if 'dist_te' in i]
+
+            categorical_to_te = ['energy_effeciency', 'ownership', 'equipment', 'state', 'disposition',
+                                 'construction_type', 'city_district'
+                                 ]
+
+            categorical_to_tenc = [i for i in self.data.columns if 'has_' in i and '_te' in i] + \
+                                  categorical_to_te + dist_cols
+
+            prep = ColumnTransformer([
+                ('tenc', TargetEncoder(handle_unknown='value', handle_missing='value'), categorical_to_tenc)
+            ], remainder='passthrough')
+
             if self.tune:
-                self.final_model = xgb_tune(X_train, y_train)
-                self.final_model.fit(X_train, y_train)
+                xgb = XGBRegressor(
+                    objective='reg:squarederror',
+                    tree_method='hist',
+                    random_state=42)
+            else:
+                xgb = XGBRegressor(
+                    learning_rate=0.08999,
+                    colsample_bytree=0.99,
+                    colsample_bynode=0.80,
+                    max_depth=4,
+                    objective='reg:squarederror',
+                    tree_method='hist',
+                    booster='gbtree',
+                    random_state=42)
 
-                y_pred = self.final_model.predict(X_test)
+            # TODO XGBQuantile should be also tuned but for now this is enough
+            xgbq_upper = XGBQuantile(quant_alpha=0.95,
+                                     quant_delta=1.0,
+                                     quant_thres=6.0,
+                                     quant_var=3.2,
+                                     learning_rate=0.08999,
+                                     colsample_bytree=0.99,
+                                     colsample_bynode=0.80,
+                                     max_depth=4,
+                                     objective='reg:squarederror',
+                                     tree_method='hist',
+                                     booster='gbtree',
+                                     random_state=42)
 
-                print("The model training score is ", self.final_model.score(X_train, y_train))
-                print("The model testing score is ", self.final_model.score(X_test, y_test))
+            xgbq_lower = XGBQuantile(quant_alpha=0.05,
+                                     quant_delta=1.0,
+                                     quant_thres=5.0,
+                                     quant_var=4.2,
+                                     learning_rate=0.08999,
+                                     colsample_bytree=0.99,
+                                     colsample_bynode=0.80,
+                                     max_depth=4,
+                                     objective='reg:squarederror',
+                                     tree_method='hist',
+                                     booster='gbtree',
+                                     random_state=42)
 
-                if self.response == 'log_price':
-                    y_test2 = np.exp(y_test)
-                    y_pred2 = np.exp(y_pred)
-                elif self.response == 'scaled_price':
-                    subprocessor = Preprocessor._get_state()
-                    y_test2 = subprocessor.named_transformers_.standardize.inverse_transform(y_test[None, :])
-                    y_pred2 = subprocessor.named_transformers_.standardize.inverse_transform(y_pred[None, :])
+            tt_xgb = TransformedTargetRegressor(regressor=xgb, func=np.log, inverse_func=np.exp)
+            tt_xgbq_lower = TransformedTargetRegressor(regressor=xgbq_lower, transformer=StandardScaler())
+            tt_xgbq_upper = TransformedTargetRegressor(regressor=xgbq_upper, transformer=StandardScaler())
+
+            self.model_mean = Pipeline([
+                ('prep', prep),
+                ('model', tt_xgb) if self.log_transform else ('model', xgb),
+            ])
+
+            self.model_upper = Pipeline([
+                ('prep', prep),
+                ('model', tt_xgbq_upper),  # XGBQuantile requires standardized response to work
+            ])
+
+            self.model_lower = Pipeline([
+                ('prep', prep),
+                ('model', tt_xgbq_lower),  # XGBQuantile requires standardized response to work
+            ])
+
+            if self.tune:
+
+                self.model_mean = xgb_tune(self.model_mean, self.data[self.data.columns.difference(['price',
+                                                                                                    'price_m2',
+                                                                                                    ])],
+                                           self.data[self.response],
+                                           n_iter_search=5000)
+
+                y_pred = self.model_mean.predict(X_test)
+
+                print("The model training score is ", self.model_mean.score(X_train, y_train))
+                print("The model testing score is ", self.model_mean.score(X_test, y_test))
+
+                if self.response == 'price_m2':
+                    y_test2 = y_test * X_test['usable_area'].to_numpy()
+                    y_pred2 = y_pred * X_test['usable_area'].to_numpy()
                 else:
                     y_test2 = y_test
                     y_pred2 = y_pred
@@ -346,31 +431,37 @@ class Model(object):
                 print("The model max error is ", max_error(y_test2, y_pred2))
                 print("The model median absolute error is ", median_absolute_error(y_test2, y_pred2))
 
-                self._save_model()
-        else:
-            self.final_model = Model.load_model()
-            print(self.data.columns.difference(['price',
-                                                                                      'log_price',
-                                                                                      'price_m2',
-                                                                                      'scaled_price']))
-            y_pred = self.final_model.predict(self.data[self.data.columns.difference(['price',
-                                                                                      'log_price',
-                                                                                      'price_m2',
-                                                                                      'scaled_price'])])
-            if self.response == 'log_price':
-                y_pred2 = np.exp(y_pred)
-            elif self.response == 'scaled_price':
-                subprocessor = Preprocessor._get_state()
-                y_pred2 = subprocessor.named_transformers_.standardize.inverse_transform(y_pred[None, :])
             else:
-                y_pred2 = y_pred
+                self.model_mean.fit(X_train, y_train)
 
-            return y_pred2
-        # TODO in inference phase it will need to load subprocessor to use its fitted mean
+            self.model_lower.fit(X_train, y_train)
+            self.model_upper.fit(X_train, y_train)
+
+            self.save_state()
+
+        else:
+            self.load_state()
+
+            y_pred_mean = self.model_mean.predict(self.data[self.data.columns.difference(['price',
+                                                                                          'price_m2'])])
+            y_pred_lower = self.model_lower.predict(self.data[self.data.columns.difference(['price',
+                                                                                            'price_m2'])])
+            y_pred_upper = self.model_upper.predict(self.data[self.data.columns.difference(['price',
+                                                                                            'price_m2'])])
+
+            if self.response == 'price_m2':
+                y_pred_mean2 = y_pred_mean * self.data['usable_area'].to_numpy()
+                y_pred_lower2 = y_pred_lower * self.data['usable_area'].to_numpy()
+                y_pred_upper2 = y_pred_upper * self.data['usable_area'].to_numpy()
+            else:
+                y_pred_mean2 = y_pred_mean
+                y_pred_lower2 = y_pred_lower
+                y_pred_upper2 = y_pred_upper
+
+            return y_pred_lower2, y_pred_mean2, y_pred_upper2
         # TODO we will need somehow deal with inconsistent predictions model_upper vs model_mean
 
-    @staticmethod
-    def load_model() -> xgboost.XGBRegressor:
+    def load_state(self, path: str = None):
         # TODO repo is private therefore content cannot be downloaded -> make it public
         """
         if not os.path.isfile('models/xgb.pickle'):
@@ -383,19 +474,31 @@ class Model(object):
             with py7zr.SevenZipFile('models/xgb.7z', mode='r') as z:
                 z.extractall(path='models/xgb.pickle')
         """
-        if not os.path.isfile('models/xgb.json'):
-            with py7zr.SevenZipFile('models/xgb.7z', mode='r') as z:
+        if path is None:
+            path = os.path.join('models', 'model.pkl')
+        elif path is not None and not os.path.isfile(path):
+            # TODO it should be downloaded first
+            with py7zr.SevenZipFile(os.path.join('models', 'model.7z'), mode='r') as z:
                 z.extractall(path='models/')
-        #with open('models/xgb.pickle', 'rb') as handle:
-        #    model = pickle.load(handle)
-        model = xgboost.XGBRegressor()
-        model.load_model('models/xgb.json')
+            path = os.path.join('models', 'model.pkl')
 
-        return model
+        # model = xgboost.XGBRegressor()
+        # model.load_model('models/xgb.json')
 
-    def _save_model(self):
-        with open('models/xgb.pickle', 'wb') as handle:
-            pickle.dump(self.final_model, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        state = joblib.load(path)
+
+        self.model_mean = state['model_mean']
+        self.model_upper = state['model_upper']
+        self.model_lower = state['model_lower']
+        self.response = state['response']
+
+    def save_state(self):
+        state = {'model_mean': self.model_mean, 'model_upper': self.model_upper, 'model_lower': self.model_lower,
+                 'response': self.response}
+
+        joblib.dump(state, os.path.join('models', 'model.pkl'), compress=1)
+
+        # self.model_mean['model'].regressor_.save_model('models/xgb.json')
 
 
 if __name__ == "__main__":
@@ -403,14 +506,13 @@ if __name__ == "__main__":
     # parser.add_argument('-c', '--config-name', help='Name of the config file', default='config.yaml')
     # arguments = parser.parse_args()
 
-    etl = ETL(inference=False, scrape=False, load_dataset=False)
-    final_data = etl()
-    # TODO handle what to do when empty df
-    # TODO handle correct state creation/updates
-    # TODO prepare final data and perform final corrections and checks on `ETL` class
-    # TODO unit-test / asserts sanity checks would be nice to have
+    etl = ETL(inference=False, scrape=False, load_dataset=True)
+    out = etl()
 
-    model = Model(data=final_data['data'], inference=True, tune=False, response='log_price')
+    if out['status'] in ['EMPTY', 'RANP']:
+        raise Exception(f'Data preprocessing failed with status `{out["status"]}`')
+
+    model = Model(data=out['data'], inference=False, tune=False, response='price_m2')
     # inference phase pd.DataFrame with features and predicted prices
     # train phase will returned path to serialized trained model
     trained = model()
