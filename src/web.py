@@ -384,17 +384,21 @@ if selected == "Predikce pomocí URL":
         
         st.markdown(f'Získávám data z {url}...')
         st.markdown(':robot_face: Robot přemýšlí...')
+
         etl = ETL(inference=True)
         out = etl()
 
-        if out['status'] != 'OK':
+        if out['status'] == 'RANP':
             st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
+        elif out['status'] == 'EMPTY':
+            st.write(f'Data nejsou k dispozici')
         else:
-            ## just for now only fitted gaussian process is used
+            if out['status'] == 'OOPP':
+                st.write(f'Predikce mimo Prahu muze byt nespolehliva')
 
             model_path = 'models/fitted_gp_low'
             gp_model = get_gp(model_path)
-    
+
             X = out['data'][['long', 'lat']].to_numpy()
             mean_price, std_price = gp_model.predict(X, return_std=True)
             price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
@@ -402,10 +406,11 @@ if selected == "Predikce pomocí URL":
             st.write(f'Cena bytu podla GP je {price_gp} Kc. \n' 
                      f'95% konfidencni interval {(price_gp - 2 * std, price_gp + 2 * std)} Kc')
 
-            # OTHER MODELS
-            model = Model(data=out['data'], inference=True, tune=False, response='log_price')
-            price = model()
-            st.write(f'Cena tohto bytu je odhadnuta podla XGB na {price.item()} Kc. \n')
+            model = Model(data=out['data'], inference=True, tune=False)
+            pred_lower, pred_mean, pred_upper = model()
+
+            st.write(f'Cena tohto bytu je odhadnuta podla XGB na {pred_mean.item()} Kc. \n'
+                     f'90% konfidencni interval {(pred_lower.item(), pred_upper.item())} Kc')
 
 
 if selected == "Predikce pomocí ručně zadaných příznaků":
