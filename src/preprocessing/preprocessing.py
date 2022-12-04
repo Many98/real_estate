@@ -24,7 +24,7 @@ class Preprocessor(object):
 
             self.impute()  # impute in pandas-like way too lazy to overwrite
             if self.status not in ['OK', 'OOPP']:
-                return {'data': self.df, 'status': self.status}
+                return {'data': self.df, 'quality_data': None, 'status': self.status}
 
             self.categorize()
             self.remove()
@@ -33,7 +33,11 @@ class Preprocessor(object):
         if self.df.empty:
             self.status = 'EMPTY'
 
-        return {'data': self.df, 'status': self.status}
+        return {'data': self.df[self.df.columns.difference(['air_quality', 'built_density', 'sun_glare',
+                                                            'daily_noise'])],
+                'quality_data': self.df[['air_quality', 'built_density', 'sun_glare',
+                                         'daily_noise']],
+                'status': self.status}
 
     def expand(self):
         """
@@ -142,10 +146,12 @@ class Preprocessor(object):
                                               "floor_area", "geometry", "place", "tags",
                                               "additional_disposition", "transport", "header",
                                               'year_reconstruction', 'no_barriers',
-                                              'air_quality', 'built_density', 'sun_glare',
-                                              'daily_noise', 'nightly_noise',
+                                              # 'air_quality', 'built_density', 'sun_glare',
+                                              # 'daily_noise',
+                                              'nightly_noise',
                                               'gas', 'waste', 'telecomunication', 'electricity', 'heating',
-                                              "date"] + [i for i in self.df.columns if '_txt' in i] + \
+                                              "date"
+                                              ] + [i for i in self.df.columns if '_txt' in i] + \
                                              [i for i in self.df.columns if 'dist' in i and '_te' not in i and
                                               'city' not in i])
 
