@@ -14,7 +14,7 @@ def xgb_tune(pipe: Pipeline, X, y, n_iter_search=1000, njobs=5):
         'max_depth': [3, 4, 5, 6, 7, 10, 15],
         'learning_rate': [0.01, 0.05, 0.08999, 0.1, 0.11, 0.12, 0.15, 0.25],
         'n_estimators': [i * 100 for i in range(1, 10)],
-        'gamma': [0, 0.1, 1, 10, 100],
+        'gamma': [0, 0.1, 1, 10],
         'subsample': [i / 10.0 for i in range(6, 11)],
         'colsample_bytree': [i / 10.0 for i in range(6, 11)],
         'colsample_bynode': [i / 10.0 for i in range(6, 11)],
