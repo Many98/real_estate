@@ -438,14 +438,15 @@ if selected == "Predikce pomocí URL":
             )
             st.altair_chart(bar_chart, use_container_width=True)
             # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
+            # TODO add mapping from number quality to some description
             st.write(' ')
             st.write(' ')
             st.write('----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
-            st.write(f':sun_with_face: Slunečnost: ')
-            st.write(f':musical_note: Hlučnost: ')
-            st.write(f':couple: Obydlenost: ')
+            st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
+            st.write(f':musical_note: Hlučnost: {out["quality_data"]["daily_noise"].item()} dB')
+            st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
             st.write(f':knife: Kriminalita: ')
-            st.write(f':tornado: Kvalita vzduchu: ')
+            st.write(f':tornado: Kvalita vzduchu: {out["quality_data"]["air_quality"].item()}')
 
 
 if selected == "Predikce pomocí ručně zadaných příznaků":
