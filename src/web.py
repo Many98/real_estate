@@ -8,6 +8,7 @@ import numpy as np
 import plotly.express as px
 import os
 import matplotlib.pyplot as plt
+from streamlit_folium import st_folium
 from streamlit_folium import folium_static
 import folium
 import pandas as pd
@@ -79,6 +80,9 @@ def streamlit_menu(example=1):
             },
         )
         return selected
+
+def get_pos(lat, lng):
+    return lat, lng
 
 def get_csv_handmade():
     # type
@@ -279,21 +283,24 @@ def get_csv_handmade():
             garden_dict = True
 
     # TODO GPS - map: https://discuss.streamlit.io/t/ann-streamlit-folium-a-component-for-rendering-folium-maps/4367/4
-    x = st.number_input('GPS N - lattitude')
-    y = st.number_input('GPS E - longtitude')
+    # x = st.number_input('GPS N - lattitude')
+    # y = st.number_input('GPS E - longtitude')
     # starting point
-    if x == 0:
-        x = 50.0818633
-    if y == 0:
-        y = 14.4255628
-    # 49.2107581, 16.6188150
+    x = 50.0818633
+    y = 14.4255628
     m = folium.Map(location=[x, y], zoom_start=10)
-    folium.LatLngPopup().add_to(m)
+
+    m.add_child(folium.LatLngPopup())
+    map = st_folium(m, height=350, width=700)
+    lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
+    x = lat
+    y = long
+    print([x, y])
+
     # add marker for Liberty Bell
     tooltip = "Liberty Bell"
     folium.Marker([x, y], tooltip=tooltip).add_to(m)
-    # call to render Folium map in Streamlit
-    folium_static(m)
+
     # save data
     out = {
         'header': None,
