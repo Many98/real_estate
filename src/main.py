@@ -17,7 +17,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import TransformedTargetRegressor
 
-from category_encoders import TargetEncoder
+from category_encoders import TargetEncoder, SummaryEncoder, QuantileEncoder
 
 from preprocessing.enrichment import Enricher, Generator
 from preprocessing.preprocessing import Preprocessor
@@ -304,11 +304,19 @@ class Model(object):
     """
 
     def __init__(self, data: pd.DataFrame, response: str = 'price_m2', log_transform: bool = False,
+                 objective='reg:squarederror', n_iter_search=1000,
                  inference: bool = False, tune: bool = False):
         self.data = data
+
+        # target encoding will replace nan with mean target value and that can be better than have artificial
+        # level `unknown`
+        self.data.replace('unknown', np.nan, inplace=True)
+
         self.response = response
         self.log_transform = log_transform
         self.inference = inference
+        self.objective = objective
+        self.n_iter_search = n_iter_search
 
         if not self.inference and self.response not in ['price', 'price_m2']:
             raise Exception(f"Response column must be one of ['price', 'price_m2']")
@@ -328,7 +336,7 @@ class Model(object):
             X_train, X_test, y_train, y_test = train_test_split(self.data[self.data.columns.difference(['price',
                                                                                                         'price_m2',
                                                                                                         ])],
-                                                                self.data[self.response], test_size=0.1,
+                                                                self.data[self.response], test_size=0.05,
                                                                 random_state=42, shuffle=True)
 
             # some theory https://www.kaggle.com/code/ryanholbrook/target-encoding/tutorial
@@ -337,28 +345,38 @@ class Model(object):
             categorical_to_te = ['energy_effeciency', 'ownership', 'equipment', 'state', 'disposition',
                                  'construction_type', 'city_district'
                                  ]
+            has_te = [i for i in self.data.columns if 'has_' in i and '_te' in i]
 
-            categorical_to_tenc = [i for i in self.data.columns if 'has_' in i and '_te' in i] + \
-                                  categorical_to_te + dist_cols
+            categorical_to_tenc = has_te + categorical_to_te + dist_cols
+
+            self.data[has_te] = self.data[has_te].astype('category')
 
             prep = ColumnTransformer([
-                ('tenc', TargetEncoder(handle_unknown='value', handle_missing='value'), categorical_to_tenc)
+                ('tenc', TargetEncoder(handle_unknown='value', handle_missing='value',
+                                       min_samples_leaf=10, smoothing=5), categorical_to_tenc)
+                # ('tenc', SummaryEncoder(quantiles=[0.25, 0.5, 0.75]), categorical_to_tenc)
+                # ('tenc', QuantileEncoder(), categorical_to_tenc)
             ], remainder='passthrough')
 
             if self.tune:
                 xgb = XGBRegressor(
-                    objective='reg:squarederror',
+                    objective=self.objective,
                     tree_method='hist',
+                    booster='gbtree',
+                    max_depth=4,
                     random_state=42)
             else:
                 xgb = XGBRegressor(
-                    learning_rate=0.08999,
-                    colsample_bytree=0.99,
-                    colsample_bynode=0.80,
-                    max_depth=4,
-                    objective='reg:squarederror',
+                    n_estimators=700,
+                    learning_rate=0.1,  # 0.08999,
+                    colsample_bytree=0.7,  # 0.99,
+                    colsample_bynode=0.9,  # 0.80,
+                    subsample=0.8,  # 1
+                    max_depth=4,  # 4
+                    objective=self.objective,
                     tree_method='hist',
                     booster='gbtree',
+                    grow_policy='depthwise',
                     random_state=42)
 
             # TODO XGBQuantile should be also tuned but for now this is enough
@@ -366,24 +384,25 @@ class Model(object):
                                      quant_delta=1.0,
                                      quant_thres=6.0,
                                      quant_var=3.2,
+                                     n_estimators=100,
                                      learning_rate=0.08999,
                                      colsample_bytree=0.99,
                                      colsample_bynode=0.80,
+                                     subsample=1,
                                      max_depth=4,
-                                     objective='reg:squarederror',
                                      tree_method='hist',
                                      booster='gbtree',
                                      random_state=42)
 
             xgbq_lower = XGBQuantile(quant_alpha=0.05,
                                      quant_delta=1.0,
-                                     quant_thres=5.0,
+                                     quant_thres=4.0,
                                      quant_var=4.2,
+                                     n_estimators=100,
                                      learning_rate=0.08999,
                                      colsample_bytree=0.99,
                                      colsample_bynode=0.80,
                                      max_depth=4,
-                                     objective='reg:squarederror',
                                      tree_method='hist',
                                      booster='gbtree',
                                      random_state=42)
@@ -408,31 +427,29 @@ class Model(object):
             ])
 
             if self.tune:
-
                 self.model_mean = xgb_tune(self.model_mean, self.data[self.data.columns.difference(['price',
                                                                                                     'price_m2',
                                                                                                     ])],
                                            self.data[self.response],
-                                           n_iter_search=5000)
+                                           n_iter_search=self.n_iter_search)
 
-                y_pred = self.model_mean.predict(X_test)
+            self.model_mean.fit(X_train, y_train)
 
-                print("The model training score is ", self.model_mean.score(X_train, y_train))
-                print("The model testing score is ", self.model_mean.score(X_test, y_test))
+            y_pred = self.model_mean.predict(X_test)
 
-                if self.response == 'price_m2':
-                    y_test2 = y_test * X_test['usable_area'].to_numpy()
-                    y_pred2 = y_pred * X_test['usable_area'].to_numpy()
-                else:
-                    y_test2 = y_test
-                    y_pred2 = y_pred
+            print("The model training score is ", self.model_mean.score(X_train, y_train))
+            print("The model testing score is ", self.model_mean.score(X_test, y_test))
 
-                print("The model testing mean absolute error is ", mean_absolute_error(y_test2, y_pred2))
-                print("The model max error is ", max_error(y_test2, y_pred2))
-                print("The model median absolute error is ", median_absolute_error(y_test2, y_pred2))
-
+            if self.response == 'price_m2':
+                y_test2 = y_test * X_test['usable_area'].to_numpy()
+                y_pred2 = y_pred * X_test['usable_area'].to_numpy()
             else:
-                self.model_mean.fit(X_train, y_train)
+                y_test2 = y_test
+                y_pred2 = y_pred
+
+            print("The model testing mean absolute error is ", mean_absolute_error(y_test2, y_pred2))
+            print("The model max error is ", max_error(y_test2, y_pred2))
+            print("The model median absolute error is ", median_absolute_error(y_test2, y_pred2))
 
             self.model_lower.fit(X_train, y_train)
             self.model_upper.fit(X_train, y_train)
@@ -512,7 +529,8 @@ if __name__ == "__main__":
     if out['status'] in ['EMPTY', 'RANP']:
         raise Exception(f'Data preprocessing failed with status `{out["status"]}`')
 
-    model = Model(data=out['data'], inference=False, tune=False, response='price_m2')
+    model = Model(data=out['data'], inference=False, tune=False, response='price_m2', objective='reg:squarederror',
+                  n_iter_search=50)
     # inference phase pd.DataFrame with features and predicted prices
     # train phase will returned path to serialized trained model
     trained = model()
