@@ -49,6 +49,8 @@ class XGBQuantile(XGBRegressor):
                  sampling_method='uniform',
                  validate_parameters=1,
                  verbosity=None,
+                 feature_types=None,
+                 max_cat_threshold=64,
                  #njobs=None,
                  callbacks=None,
                  subsample=1):
@@ -86,6 +88,8 @@ class XGBQuantile(XGBRegressor):
                          monotone_constraints=monotone_constraints,
                          num_parallel_tree=num_parallel_tree,
                          predictor=predictor,
+                         feature_types=feature_types,
+                         max_cat_threshold=max_cat_threshold,
                          sampling_method=sampling_method,
                          validate_parameters=validate_parameters,
                          verbosity=verbosity,
