@@ -173,11 +173,11 @@ def get_csv_handmade():
         equipment_dict = None
         equipment = st.radio("Vybavenost", ('Plně', 'Nevybaveno', 'Částečně'))
         if equipment == 'Plně':
-            equipment_dict = 'Plně'
+            equipment_dict = 'ano'
         elif equipment == 'Nevybaveno':
             equipment_dict = 'Nevybaveno'
         elif equipment == 'Částečně':
-            equipment_dict = 'Částečně'
+            equipment_dict = 'ne'
         else:
             equipment_dict = np.NaN
 
@@ -313,7 +313,7 @@ def get_csv_handmade():
         'energy_effeciency': energy_dict,
         'ownership': ownership_dict,
         # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
-        'description': None,
+        'description': 'none',
         'long': y,
         'lat': x,
         'hash': None,
@@ -370,6 +370,57 @@ def get_csv_handmade():
     }
     return out
 
+def prediction(handmade, url=''):
+    if not handmade:
+        st.markdown(f'Získávám data z {url}...')
+    st.markdown(':robot_face: Robot přemýšlí...')
+
+    etl = ETL(inference=True, handmade=handmade)
+    out = etl()
+
+    if out['status'] == 'RANP':
+        st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
+    elif out['status'] == 'EMPTY':
+        st.write(f'Data nejsou k dispozici')
+    else:
+        if out['status'] == 'OOPP':
+            st.write(f'Predikce mimo Prahu muze byt nespolehliva')
+
+        model_path = 'models/fitted_gp_low'
+        gp_model = get_gp(model_path)
+
+        X = out['data'][['long', 'lat']].to_numpy()
+        mean_price, std_price = gp_model.predict(X, return_std=True)
+        #price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
+        #std = (std_price * out['data']["usable_area"].to_numpy()).item()
+
+        st.write(
+            f'--------------------------------------------- Predikce ceny Vaší nemovitosti :house: ---------------------------------------------')
+        # OTHER MODELS
+        model = Model(data=out['data'], inference=True, tune=False)
+        pred_lower, pred_mean, pred_upper = model()
+
+        st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
+                 f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kc')
+
+        labels = ["Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
+        values = [pred_lower.item(), pred_mean.item(), pred_upper.item()]
+        source = pd.DataFrame({'Cena (Kč)': values, 'Predikce': [ "Nízký XGB", "Průměr XGB", "Vysoké XGB"]})
+        bar_chart = alt.Chart(source).mark_bar().encode(x="Cena (Kč):Q", y=alt.Y("Predikce:N", sort="-x"))
+        st.altair_chart(bar_chart, use_container_width=True)
+
+        # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
+        st.write(' ')
+        st.write(' ')
+        st.write(
+            '----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
+        st.write(f':world_map: Průměrná cena bytu v okolí je {round(mean_price.item())} Kč/m2.')
+        st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
+        st.write(f':musical_note: Hlučnost: {out["quality_data"]["daily_noise"].item()} dB')
+        st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
+        st.write(f':knife: Kriminalita: ')
+        st.write(f':tornado: Kvalita vzduchu: {out["quality_data"]["air_quality"].item()}')
+
 selected = streamlit_menu(example=EXAMPLE_NO)
 
 ############## 1. stránka ##############
@@ -397,73 +448,22 @@ if selected == "Predikce pomocí URL":
     result_url = st.button('Predikuj!')
     if result_url:
         
-        st.markdown(f'Získávám data z {url}...')
-        st.markdown(':robot_face: Robot přemýšlí...')
-
-        etl = ETL(inference=True)
-        out = etl()
-
-        if out['status'] == 'RANP':
-            st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
-        elif out['status'] == 'EMPTY':
-            st.write(f'Data nejsou k dispozici')
-        else:
-            if out['status'] == 'OOPP':
-                st.write(f'Predikce mimo Prahu muze byt nespolehliva')
-
-            model_path = 'models/fitted_gp_low'
-            gp_model = get_gp(model_path)
-
-            X = out['data'][['long', 'lat']].to_numpy()
-            mean_price, std_price = gp_model.predict(X, return_std=True)
-            price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
-            std = (std_price * out['data']["usable_area"].to_numpy()).item()
-
-            st.write(
-                f'--------------------------------------------- Predikce ceny Vaší nemovitosti :house: ---------------------------------------------')
-            # OTHER MODELS
-            model = Model(data=out['data'], inference=True, tune=False)
-            pred_lower, pred_mean, pred_upper = model()
-
-            st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
-                     f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kc')
-
-            # labels = ["Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
-            # values = [price_gp - 2 * std, price_gp, price_gp + 2 * std, pred_mean.item()]
-            # source = pd.DataFrame({'Cena (Kč)': values, 'Predikce': [ "Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]})
-            # bar_chart = alt.Chart(source).mark_bar().encode(x="Cena (Kč):Q", y=alt.Y("Predikce:N", sort="-x"))
-            # st.altair_chart(bar_chart, use_container_width=True)
-
-            # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
-            st.write(' ')
-            st.write(' ')
-            st.write('----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
-            st.write(f':world_map: Průměrná cena Vašeho bytu v dané oblasti je {round(price_gp)}Kč.')
-            st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
-            st.write(f':musical_note: Hlučnost: {out["quality_data"]["daily_noise"].item()} dB')
-            st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
-            st.write(f':knife: Kriminalita: ')
-            st.write(f':tornado: Kvalita vzduchu: {out["quality_data"]["air_quality"].item()}')
+        prediction(handmade=False, url=url)
 
 
 if selected == "Predikce pomocí ručně zadaných příznaků":
     st.header(f"Predikce pomocí ručně zadaných příznaků")
     out = get_csv_handmade()
-    field_names = []
-    for key, value in out.items():
-        field_names.append(key)
 
     ############## MODELS ##############
     result = st.button('Predikuj!')
 
     if result:
-        with open('../data/predict_handmade.csv', 'w') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=field_names)
-            writer.writeheader()
-            writer.writerows([out])
-            print('csv done!')
+        print(type(out), out)
+        df = pd.DataFrame(data={k: [v] for k, v in out.items()})
+        df.to_csv('../data/predict_breality_scraped.csv', index=False)
 
-        st.markdown(':robot_face: Robot přemýšlí...')
+        prediction(handmade=True)
 
 
 ############## 3. stránka ##############
