@@ -299,6 +299,7 @@ def get_csv_handmade():
     # add marker for Liberty Bell
     tooltip = "Liberty Bell"
     folium.Marker([x, y], tooltip=tooltip).add_to(m)
+    print(x,y)
 
     # save data
     out = {
@@ -420,10 +421,6 @@ if selected == "Predikce pomocí URL":
 
             st.write(
                 f'--------------------------------------------- Predikce ceny Vaší nemovitosti :house: ---------------------------------------------')
-            st.write(f':world_map: Predikovaná cena Vašeho bytu pomocí GP je {round(price_gp)}Kč.')
-            st.write(f'95% konfidenční interval GP je {(round(price_gp - 2 * std), round(price_gp + 2 * std))}Kč')
-
-
             # OTHER MODELS
             model = Model(data=out['data'], inference=True, tune=False)
             pred_lower, pred_mean, pred_upper = model()
@@ -431,23 +428,17 @@ if selected == "Predikce pomocí URL":
             st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
                      f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kc')
 
-            labels = ["Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
-            values = [price_gp - 2 * std, price_gp, price_gp + 2 * std, pred_mean.item()]
-            source = pd.DataFrame({
-                'Cena (Kč)': values,
-                'Predikce': [ "Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
-            })
+            # labels = ["Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
+            # values = [price_gp - 2 * std, price_gp, price_gp + 2 * std, pred_mean.item()]
+            # source = pd.DataFrame({'Cena (Kč)': values, 'Predikce': [ "Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]})
+            # bar_chart = alt.Chart(source).mark_bar().encode(x="Cena (Kč):Q", y=alt.Y("Predikce:N", sort="-x"))
+            # st.altair_chart(bar_chart, use_container_width=True)
 
-            bar_chart = alt.Chart(source).mark_bar().encode(
-                x="Cena (Kč):Q",
-                y=alt.Y("Predikce:N", sort="-x")
-            )
-            st.altair_chart(bar_chart, use_container_width=True)
             # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
-            # TODO add mapping from number quality to some description
             st.write(' ')
             st.write(' ')
             st.write('----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
+            st.write(f':world_map: Průměrná cena Vašeho bytu v dané oblasti je {round(price_gp)}Kč.')
             st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
             st.write(f':musical_note: Hlučnost: {out["quality_data"]["daily_noise"].item()} dB')
             st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
