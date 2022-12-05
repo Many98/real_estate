@@ -295,7 +295,6 @@ def get_csv_handmade():
     lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
     x = lat
     y = long
-    print([x, y])
 
     # add marker for Liberty Bell
     tooltip = "Liberty Bell"
