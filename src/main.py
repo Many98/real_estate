@@ -70,11 +70,13 @@ class ETL(object):
                  crawled_links_filename: str = 'prodej_links.txt',
                  scrapped_data_filename: str = 'prodej',
                  inference: bool = False,
+                 handmade: bool = False,
                  scrape: bool = True,
                  load_dataset: bool = False,
                  ):
 
         self.inference = inference  # whether ETL is in INFERENCE phase
+        self.handmade = handmade
         self.scrape = scrape  # whether to scrape data before processing
         self.load_dataset = load_dataset  # whether to jump right to loading prepared dataset in `../data/dataset.csv`
         # not functional in `inference` phase
@@ -151,9 +153,8 @@ class ETL(object):
 
         else:
             # input from user | used in inference
-            # TODO in future it shouldbe prepared to handle user input as text, own tabular data etc. but for now just
-            #  links
-            if os.path.isfile('../data/predict_links.txt'):
+
+            if not self.handmade and os.path.isfile('../data/predict_links.txt'):
                 self.sreality_scraper.run(in_filename='predict_links.txt', out_filename='predict',
                                           inference=self.inference)
                 self.breality_scraper.run(in_filename='predict_links.txt', out_filename='predict',
@@ -161,11 +162,12 @@ class ETL(object):
                 #  ### Data are now scrapped in two separate files
                 #           ../data/predict_breality.csv and ../data/predict_sreality.csv so synchronization is needed
                 #            to get one csv with same sets of attributes
-            else:
+            elif not self.handmade and not os.path.isfile('../data/predict_links.txt'):
                 raise Exception('Links for prediction are not present')
 
             # ### 3 SYNCHRONIZE DATA
             # TODO handle cases when empty df is returned
+            # TODO for now handmade features are stored in `predict_breality_scraped.csv` it should be probably changed
             data = self.synchronizer(
                 sreality_csv_path=f'../data/predict_{self.sreality_scraper.name}_scraped.csv',
                 breality_csv_path=f'../data/predict_{self.breality_scraper.name}_scraped.csv', inference=self.inference)
@@ -287,7 +289,7 @@ class ETL(object):
         if os.path.isfile('../data/tmp_synchronized.csv'):
             os.remove('../data/tmp_synchronized.csv')
         if self.inference:
-            if os.path.isfile('../data/predict_breality_scraped.csv'):
+            if os.path.isfile('../data/predict_breality_scraped.csv') and not self.handmade:
                 os.remove('../data/predict_breality_scraped.csv')
             if os.path.isfile('../data/predict_sreality_scraped.csv'):
                 os.remove('../data/predict_sreality_scraped.csv')
@@ -333,12 +335,6 @@ class Model(object):
     def __call__(self, *args, **kwargs) -> Union[tuple[Pipeline, Pipeline, Pipeline],
                                                  tuple[np.ndarray, np.ndarray, np.ndarray]]:
         if not self.inference:
-            X_train, X_test, y_train, y_test = train_test_split(self.data[self.data.columns.difference(['price',
-                                                                                                        'price_m2',
-                                                                                                        ])],
-                                                                self.data[self.response], test_size=0.05,
-                                                                random_state=42, shuffle=True)
-
             # some theory https://www.kaggle.com/code/ryanholbrook/target-encoding/tutorial
             dist_cols = [i for i in self.data.columns if 'dist_te' in i]
 
@@ -350,6 +346,12 @@ class Model(object):
             categorical_to_tenc = has_te + categorical_to_te + dist_cols
 
             self.data[has_te] = self.data[has_te].astype('category')
+
+            X_train, X_test, y_train, y_test = train_test_split(self.data[self.data.columns.difference(['price',
+                                                                                                        'price_m2',
+                                                                                                        ])],
+                                                                self.data[self.response], test_size=0.05,
+                                                                random_state=42, shuffle=True)
 
             prep = ColumnTransformer([
                 ('tenc', TargetEncoder(handle_unknown='value', handle_missing='value',
@@ -377,6 +379,7 @@ class Model(object):
                     tree_method='hist',
                     booster='gbtree',
                     grow_policy='depthwise',
+                    #monotone_constraints={'energy_effeciency': 1, 'usable_area': 1},
                     random_state=42)
 
             # TODO XGBQuantile should be also tuned but for now this is enough
