@@ -20,15 +20,23 @@ class Preprocessor(object):
     def __call__(self, *args, **kwargs) -> dict:
         if not self.df.empty:
 
-            self.expand()
+            try:
+                self.expand()
 
-            self.impute()  # impute in pandas-like way too lazy to overwrite
-            if self.status not in ['OK', 'OOPP']:
-                return {'data': self.df, 'quality_data': None, 'status': self.status}
+                self.impute()  # impute in pandas-like way too lazy to overwrite
+                if self.status not in ['OK', 'OOPP']:
+                    return {'data': self.df, 'quality_data': None, 'status': self.status}
 
-            self.categorize()
-            self.remove()
-            self.adjust()
+                self.categorize()
+                self.remove()
+                self.adjust()
+            except Exception as e:
+                if not self.inference:
+                    print(e)
+                else:
+                    return {'data': None,
+                            'quality_data': None,
+                            'status': 'INTERNAL ERROR (PREPROCESS)'}
 
         if self.df.empty:
             self.status = 'EMPTY'

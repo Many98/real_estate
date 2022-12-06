@@ -50,18 +50,24 @@ class Synchronizer(object):
         except:
             pass
 
-        if not self.sreality_df.empty or not self.breality_df.empty:
-            if not self.sreality_df.empty:
-                self.extract_sreality_data()
-            if not self.breality_df.empty:
-                self.extract_breality_data()
-                self.set_breality_dtypes()
-            self.unify()
-            self.merge_text()
+        try:
+            if not self.sreality_df.empty or not self.breality_df.empty:
+                if not self.sreality_df.empty:
+                    self.extract_sreality_data()
+                if not self.breality_df.empty:
+                    self.extract_breality_data()
+                    self.set_breality_dtypes()
+                self.unify()
+                self.merge_text()
+                if not inference:
+                    self.remove()
+                    if self.integrity_check():
+                        self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
+                else:
+                    self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
+        except Exception as e:
             if not inference:
-                self.remove()
-            if self.integrity_check():
-                self.final_df.to_csv(os.path.join('..', 'data/tmp_synchronized.csv'), mode='w', index=False)
+                print(e)
 
         return self.final_df
 
@@ -290,103 +296,106 @@ class Synchronizer(object):
         -------
 
         """
-        # header
-        self.sreality_df['header'] = self.sreality_df['header'].apply(
-            lambda x: x.replace("\xa0", " ") if pd.notnull(x) else np.nan).astype('str')
+        try:
+            # header
+            self.sreality_df['header'] = self.sreality_df['header'].apply(
+                lambda x: x.replace("\xa0", " ") if pd.notnull(x) else np.nan).astype('str')
 
-        # price
-        self.sreality_df['price'] = self.sreality_df['price'].apply(
-            lambda x: re.sub(r'[^0-9]', '', x.split('K')[0]) if pd.notnull(x) else np.nan)
-        self.sreality_df['price'] = self.sreality_df['price'].apply(
-            lambda x: x if x != '' else np.nan).astype('float')
+            # price
+            self.sreality_df['price'] = self.sreality_df['price'].apply(
+                lambda x: re.sub(r'[^0-9]', '', x.split('K')[0]) if pd.notnull(x) else np.nan)
+            self.sreality_df['price'] = self.sreality_df['price'].apply(
+                lambda x: x if x != '' else np.nan).astype('float')
 
-        # usable area
-        self.sreality_df['usable_area'] = self.sreality_df['usable_area'].apply(
-            lambda x: re.sub(r'[^0-9]', '', x.replace('m2', '')) if pd.notnull(x) else np.nan)
-        self.sreality_df['usable_area'] = self.sreality_df['usable_area'].apply(
-            lambda x: x if x != '' else np.nan).astype('float')
+            # usable area
+            self.sreality_df['usable_area'] = self.sreality_df['usable_area'].apply(
+                lambda x: re.sub(r'[^0-9]', '', x.replace('m2', '')) if pd.notnull(x) else np.nan)
+            self.sreality_df['usable_area'] = self.sreality_df['usable_area'].apply(
+                lambda x: x if x != '' else np.nan).astype('float')
 
-        # floor
-        self.sreality_df['floor'] = self.sreality_df['floor'].apply(
-            lambda x: x.replace('přízemí', '0.') if pd.notnull(x) else np.nan)
-        self.sreality_df['floor'] = self.sreality_df['floor'].apply(
-            lambda x: x.split('.')[0] if pd.notnull(x) else np.nan).astype(float)
+            # floor
+            self.sreality_df['floor'] = self.sreality_df['floor'].apply(
+                lambda x: x.replace('přízemí', '0.') if pd.notnull(x) else np.nan)
+            self.sreality_df['floor'] = self.sreality_df['floor'].apply(
+                lambda x: x.split('.')[0] if pd.notnull(x) else np.nan).astype(float)
 
-        # energy efficiency
-        self.sreality_df['energy_effeciency'] = self.sreality_df['energy_effeciency'].apply(
-            lambda x: str(x)[6] if pd.notnull(x) else np.nan)
+            # energy efficiency
+            self.sreality_df['energy_effeciency'] = self.sreality_df['energy_effeciency'].apply(
+                lambda x: str(x)[6] if pd.notnull(x) else np.nan)
 
-        # long
-        self.sreality_df['long'] = self.sreality_df['long'].apply(
-            lambda x: x[2:] if pd.notnull(x) else np.nan).astype('float')
+            # long
+            self.sreality_df['long'] = self.sreality_df['long'].apply(
+                lambda x: x[2:] if pd.notnull(x) else np.nan).astype('float')
 
-        # lat
-        self.sreality_df['lat'] = self.sreality_df['lat'].apply(
-            lambda x: x[2:] if pd.notnull(x) else np.nan).astype('float')
+            # lat
+            self.sreality_df['lat'] = self.sreality_df['lat'].apply(
+                lambda x: x[2:] if pd.notnull(x) else np.nan).astype('float')
 
-        #  <>_dist cols
-        dist_cols = [i for i in self.sreality_df.columns if 'dist' in i]
-        for col in dist_cols:
-            self.sreality_df[col] = self.sreality_df[col].apply(
-                lambda x: re.sub(r'[^0-9]', '', str(x).split('(')[-1]) if pd.notnull(x) else np.nan)
-            self.sreality_df[col] = self.sreality_df[col].apply(
-                lambda x: x if pd.notnull(x) and x != '' else np.nan).astype('float')
+            #  <>_dist cols
+            dist_cols = [i for i in self.sreality_df.columns if 'dist' in i]
+            for col in dist_cols:
+                self.sreality_df[col] = self.sreality_df[col].apply(
+                    lambda x: re.sub(r'[^0-9]', '', str(x).split('(')[-1]) if pd.notnull(x) else np.nan)
+                self.sreality_df[col] = self.sreality_df[col].apply(
+                    lambda x: x if pd.notnull(x) and x != '' else np.nan).astype('float')
 
-        # gas
-        self.sreality_df['gas'] = self.sreality_df['gas'].apply(
-            lambda x: bool(x) if pd.notnull(x) else np.nan)
+            # gas
+            self.sreality_df['gas'] = self.sreality_df['gas'].apply(
+                lambda x: bool(x) if pd.notnull(x) else np.nan)
 
-        # waste
-        self.sreality_df['waste_txt'] = self.sreality_df['waste']
-        self.sreality_df['waste'] = self.sreality_df['waste'].apply(
-            lambda x: bool(x) if pd.notnull(x) else np.nan)
+            # waste
+            self.sreality_df['waste_txt'] = self.sreality_df['waste']
+            self.sreality_df['waste'] = self.sreality_df['waste'].apply(
+                lambda x: bool(x) if pd.notnull(x) else np.nan)
 
-        # electricity
-        self.sreality_df['electricity_txt'] = self.sreality_df['electricity']
-        self.sreality_df['electricity'] = self.sreality_df['electricity'].apply(
-            lambda x: bool(x) if pd.notnull(x) else np.nan)
+            # electricity
+            self.sreality_df['electricity_txt'] = self.sreality_df['electricity']
+            self.sreality_df['electricity'] = self.sreality_df['electricity'].apply(
+                lambda x: bool(x) if pd.notnull(x) else np.nan)
 
-        # heating
-        self.sreality_df['heating_txt'] = self.sreality_df['heating']
-        self.sreality_df['heating'] = self.sreality_df['heating'].apply(
-            lambda x: bool(x) if pd.notnull(x) else np.nan)
+            # heating
+            self.sreality_df['heating_txt'] = self.sreality_df['heating']
+            self.sreality_df['heating'] = self.sreality_df['heating'].apply(
+                lambda x: bool(x) if pd.notnull(x) else np.nan)
 
-        # telecomunication
-        self.sreality_df['telecomunication_txt'] = self.sreality_df['telecomunication']
-        self.sreality_df['telecomunication'] = self.sreality_df['telecomunication'].apply(
-            lambda x: bool(x) if pd.notnull(x) else np.nan)
+            # telecomunication
+            self.sreality_df['telecomunication_txt'] = self.sreality_df['telecomunication']
+            self.sreality_df['telecomunication'] = self.sreality_df['telecomunication'].apply(
+                lambda x: bool(x) if pd.notnull(x) else np.nan)
 
-        # disposition
-        self.sreality_df['additional_disposition'] = self.sreality_df['header'].apply(
-            lambda x: x.split('(')[-1].split(')')[0].replace(x.split('(')[0].split(')')[0],
-                                                             '') if pd.notnull(x) else np.nan)
-        self.sreality_df['additional_disposition'] = self.sreality_df['additional_disposition'].replace('', np.nan)
-        disp = self.sreality_df['header'].str.extract(
-            r'(1\+kk)|(1\+1)|(3\+1)|(3\+kk)|(2\+kk)|(4\+1)|(2\+1)|(5\+kk)|(4\+kk)|(atypické)|(6 pokojů a více)|(5\+1)')
-        disp.fillna('', inplace=True)
-        self.sreality_df['disposition'] = disp.sum(axis=1).replace('', np.nan).astype(str)
+            # disposition
+            self.sreality_df['additional_disposition'] = self.sreality_df['header'].apply(
+                lambda x: x.split('(')[-1].split(')')[0].replace(x.split('(')[0].split(')')[0],
+                                                                 '') if pd.notnull(x) else np.nan)
+            self.sreality_df['additional_disposition'] = self.sreality_df['additional_disposition'].replace('', np.nan)
+            disp = self.sreality_df['header'].str.extract(
+                r'(1\+kk)|(1\+1)|(3\+1)|(3\+kk)|(2\+kk)|(4\+1)|(2\+1)|(5\+kk)|(4\+kk)|(atypické)|(6 pokojů a více)|(5\+1)')
+            disp.fillna('', inplace=True)
+            self.sreality_df['disposition'] = disp.sum(axis=1).replace('', np.nan).astype(str)
 
-        # equipment
-        # ok because its string features
+            # equipment
+            # ok because its string features
 
-        # state
-        # ok because its string features
+            # state
+            # ok because its string features
 
-        # construction type
-        # ok because its string features
+            # construction type
+            # ok because its string features
 
-        # year reconstruction
-        self.sreality_df['year_reconstruction'] = self.sreality_df['year_reconstruction'].astype(float)
+            # year reconstruction
+            self.sreality_df['year_reconstruction'] = self.sreality_df['year_reconstruction'].astype(float)
 
-        #  `has_<>` columns
-        has_cols = [i for i in self.sreality_df.columns if 'has' in i and 'hash' not in i]
-        for col in has_cols:
-            self.sreality_df[col] = self.sreality_df[col].apply(
-                lambda x: str(x).replace('Topení:', '') if pd.notnull(x) else np.nan)
-            self.sreality_df[col] = self.sreality_df[col].apply(
-                lambda x: True if pd.notnull(x) and x not in ('', 'ne') else False)
-            if col == "has_garden":
-                self.sreality_df[col] = False
+            #  `has_<>` columns
+            has_cols = [i for i in self.sreality_df.columns if 'has' in i and 'hash' not in i]
+            for col in has_cols:
+                self.sreality_df[col] = self.sreality_df[col].apply(
+                    lambda x: str(x).replace('Topení:', '') if pd.notnull(x) else np.nan)
+                self.sreality_df[col] = self.sreality_df[col].apply(
+                    lambda x: True if pd.notnull(x) and x not in ('', 'ne') else False)
+                if col == "has_garden":
+                    self.sreality_df[col] = False
+        except:
+            return
 
 
 if __name__ == '__main__':

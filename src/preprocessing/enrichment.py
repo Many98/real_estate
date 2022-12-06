@@ -25,13 +25,19 @@ class Enricher(object):
     def __init__(self, df: pd.DataFrame):
         self.df = df  # dataframe to be enriched
 
-    def __call__(self, *args, **kwargs) -> pd.DataFrame:
+    def __call__(self, inference, *args, **kwargs) -> pd.DataFrame:
         if not self.df.empty:
-            self.add_gp('models/fitted_gp_low')
-            self.add_quality_data('../data/geodata/')
-            self.add_criminality_data()
-            self.add_location('../data/geodata/TMMESTSKECASTI_P.json')
-            self.add_osm_data()
+            try:
+                self.add_gp('models/fitted_gp_low')
+                self.add_quality_data('../data/geodata/')
+                self.add_criminality_data()
+                self.add_location('../data/geodata/TMMESTSKECASTI_P.json')
+                self.add_osm_data()
+            except Exception as e:
+                if not inference:
+                    print(e)
+                else:
+                    return pd.DataFrame()
 
         return self.df
 
