@@ -4,6 +4,7 @@ import base64
 import csv
 # pip install streamlit_option_menu
 from streamlit_option_menu import option_menu
+from PIL import Image
 import numpy as np
 import plotly.express as px
 import os
@@ -24,6 +25,7 @@ import pickle
 import py7zr
 from folium.plugins import MousePosition
 import requests
+import locale
 
 from main import ETL, Model
 from models.gaussian_process import get_gp
@@ -33,6 +35,8 @@ st.set_page_config(page_title='Real e-state', page_icon="house_buildings", initi
 # Navigation menu from: https://github.com/Sven-Bo/streamlit-navigation-menu
 # 1=sidebar menu, 2=horizontal menu, 3=horizontal menu w/ custom menu
 EXAMPLE_NO = 3
+
+
 def streamlit_menu(example=1):
     if example == 1:
         # 1. as sidebar menu
@@ -81,11 +85,14 @@ def streamlit_menu(example=1):
         )
         return selected
 
+
 def get_pos(lat, lng):
     return lat, lng
 
+
 def get_csv_handmade():
     # type
+    # TODO - None type for st.radio
     type = st.radio("Typ", (
         '1+kk', '1+1', '2+kk', '2+1', '3+kk', '3+1', '4+kk', '4+1', '5+kk', '5+1', '6', '6+kk', 'atypické'))
     disposition_dict = None
@@ -119,7 +126,8 @@ def get_csv_handmade():
         disposition_dict = np.NaN
 
     # usable area
-    usable_area = st.number_input('Užitná plocha v m^2', step=1)
+    # usable_area = st.number_input('Užitná plocha v m^2', step=1)
+    usable_area = st.slider('Užitná plocha v m^2', 0, 200)
     usable_area_dict = None
     if usable_area <= 0:
         print('error usable area must be positive!')
@@ -128,7 +136,10 @@ def get_csv_handmade():
         usable_area_dict = usable_area  # využijeme text pro model
 
     # energy eficiency
-    energy = st.radio("Energetická eficience", ('A', 'B', 'C', 'D', 'E', 'F', 'G'))
+    energy = st.select_slider(
+        'Energetická eficience',
+        options=['A', 'B', 'C', 'D', 'E', 'F', 'G'])
+    # energy = st.radio("Energetická eficience", ('A', 'B', 'C', 'D', 'E', 'F', 'G'))
     energy_dict = None
     if energy == 'A':
         energy_dict = 'A'
@@ -148,7 +159,8 @@ def get_csv_handmade():
         energy_dict = np.NaN
 
     # floor
-    floor = st.number_input('Patro', step=1)
+    # floor = st.number_input('Patro', step=1)
+    floor = st.slider('Patro', -1, 20)
     floor_dict = None
     if floor < -1:
         print('error in floor! must be higher than -1')
@@ -173,34 +185,20 @@ def get_csv_handmade():
         equipment_dict = None
         equipment = st.radio("Vybavenost", ('Plně', 'Nevybaveno', 'Částečně'))
         if equipment == 'Plně':
-            equipment_dict = 'Plně'
+            equipment_dict = 'ano'
         elif equipment == 'Nevybaveno':
             equipment_dict = 'Nevybaveno'
         elif equipment == 'Částečně':
-            equipment_dict = 'Částečně'
+            equipment_dict = 'ne'
         else:
             equipment_dict = np.NaN
-
-    with col3:
-        podkrovni = st.checkbox('Podkrovní')
-        podkrovni_dict = None
-        loft = st.checkbox('Loft')
-        loft_dict = None
-        mezonet = st.checkbox('Mezonet')
-        mezonet_dict = None
-        if podkrovni:
-            podkrovni_dict = True
-        if loft:
-            loft_dict = True
-        if mezonet:
-            mezonet = True
 
     with col1:
         state = st.radio("Stav", ('V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci', 'Nová budova',
                                   'Velmi dobrý', 'Dobrý', 'Staví se', 'Projekt', 'Špatný'))
     with col2:
         construction = st.radio("Konstrukce", (
-        'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická'))
+            'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická', 'Drevostavba'))
 
     # state
     state_dict = None
@@ -241,6 +239,8 @@ def get_csv_handmade():
         construction_dict = 'Montovaná'
     elif construction == 'Nízkoenergetická':
         construction_dict = 'Nízkoenergetická'
+    elif construction == 'Drevostavba':
+        construction_dict = 'Drevostavba'
     else:
         construction_dict = np.NaN
 
@@ -248,37 +248,37 @@ def get_csv_handmade():
     col4, col5, col6 = st.columns(3)
     with col4:
         balcony = st.checkbox('Má balkón')
-        balcony_dict = None
+        balcony_dict = False
         if balcony:
             balcony_dict = True
         terrace = st.checkbox('Má terasu')
-        terrace_dict = None
+        terrace_dict = False
         if terrace:
             terrace_dict = True
-        parking = st.checkbox('Má prakování (venkovní)')
-        parking_dict = None
+        parking = st.checkbox('Má parkování (venkovní)')
+        parking_dict = False
         if parking:
             parking_dict = True
         lift = st.checkbox('Má výtah')
-        lift_dict = None
+        lift_dict = False
         if lift:
             lift_dict = True
 
     with col5:
         loggia = st.checkbox('Má lodžie')
-        loggia_dict = None
+        loggia_dict = False
         if loggia:
             loggia_dict = True
         cellar = st.checkbox('Má sklep')
-        cellar_dict = None
+        cellar_dict = False
         if cellar:
             cellar_dict = True
         garage = st.checkbox('Má garáž')
-        garage_dict = None
+        garage_dict = False
         if garage:
             garage_dict = True
         garden = st.checkbox('Má zahradu')
-        garden_dict = None
+        garden_dict = False
         if garden:
             garden_dict = True
 
@@ -292,14 +292,17 @@ def get_csv_handmade():
 
     m.add_child(folium.LatLngPopup())
     map = st_folium(m, height=350, width=700)
-    lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
+    if map['last_clicked'] is None:
+        lat, long = x, y
+    else:
+        lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
     x = lat
     y = long
 
     # add marker for Liberty Bell
     tooltip = "Liberty Bell"
     folium.Marker([x, y], tooltip=tooltip).add_to(m)
-    print(x,y)
+    print(x, y)
 
     # save data
     out = {
@@ -313,7 +316,7 @@ def get_csv_handmade():
         'energy_effeciency': energy_dict,
         'ownership': ownership_dict,
         # vlastnictvo (3 possible) vlastni/druzstevni/statni(obecni)
-        'description': None,
+        'description': 'none',
         'long': y,
         'lat': x,
         'hash': None,
@@ -366,19 +369,155 @@ def get_csv_handmade():
         'pharmacy_dist': None,
         'name': None,
         'date': datetime.today().strftime('%Y-%m-%d')
-
     }
     return out
+
+
+def render_ring_gauge(sun, air, built):
+    option = {
+        "series": [
+            {
+                "type": "gauge",
+                "startAngle": 90,
+                "endAngle": -270,
+                "pointer": {"show": False},
+                "progress": {
+                    "show": True,
+                    "overlap": False,
+                    "roundCap": True,
+                    "clip": False,
+                    "itemStyle": {"borderWidth": 1, "borderColor": "#464646"},
+                },
+                "axisLine": {"lineStyle": {"width": 40}},
+                "splitLine": {"show": False, "distance": 0, "length": 10},
+                "axisTick": {"show": False},
+                "axisLabel": {"show": False, "distance": 50},
+                "data": [
+                    {
+                        "value": sun,
+                        "name": "🌞 Slunečnost",
+                        "title": {"offsetCenter": ["0%", "-30%"]},
+                        "detail": {"offsetCenter": ["0%", "-20%"]},
+                    },
+                    {
+                        "value": built,
+                        "name": "👫 Obydlenost",
+                        "title": {"offsetCenter": ["0%", "0%"]},
+                        "detail": {"offsetCenter": ["0%", "10%"]},
+                    },
+                    {
+                        "value": air,
+                        "name": "🌪️ Kvalita vzduchu",
+                        "title": {"offsetCenter": ["0%", "30%"]},
+                        "detail": {"offsetCenter": ["0%", "40%"]},
+                    },
+                ],
+                "title": {"fontSize": 14},
+                "detail": {
+                    "width": 50,
+                    "height": 14,
+                    "fontSize": 14,
+                    "color": "auto",
+                    "borderColor": "auto",
+                    "borderRadius": 20,
+                    "borderWidth": 1,
+                    "formatter": "{value}%",
+                },
+            }
+        ]
+    }
+    st_echarts(option, height="500px", key="echarts")
+
+
+def prediction(handmade, url=''):
+    with st.spinner(':robot_face: Robot přemýšlí...'):
+
+        etl = ETL(inference=True, handmade=handmade)
+        out = etl()
+
+    if out['status'] == 'RANP':
+        st.warning('Užitná plocha, zeměpisna šířka a výška jsou povinné atributy', icon="⚠️")
+        # st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
+    elif out['status'] == 'EMPTY':
+        # st.write(f'Data nejsou k dispozici')
+        st.warning('Data nejsou k dispozici', icon="⚠️")
+    elif 'INTERNAL ERROR' in out['status']:
+        st.error(f'Vyskytla sa interní chyba: {out["status"]}', icon="🚨")
+    else:
+        if out['status'] == 'OOPP':
+            st.info('Predikce mimo Prahu muze byt nespolehliva', icon="ℹ️")
+            # st.write(f'Predikce mimo Prahu muze byt nespolehliva')
+
+        model_path = 'models/fitted_gp_low'
+        gp_model = get_gp(model_path)
+
+        X = out['data'][['long', 'lat']].to_numpy()
+        mean_price, std_price = gp_model.predict(X, return_std=True)
+        # price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
+        # std = (std_price * out['data']["usable_area"].to_numpy()).item()
+
+        st.success('Predikce ceny Vaší nemovitosti :house: probehla úspešně')
+
+        # OTHER MODELS
+        model = Model(data=out['data'], inference=True, tune=False)
+        pred_lower, pred_mean, pred_upper = model()
+
+        locale.setlocale(locale.LC_ALL, '')
+        pred_cena = " ".join("{0:n}".format(round(pred_mean.item())).split(','))
+        st.subheader(f'🌲 Predikovaná cena Vašeho bytu je: {pred_cena}Kč.')
+        # st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
+        #         f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kč')
+
+        _, col, _ = st.columns(3)
+
+        labels = ["Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
+        values = [pred_lower.item(), pred_mean.item(), pred_upper.item()]
+        source = pd.DataFrame({'Cena (Kč)': values, 'Predikce': ["Nízký XGB", "Průměr XGB", "Vysoké XGB"]})
+        bar_chart = alt.Chart(source).mark_bar().encode(x="Cena (Kč):Q", y=alt.Y("Predikce:N", sort="-x"))
+        st.altair_chart(bar_chart, use_container_width=True)
+
+        gp_price = " ".join("{0:n}".format(round(mean_price.item())).split(','))
+        gp_delta = " ".join(
+            "{0:n}".format(round((pred_mean / out['data']['usable_area'].to_numpy()).item() - mean_price.item())).split(
+                ','))
+
+        col.metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2")
+
+        # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
+        st.write(' ')
+        st.write(' ')
+        st.subheader('Přidané informace o Vaší nemovitosti 🏠')
+
+        air_quality = (6 - float(out["quality_data"]["air_quality"].item())) * 20
+        built_quality = (6 - float(out["quality_data"]["built_density"].item())) * 20
+        sun_quality = (6 - float(out["quality_data"]["sun_glare"].item())) * 20
+
+        render_ring_gauge(sun_quality,
+                          air_quality,
+                          built_quality)
+
+        st.write(f':musical_note: Hlučnost: {out["quality_data"]["daily_noise"].item()} dB')
+        image = Image.open('../data/misc/hluk.png')
+        st.image(image)
+        # st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
+        # st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
+        st.write(f':knife: Kriminalita: ')
+        # st.write(f':tornado: Kvalita vzduchu: {out["quality_data"]["air_quality"].item()}')
+
 
 selected = streamlit_menu(example=EXAMPLE_NO)
 
 ############## 1. stránka ##############
 if selected == "Domů":
     st.header(f"Real e-state")
-    st.markdown(":sparkles: Naše vize je pomoci lidem predikovat ceny nemovitostí (bytů v Praze). Predikovat lze pomocí zadaného "
-                 "URL, z sreality.cz nebo bezrealitky.cz, nebo pomocí ručně zadaných vlastností. Dále můžeme investorům pomoci detekovat, "
-              "jaké nemovitosti na trhu jsou podceněné nebo nadceněné a do kterých je lepší investovat. "
-              "Bonusem bude dodání dalších informací o nemovitosti.")
+    st.markdown(
+        ":sparkles: Naše vize je pomoci lidem predikovat ceny nemovitostí (bytů v Praze). Predikovat lze pomocí:")
+    st.markdown("       - zadaného URL z sreality.cz nebo bezrealitky.cz,")
+    st.markdown("       - pomocí ručně zadaných vlastností bytu.")
+    st.markdown(
+        ":sparkles: Dále můžeme investorům pomoci detekovat, jaké nemovitosti na trhu jsou podceněné nebo nadceněné a do kterých je lepší investovat.")
+    st.markdown(
+        ":sparkles: Bonusem bude dodání dalších informací o nemovitosti jako například hlučnost, obydlenost apod.")
 
 ############## 2. stránka ##############
 if selected == "Predikce pomocí URL":
@@ -389,94 +528,43 @@ if selected == "Predikce pomocí URL":
         pass
     else:
         url = str(url)
-        if 'bezrealitky' or 'sreality' in url:
+        if ('bezrealitky' or 'sreality') and 'praha' in url:
             with open('../data/predict_links.txt', 'w') as f:
                 f.write(url)
+        elif ('bezrealitky' or 'sreality') and 'praha' not in url:
+            st.error(f'Zadejte URL z bezrealitky.cz nebo sreality.cz v Praze!', icon="🚨")
 
     ############## MODELS ##############
     result_url = st.button('Predikuj!')
     if result_url:
-        
-        st.markdown(f'Získávám data z {url}...')
-        st.markdown(':robot_face: Robot přemýšlí...')
-
-        etl = ETL(inference=True)
-        out = etl()
-
-        if out['status'] == 'RANP':
-            st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
-        elif out['status'] == 'EMPTY':
-            st.write(f'Data nejsou k dispozici')
-        else:
-            if out['status'] == 'OOPP':
-                st.write(f'Predikce mimo Prahu muze byt nespolehliva')
-
-            model_path = 'models/fitted_gp_low'
-            gp_model = get_gp(model_path)
-
-            X = out['data'][['long', 'lat']].to_numpy()
-            mean_price, std_price = gp_model.predict(X, return_std=True)
-            price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
-            std = (std_price * out['data']["usable_area"].to_numpy()).item()
-
-            st.write(
-                f'--------------------------------------------- Predikce ceny Vaší nemovitosti :house: ---------------------------------------------')
-            # OTHER MODELS
-            model = Model(data=out['data'], inference=True, tune=False)
-            pred_lower, pred_mean, pred_upper = model()
-
-            st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
-                     f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kc')
-
-            # labels = ["Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
-            # values = [price_gp - 2 * std, price_gp, price_gp + 2 * std, pred_mean.item()]
-            # source = pd.DataFrame({'Cena (Kč)': values, 'Predikce': [ "Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]})
-            # bar_chart = alt.Chart(source).mark_bar().encode(x="Cena (Kč):Q", y=alt.Y("Predikce:N", sort="-x"))
-            # st.altair_chart(bar_chart, use_container_width=True)
-
-            # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
-            st.write(' ')
-            st.write(' ')
-            st.write('----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
-            st.write(f':world_map: Průměrná cena Vašeho bytu v dané oblasti je {round(price_gp)}Kč.')
-            st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
-            st.write(f':musical_note: Hlučnost: {out["quality_data"]["daily_noise"].item()} dB')
-            st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
-            st.write(f':knife: Kriminalita: ')
-            st.write(f':tornado: Kvalita vzduchu: {out["quality_data"]["air_quality"].item()}')
-
+        prediction(handmade=False, url=url)
 
 if selected == "Predikce pomocí ručně zadaných příznaků":
     st.header(f"Predikce pomocí ručně zadaných příznaků")
     out = get_csv_handmade()
-    field_names = []
-    for key, value in out.items():
-        field_names.append(key)
 
     ############## MODELS ##############
     result = st.button('Predikuj!')
 
     if result:
-        with open('../data/predict_handmade.csv', 'w') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=field_names)
-            writer.writeheader()
-            writer.writerows([out])
-            print('csv done!')
+        print(type(out), out)
+        df = pd.DataFrame(data={k: [v] for k, v in out.items()})
+        df.to_csv('../data/predict_breality_scraped.csv', index=False)
 
-        st.markdown(':robot_face: Robot přemýšlí...')
-
+        prediction(handmade=True)
 
 ############## 3. stránka ##############
 if selected == "Kontakt":
     st.header(f"Kontakt")
-    st.markdown(":copyright: Zkoukněte náš [GitHub](https://github.com/Many98/real_estate).")
+    st.markdown(":copyright: Zkoukněte náš [GitHub](https://github.com/Many98/real_estate) :sunglasses:")
+
 
 # background
 def add_bg_from_local(image_file):
     with open(image_file, "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read())
     st.markdown(
-    f"""
+        f"""
     <style>
     .stApp {{
         background-image: url(data:image/{"jpg"};base64,{encoded_string.decode()});
@@ -484,8 +572,10 @@ def add_bg_from_local(image_file):
     }}
     </style>
     """,
-    unsafe_allow_html=True
+        unsafe_allow_html=True
     )
+
+
 add_bg_from_local('../data/misc/houses0.jpg')
 
 # hide icon streamlit
