@@ -432,12 +432,10 @@ def render_ring_gauge(sun, air, built):
 
 
 def prediction(handmade, url=''):
-    if not handmade:
-        st.markdown(f'Získávám data z {url}...')
-    st.markdown(':robot_face: Robot přemýšlí...')
+    with st.spinner(':robot_face: Robot přemýšlí...'):
 
-    etl = ETL(inference=True, handmade=handmade)
-    out = etl()
+        etl = ETL(inference=True, handmade=handmade)
+        out = etl()
 
     if out['status'] == 'RANP':
         st.warning('Užitná plocha, zemepisna sirka a vyska su povinne atributy', icon="⚠️")
@@ -445,8 +443,8 @@ def prediction(handmade, url=''):
     elif out['status'] == 'EMPTY':
         #st.write(f'Data nejsou k dispozici')
         st.warning('Data nejsou k dispozici', icon="⚠️")
-    elif out['status'] == 'INTERNAL ERROR':
-        st.error('Vyskytla sa interní chyba', icon="🚨")
+    elif 'INTERNAL ERROR' in out['status']:
+        st.error(f'Vyskytla sa interní chyba: {out["status"]}', icon="🚨")
     else:
         if out['status'] == 'OOPP':
             st.info('Predikce mimo Prahu muze byt nespolehliva', icon="ℹ️")
@@ -460,8 +458,8 @@ def prediction(handmade, url=''):
         #price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
         #std = (std_price * out['data']["usable_area"].to_numpy()).item()
 
-        st.write(
-            f'--------------------------------------------- Predikce ceny Vaší nemovitosti :house: ---------------------------------------------')
+        st.success('Predikce ceny Vaší nemovitosti :house: probehla úspešně')
+
         # OTHER MODELS
         model = Model(data=out['data'], inference=True, tune=False)
         pred_lower, pred_mean, pred_upper = model()
