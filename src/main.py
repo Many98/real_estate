@@ -474,7 +474,7 @@ class Model(object):
             self.model_lower.fit(X_train, y_train)
             self.model_upper.fit(X_train, y_train)
 
-            # self.save_state()
+            self.save_state()
 
         else:
             self.load_state()
