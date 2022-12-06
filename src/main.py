@@ -164,7 +164,7 @@ class ETL(object):
                 #            to get one csv with same sets of attributes
             elif not self.handmade and not os.path.isfile('../data/predict_links.txt'):
                 print('Links for prediction are not present')
-                return {'data': None, 'quality_data': None, 'status': 'INTERNAL ERROR'}
+                return {'data': None, 'quality_data': None, 'status': 'INTERNAL ERROR (OBTAIN)'}
                 #raise Exception('Links for prediction are not present')
 
             # ### 3 SYNCHRONIZE DATA
@@ -178,10 +178,15 @@ class ETL(object):
         if self.inference or (not self.inference and not self.load_dataset):
             if not self.load_dataset and data.empty:
                 print('Something went wrong. Data not obtained !')
+                return {'data': None, 'quality_data': None, 'status': 'INTERNAL ERROR (SYNC)'}
 
             # ### 4 ENRICH DATA
             self.enricher.df = data  # TODO not ideal
-            enriched_data = self.enricher()
+            enriched_data = self.enricher(inference=self.inference)
+
+            if not self.load_dataset and enriched_data.empty:
+                print('Something went wrong. Data not obtained !')
+                return {'data': None, 'quality_data': None, 'status': 'INTERNAL ERROR (ENRICH)'}
 
         if not self.inference and not self.load_dataset:
             self._export_data(enriched_data)
@@ -531,7 +536,7 @@ if __name__ == "__main__":
     etl = ETL(inference=False, scrape=False, load_dataset=True)
     out = etl()
 
-    if out['status'] in ['EMPTY', 'RANP', 'INTERNAL ERROR']:
+    if out['status'] in ['EMPTY', 'RANP'] or 'INTERNAL ERROR' in out['status']:
         raise Exception(f'Data preprocessing failed with status `{out["status"]}`')
 
     model = Model(data=out['data'], inference=False, tune=False, response='price_m2', objective='reg:squarederror',
