@@ -24,6 +24,7 @@ import pickle
 import py7zr
 from folium.plugins import MousePosition
 import requests
+import locale
 
 from main import ETL, Model
 from models.gaussian_process import get_gp
@@ -292,7 +293,10 @@ def get_csv_handmade():
 
     m.add_child(folium.LatLngPopup())
     map = st_folium(m, height=350, width=700)
-    lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
+    if map['last_clicked'] is None:
+        lat, long = x, y
+    else:
+        lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
     x = lat
     y = long
 
@@ -370,6 +374,63 @@ def get_csv_handmade():
     }
     return out
 
+
+def render_ring_gauge(sun, air, built):
+    option = {
+        "series": [
+            {
+                "type": "gauge",
+                "startAngle": 90,
+                "endAngle": -270,
+                "pointer": {"show": False},
+                "progress": {
+                    "show": True,
+                    "overlap": False,
+                    "roundCap": True,
+                    "clip": False,
+                    "itemStyle": {"borderWidth": 1, "borderColor": "#464646"},
+                },
+                "axisLine": {"lineStyle": {"width": 40}},
+                "splitLine": {"show": False, "distance": 0, "length": 10},
+                "axisTick": {"show": False},
+                "axisLabel": {"show": False, "distance": 50},
+                "data": [
+                    {
+                        "value": sun,
+                        "name": "🌞 Slunečnost",
+                        "title": {"offsetCenter": ["0%", "-30%"]},
+                        "detail": {"offsetCenter": ["0%", "-20%"]},
+                    },
+                    {
+                        "value": built,
+                        "name": "👫 Obydlenost",
+                        "title": {"offsetCenter": ["0%", "0%"]},
+                        "detail": {"offsetCenter": ["0%", "10%"]},
+                    },
+                    {
+                        "value": air,
+                        "name": "🌪️ Kvalita vzduchu",
+                        "title": {"offsetCenter": ["0%", "30%"]},
+                        "detail": {"offsetCenter": ["0%", "40%"]},
+                    },
+                ],
+                "title": {"fontSize": 14},
+                "detail": {
+                    "width": 50,
+                    "height": 14,
+                    "fontSize": 14,
+                    "color": "auto",
+                    "borderColor": "auto",
+                    "borderRadius": 20,
+                    "borderWidth": 1,
+                    "formatter": "{value}%",
+                },
+            }
+        ]
+    }
+    st_echarts(option, height="500px", key="echarts")
+
+
 def prediction(handmade, url=''):
     if not handmade:
         st.markdown(f'Získávám data z {url}...')
@@ -379,12 +440,17 @@ def prediction(handmade, url=''):
     out = etl()
 
     if out['status'] == 'RANP':
-        st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
+        st.warning('Užitná plocha, zemepisna sirka a vyska su povinne atributy', icon="⚠️")
+        #st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
     elif out['status'] == 'EMPTY':
-        st.write(f'Data nejsou k dispozici')
+        #st.write(f'Data nejsou k dispozici')
+        st.warning('Data nejsou k dispozici', icon="⚠️")
+    elif out['status'] == 'INTERNAL ERROR':
+        st.error('Vyskytla sa interní chyba', icon="🚨")
     else:
         if out['status'] == 'OOPP':
-            st.write(f'Predikce mimo Prahu muze byt nespolehliva')
+            st.info('Predikce mimo Prahu muze byt nespolehliva', icon="ℹ️")
+            #st.write(f'Predikce mimo Prahu muze byt nespolehliva')
 
         model_path = 'models/fitted_gp_low'
         gp_model = get_gp(model_path)
@@ -400,6 +466,11 @@ def prediction(handmade, url=''):
         model = Model(data=out['data'], inference=True, tune=False)
         pred_lower, pred_mean, pred_upper = model()
 
+        locale.setlocale(locale.LC_ALL, '')
+
+        _, col, _ = st.columns(3)
+
+        #st.write(f':world_map: Průměrná cena bytu v okolí je {round(mean_price.item())} Kč/m2.')
         st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
                  f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kc')
 
@@ -409,17 +480,33 @@ def prediction(handmade, url=''):
         bar_chart = alt.Chart(source).mark_bar().encode(x="Cena (Kč):Q", y=alt.Y("Predikce:N", sort="-x"))
         st.altair_chart(bar_chart, use_container_width=True)
 
+        gp_price = " ".join("{0:n}".format(round(mean_price.item())).split(','))
+        gp_delta = " ".join(
+            "{0:n}".format(round((pred_mean / out['data']['usable_area'].to_numpy()).item() - mean_price.item())).split(
+                ','))
+
+        col.metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2")
+
         # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
         st.write(' ')
         st.write(' ')
         st.write(
             '----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
-        st.write(f':world_map: Průměrná cena bytu v okolí je {round(mean_price.item())} Kč/m2.')
-        st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
+
+
+        air_quality = (6 - float(out["quality_data"]["air_quality"].item())) * 20
+        built_quality = (6 - float(out["quality_data"]["built_density"].item())) * 20
+        sun_quality = (6 - float(out["quality_data"]["sun_glare"].item())) * 20
+
+        render_ring_gauge(sun_quality,
+                          air_quality,
+                          built_quality)
+
+        #st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
         st.write(f':musical_note: Hlučnost: {out["quality_data"]["daily_noise"].item()} dB')
-        st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
+        #st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
         st.write(f':knife: Kriminalita: ')
-        st.write(f':tornado: Kvalita vzduchu: {out["quality_data"]["air_quality"].item()}')
+        #st.write(f':tornado: Kvalita vzduchu: {out["quality_data"]["air_quality"].item()}')
 
 selected = streamlit_menu(example=EXAMPLE_NO)
 
@@ -469,7 +556,7 @@ if selected == "Predikce pomocí ručně zadaných příznaků":
 ############## 3. stránka ##############
 if selected == "Kontakt":
     st.header(f"Kontakt")
-    st.markdown(":copyright: Zkoukněte náš [GitHub](https://github.com/Many98/real_estate).")
+    st.markdown(":copyright: Zkoukněte náš [GitHub](https://github.com/Many98/real_estate) :sunglasses:")
 
 # background
 def add_bg_from_local(image_file):
