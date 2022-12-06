@@ -71,17 +71,24 @@ class ETL(object):
                  scrapped_data_filename: str = 'prodej',
                  inference: bool = False,
                  handmade: bool = False,
-                 scrape: bool = True,
-                 load_dataset: bool = False,
+                 scrape: bool = False,
+                 # load_dataset: bool = False,
                  ):
 
         self.inference = inference  # whether ETL is in INFERENCE phase
         self.handmade = handmade
         self.scrape = scrape  # whether to scrape data before processing
-        self.load_dataset = load_dataset  # whether to jump right to loading prepared dataset in `../data/dataset.csv`
         # not functional in `inference` phase
         self.crawled_links_filename = crawled_links_filename
         self.scrapped_data_filename = scrapped_data_filename
+        self.load_dataset = False
+
+        if not self.inference and not self.scrape:
+            if os.path.isfile('../data/dataset.csv'):
+                self.load_dataset = True
+            else:
+                print('`scrape` parameter is set to False but not dataset found in \n'
+                      '`../data/dataset.csv` therefore setting parameter scrape to True')
 
         # TODO make inits more consistent
         self.breality_crawler = KindOfCrawlerForBezRealitky(out_filename=crawled_links_filename,
@@ -165,7 +172,7 @@ class ETL(object):
             elif not self.handmade and not os.path.isfile('../data/predict_links.txt'):
                 print('Links for prediction are not present')
                 return {'data': None, 'quality_data': None, 'status': 'INTERNAL ERROR (OBTAIN)'}
-                #raise Exception('Links for prediction are not present')
+                # raise Exception('Links for prediction are not present')
 
             # ### 3 SYNCHRONIZE DATA
             # TODO handle cases when empty df is returned
@@ -176,15 +183,18 @@ class ETL(object):
 
             # Data are now synchronized in one ../data/tmp_synchronized.csv (INFERENCE)
         if self.inference or (not self.inference and not self.load_dataset):
-            if not self.load_dataset and data.empty:
+            # TODO this expects self.inference be True only when used with web interface and it should be fixed
+            if not self.load_dataset and data.empty and self.inference:
                 print('Something went wrong. Data not obtained !')
                 return {'data': None, 'quality_data': None, 'status': 'INTERNAL ERROR (SYNC)'}
+            elif not self.load_dataset and data.empty and not self.inference:
+                print('There are no new scraped data')
 
             # ### 4 ENRICH DATA
             self.enricher.df = data  # TODO not ideal
             enriched_data = self.enricher(inference=self.inference)
 
-            if not self.load_dataset and enriched_data.empty:
+            if not self.load_dataset and enriched_data.empty and self.inference:
                 print('Something went wrong. Data not obtained !')
                 return {'data': None, 'quality_data': None, 'status': 'INTERNAL ERROR (ENRICH)'}
 
@@ -386,7 +396,7 @@ class Model(object):
                     tree_method='hist',
                     booster='gbtree',
                     grow_policy='depthwise',
-                    #monotone_constraints={'energy_effeciency': 1, 'usable_area': 1},
+                    # monotone_constraints={'energy_effeciency': 1, 'usable_area': 1},
                     random_state=42)
 
             # TODO XGBQuantile should be also tuned but for now this is enough
@@ -464,7 +474,7 @@ class Model(object):
             self.model_lower.fit(X_train, y_train)
             self.model_upper.fit(X_train, y_train)
 
-            self.save_state()
+            # self.save_state()
 
         else:
             self.load_state()
@@ -533,15 +543,103 @@ if __name__ == "__main__":
     # parser.add_argument('-c', '--config-name', help='Name of the config file', default='config.yaml')
     # arguments = parser.parse_args()
 
-    etl = ETL(inference=False, scrape=False, load_dataset=True)
+    parser = argparse.ArgumentParser(
+        description="-------------------------------------- REAL ESTATE ------------------------------- \n"
+                    "----------------------- Prediction of prices of apartments in Prague ---------------\n"
+
+                    "Processing steps are: \n"
+                    "1) Crawl & scrape data from sreality.cz and bezrealitky.cz or just load prepared dataset \n"
+                    "2) Perform synchronization, enrichment and preprocessing\n"
+                    "3) Run model in train/inference phase\n"
+                    "  For better user experience use web interface \n"
+                    "  Web interface can be run on localhost using `streamlit run web.py` command"
+        ,
+
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+
+    parser.add_argument(
+        "--train",
+        action='store_true',
+        help="Whether to run code in train phase (it will save resulting model in `models/model.pkl`). \n"
+             "Note that not specifying this switch will result in loading dataset from \n"
+             "`../data/dataset.csv` and performing prediction on it."
+             "Result will be saved in `../data/result.csv`"
+
+    )
+
+    parser.add_argument(
+        "--scrape",
+        "-s",
+        action='store_true',
+        help="Whether to also scrape data otherwise prepared dataset is loaded. \n"
+             "Note that scraping new data can take some time"
+
+    )
+
+    parser.add_argument(
+        "--tune",
+        action='store_true',
+        help="Whether to run `train` phase and tune hyperparameters."
+
+    )
+
+    parser.add_argument(
+        "--log_transform",
+        "-log",
+        action='store_true',
+        help="Whether to apply log transform on response."
+
+    )
+
+    parser.add_argument(
+        "--response",
+        default='price_m2',
+        help="Specifies type of response"
+             "Can be one of [`price_m2`, `price`]"
+    )
+
+    parser.add_argument(
+        "--objective",
+        default='reg:squarederror',
+        help="Specifies type of objective function used in XGB training. Default is L2 norm \n"
+             "For details see https://xgboost.readthedocs.io/en/latest/parameter.html"
+    )
+
+    parser.add_argument(
+        "--n_iter_search",
+        default=100,
+        help="Specifies number of samples from hyperparameter space to be evaluated during tuning. Default is 100 \n"
+             "For details see https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.RandomizedSearchCV.html"
+    )
+
+    args = parser.parse_args()
+
+
+    # TODO in CLI I do not use args.train because it would raise error ... it should be fixed
+    #  for now this will run ETL in train phase and load dataset and then Model in `not args.train` phase
+    etl = ETL(scrape=args.scrape)
+
     out = etl()
 
     if out['status'] in ['EMPTY', 'RANP'] or 'INTERNAL ERROR' in out['status']:
         raise Exception(f'Data preprocessing failed with status `{out["status"]}`')
+    else:
+        print('DATA OBTAINED SUCCESSFULLY')
 
-    model = Model(data=out['data'], inference=False, tune=False, response='price_m2', objective='reg:squarederror',
-                  n_iter_search=50)
+    model = Model(data=out['data'], inference=not args.train, tune=args.tune, response=args.response,
+                  objective=args.objective,
+                  n_iter_search=args.n_iter_search)
     # inference phase pd.DataFrame with features and predicted prices
     # train phase will returned path to serialized trained model
     trained = model()
-    print('f')
+
+    if not args.train:
+        out['data']['lower_ci_xgb_prediction'] = trained[0]
+        out['data']['mean_xgb_prediction'] = trained[1]
+        out['data']['upper_ci_xgb_prediction'] = trained[2]
+
+        out['data'][['lower_ci_xgb_prediction', 'mean_xgb_prediction', 'upper_ci_xgb_prediction',
+                     'price', 'price_m2',
+                     'gp_mean_price', 'usable_area']].to_csv('../data/result.csv')
+        print('Prediction is save in `../data/result.csv`')
