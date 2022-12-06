@@ -2,6 +2,7 @@
 
 ### Requirements
 
+-----------------------------------------------------------------------------------
 Make sure you first create (e.g. conda) environmnent with either of commands
 
 - ``conda env create -f environment.yml``
@@ -11,6 +12,7 @@ We use ``python 3.10.6``
 
 ### Run the code
 
+---------------------------------------------------------------------
 There are two options:
 
 - use CLI (for details use `python main.py --help`) e.g.
@@ -24,6 +26,8 @@ There is no jupyter notebook demo as we (or just Many98) do not like Jupyter not
 
 
 ### Processing logic is as follows
+
+-------------------------------------------------------------------------------------
 Processing runs in two phases:
 * `train` -> all advertisements are obtained by crawlers
 * `inference` -> advertisement url/data is/are provided by user via web app
@@ -41,6 +45,7 @@ Implementation is also implemented in 2 main classes:
 
 ### Team members
 
+-------------------------------------------------------------------
 * Hanka Nguyenová (Team leader) 
 * Daniel Karlík
 * Emanuel Frátrik
