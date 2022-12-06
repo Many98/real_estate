@@ -163,7 +163,9 @@ class ETL(object):
                 #           ../data/predict_breality.csv and ../data/predict_sreality.csv so synchronization is needed
                 #            to get one csv with same sets of attributes
             elif not self.handmade and not os.path.isfile('../data/predict_links.txt'):
-                raise Exception('Links for prediction are not present')
+                print('Links for prediction are not present')
+                return {'data': None, 'quality_data': None, 'status': 'INTERNAL ERROR'}
+                #raise Exception('Links for prediction are not present')
 
             # ### 3 SYNCHRONIZE DATA
             # TODO handle cases when empty df is returned
@@ -529,7 +531,7 @@ if __name__ == "__main__":
     etl = ETL(inference=False, scrape=False, load_dataset=True)
     out = etl()
 
-    if out['status'] in ['EMPTY', 'RANP']:
+    if out['status'] in ['EMPTY', 'RANP', 'INTERNAL ERROR']:
         raise Exception(f'Data preprocessing failed with status `{out["status"]}`')
 
     model = Model(data=out['data'], inference=False, tune=False, response='price_m2', objective='reg:squarederror',
