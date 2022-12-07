@@ -30,7 +30,7 @@ class Enricher(object):
             try:
                 self.add_gp('models/fitted_gp_low')
                 self.add_quality_data('../data/geodata/')
-                self.add_criminality_data()
+                self.add_criminality_data('../data/criminality.csv')
                 self.add_location('../data/geodata/TMMESTSKECASTI_P.json')
                 self.add_osm_data()
             except Exception as e:
@@ -96,9 +96,13 @@ class Enricher(object):
         self.df['daily_noise'] = noise_day_query
         self.df['nightly_noise'] = noise_night_query
 
-    def add_criminality_data(self):
+    def add_criminality_data(self, path: str):
         """
-
+        method to add information about criminality in Prague
+        Parameters
+        ----------
+        path : str
+            Path to directory with criminality_data (data/csv/.7z)
         Returns
         -------
 
