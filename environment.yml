@@ -46,4 +46,6 @@ dependencies:
     - category-encoders==2.5.1
     - pyecharts==1.9.1
     - streamlit-echarts==0.4.0
+    - shap==0.41.0
+    - streamlit-shap==1.0.2
 
