@@ -301,7 +301,7 @@ def get_csv_handmade():
     m.add_child(folium.LatLngPopup())
     map = st_folium(m, height=350, width=700)
     if map['last_clicked'] is None:
-        lat, long = x, y
+        lat, long = 55, 12
     else:
         lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
     x = lat
@@ -414,12 +414,15 @@ def render_bar_plot_v2():
             }
         },
         "yAxis": {
-            "type": 'category',
-
-            "data": [  # TODO here comes the feature names
-                'Mean price',
-                'usable area',
-                'eight',
+            "type": "category",
+            "show": False,
+            "data": [  # TODO here comes the feature names + values
+                'Prumerna cena bytu v oblasti',
+                'Uzitna plocha: 55 m2',
+                'Standardni odchylka ceny bytu',
+                'disposition: 4+kk',
+                'Mestska cast: Praha 4',
+                '38 dalsich priznaku',
 
             ]
         },
@@ -429,15 +432,21 @@ def render_bar_plot_v2():
                 "type": 'bar',
                 "stack": 'Total',
                 "label": {
-                    "show": "true",
+                    "show": True,
+                    "textBorderColor": 'white',
+                    "color": 'black',
+                    "textBorderWidth": 8,
                     "formatter": '{c} Kč'
                 }
                 ,
-                "data": [  # TODO here comes data
+                "data": [  # TODO here comes data about shap values
 
-                    -1000,
-                    200,
-                    60,
+                    -100000,
+                    140000,
+                    6000,
+                    7000,
+                    80000,
+                    25000,
 
                 ]
             }
@@ -655,63 +664,69 @@ def prediction(handmade, url=''):
             "{0:n}".format(round(price_per_m2_xgb - mean_price.item())).split(
                 ','))
 
-        # fig = shap.plots.waterfall(shapy, show=False)
-        # st_shap(shap.plots.waterfall(shapy), height=1000, width=1300)
+        with st.expander('Efekty priznaku na cenu bytu'):
+            # fig = shap.plots.waterfall(shapy, show=False)
+            # st_shap(shap.plots.waterfall(shapy), height=1000, width=1300)
 
-        render_bar_plot_v2()
+            st.info('Pro zobrazeni nazvu priznaku prilozte k prislusnemu slopci')
+
+            render_bar_plot_v2()
 
         # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
-        st.write(' ')
-        st.write(' ')
-        st.write(
-            '----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
+        with st.expander('                                                  Informace o okolí Vaší nemovitosti 🏠'
+                         ''):
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            air_quality = (6 - float(out["quality_data"]["air_quality"].item() if
-                                     out["quality_data"]["air_quality"].item() != 'unknown' else 6)) * 20
-            built_quality = (float(out["quality_data"]["built_density"].item() if
-                                   out["quality_data"]["built_density"].item() != 'unknown' else 0)) * 20
-            sun_quality = (6 - float(out["quality_data"]["sun_glare"].item() if
-                                     out["quality_data"]["sun_glare"].item() != 'unknown' else 6)) * 20
-
-            render_ring_gauge_quality(sun_quality,
-                                      air_quality,
-                                      built_quality)
-
-        with col2:
-
-            render_donut_plot()
-
-        # st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
-        st.write(f':musical_note: Prumerna hlučnost v okoli: '
-                 f'{str(out["quality_data"]["daily_noise"].item()) + "dB" if out["quality_data"]["daily_noise"].item() != 0 else "Data nedostupna"}')
-
-        price_advertised = None
-
-        if not handmade and not out['data']['price_m2'].isna().any():
-            price_advertised = " ".join("{0:n}".format(round(out['data']['price'].item())).split(','))
-            price_xgb_delta = " ".join("{0:n}".format(round(pred_mean.item() -
-                                                            out['data']['price'].to_numpy().item())).split(
-                ','))
-
-        if price_advertised is not None:
             col1, col2 = st.columns(2)
-            col1.metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2",
-                        help="Indikator zobrazuje prumernu cenu bytov za m2 v okoli. \n"
-                             "Nize je zobrazeny rozdil nase predikce oproti prumerne cene.")
-            col2.metric("Navrhovana cena bytu", f"{price_advertised} Kč", f"{price_xgb_delta} Kč",
-                        help="Indikator zobrazuje navrhovanou cenu bytu z uvedene url. \n"
-                             "Nize je zobrazeny rozdil nase predikce oproti navrhovane cene."
-                        )
-        else:
-            _, col, _ = st.columns(3)
-            col.metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2",
-                       help="Indikator zobrazuje prumernu cenu bytov za m2 v okoli. \n"
-                            "Nize je zobrazeny rozdil nase predikce oproti prumerne cene"
-                       )
+
+            with col1:
+                air_quality = (6 - float(out["quality_data"]["air_quality"].item() if
+                                         out["quality_data"]["air_quality"].item() != 'unknown' else 6)) * 20
+                built_quality = (float(out["quality_data"]["built_density"].item() if
+                                       out["quality_data"]["built_density"].item() != 'unknown' else 0)) * 20
+                sun_quality = (6 - float(out["quality_data"]["sun_glare"].item() if
+                                         out["quality_data"]["sun_glare"].item() != 'unknown' else 6)) * 20
+
+                render_ring_gauge_quality(sun_quality,
+                                          air_quality,
+                                          built_quality)
+
+            with col2:
+                render_donut_plot()
+
+            # st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
+            st.write(f':musical_note: Hlučnost v okoli: '
+                     f'{str(out["quality_data"]["daily_noise"].item()) + "dB" if out["quality_data"]["daily_noise"].item() != 0 else "Data nedostupna"}')
+
+            price_advertised = None
+
+            if not handmade and not out['data']['price_m2'].isna().any():
+                price_advertised = " ".join("{0:n}".format(round(out['data']['price'].item())).split(','))
+                price_xgb_delta = " ".join("{0:n}".format(round(pred_mean.item() -
+                                                                out['data']['price'].to_numpy().item())).split(
+                    ','))
+
+        with st.expander('Rozdíly v cene'):
+            if price_advertised is not None:
+                col1, col2 = st.columns(2)
+                col1.metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2",
+                            help="Indikator zobrazuje prumernu cenu bytov za m2 v dane oblasti. \n"
+                                 "Nize je zobrazeny rozdil nase predikce oproti prumerne cene. \n"
+                                 "Zelena znamena ze nase predikce udava cenu vyssi, cervena naopak znamena ze \n "
+                                 "nase predikce zobrazuje nizsi cenu.")
+                col2.metric("Navrhovana cena bytu", f"{price_advertised} Kč", f"{price_xgb_delta} Kč",
+                            help=f"Indikator zobrazuje navrhovanou cenu bytu z uvedene url \n  {url}. \n"
+                                 "Nize je zobrazeny rozdil nase predikce oproti navrhovane cene. \n"
+                                 "Zelena znamena ze nase predikce udava cenu vyssi, cervena naopak znamena ze \n "
+                                 "nase predikce zobrazuje nizsi cenu."
+                            )
+            else:
+                col = st.columns(1)
+                col[0].metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2",
+                              help="Indikator zobrazuje prumernu cenu bytov za m2 v dane oblasti. \n"
+                                   "Nize je zobrazeny rozdil nase predikce oproti prumerne cene \n"
+                                   "Zelena znamena ze nase predikce udava cenu vyssi, cervena naopak znamena ze \n "
+                                 "nase predikce zobrazuje nizsi cenu."
+                              )
 
 
 selected = streamlit_menu(example=EXAMPLE_NO)
@@ -745,10 +760,13 @@ if selected == "Predikce pomocí URL":
 
 if selected == "Predikce pomocí ručně zadaných příznaků":
     st.header(f"Predikce pomocí ručně zadaných příznaků")
-    out = get_csv_handmade()
 
-    ############## MODELS ##############
-    result = st.button('Predikuj!')
+    with st.expander("Zadej příznaky"):
+
+        out = get_csv_handmade()
+
+        ############## MODELS ##############
+        result = st.button('Predikuj!')
 
     if result:
         print(type(out), out)
