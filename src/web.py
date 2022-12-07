@@ -3,6 +3,7 @@
 import base64
 import csv
 # pip install streamlit_option_menu
+import streamlit_echarts
 from streamlit_option_menu import option_menu
 import numpy as np
 import plotly.express as px
@@ -25,6 +26,8 @@ import py7zr
 from folium.plugins import MousePosition
 import requests
 import locale
+from streamlit_shap import st_shap
+import shap
 
 from main import ETL, Model
 from models.gaussian_process import get_gp
@@ -34,6 +37,8 @@ st.set_page_config(page_title='Real e-state', page_icon="house_buildings", initi
 # Navigation menu from: https://github.com/Sven-Bo/streamlit-navigation-menu
 # 1=sidebar menu, 2=horizontal menu, 3=horizontal menu w/ custom menu
 EXAMPLE_NO = 3
+
+
 def streamlit_menu(example=1):
     if example == 1:
         # 1. as sidebar menu
@@ -82,8 +87,10 @@ def streamlit_menu(example=1):
         )
         return selected
 
+
 def get_pos(lat, lng):
     return lat, lng
+
 
 def get_csv_handmade():
     # type
@@ -201,7 +208,7 @@ def get_csv_handmade():
                                   'Velmi dobrý', 'Dobrý', 'Staví se', 'Projekt', 'Špatný'))
     with col2:
         construction = st.radio("Konstrukce", (
-        'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická'))
+            'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická'))
 
     # state
     state_dict = None
@@ -303,7 +310,7 @@ def get_csv_handmade():
     # add marker for Liberty Bell
     tooltip = "Liberty Bell"
     folium.Marker([x, y], tooltip=tooltip).add_to(m)
-    print(x,y)
+    print(x, y)
 
     # save data
     out = {
@@ -375,13 +382,132 @@ def get_csv_handmade():
     return out
 
 
-def render_ring_gauge(sun, air, built):
+def render_noise_gauge(noise):
+    pass
+    # https://echarts.apache.org/examples/en/editor.html?c=gauge-grade
+
+
+def render_bar_plot_v2():
+    # https://echarts.apache.org/examples/en/editor.html?c=bar-negative2
     option = {
+        "title": {
+            "text": 'Efekty jednotlivých atributu bytu na cenu',
+            "left": 'center'
+        },
+        "tooltip": {
+            "trigger": 'axis',
+            "axisPointer": {
+                "type": 'shadow'
+            }
+        },
+        "grid": {
+            "top": 80,
+            "bottom": 30
+        },
+        "xAxis": {
+            "type": 'value',
+            "position": 'top',
+            "splitLine": {
+                "lineStyle": {
+                    "type": 'dashed'
+                }
+            }
+        },
+        "yAxis": {
+            "type": 'category',
+
+            "data": [  # TODO here comes the feature names
+                'Mean price',
+                'usable area',
+                'eight',
+
+            ]
+        },
+        "series": [
+            {
+                "name": 'Efekt',
+                "type": 'bar',
+                "stack": 'Total',
+                "label": {
+                    "show": "true",
+                    "formatter": '{c} Kč'
+                }
+                ,
+                "data": [  # TODO here comes data
+
+                    -1000,
+                    200,
+                    60,
+
+                ]
+            }
+        ],
+        "visualMap": {
+            "orient": 'horizontal',
+            "left": 'center',
+            "min": 0,
+            "max": 1,
+            "text": ['Kladný efekt', 'Záporný efekt'],
+
+            "dimension": 0,
+            "inRange": {
+                "color": ['red', 'green']
+            }
+        },
+    }
+
+    st_echarts(option, height="700px", key="echarts_bar2")
+
+
+def render_donut_plot():
+    # https://echarts.apache.org/examples/en/editor.html?c=pie-doughnut
+    option = {
+        "title": {
+            "text": 'Kriminalita v okolí',
+            "left": 'center'
+        },
+
+        "legend": {
+            "top": '5%',
+            "left": 'center'
+        },
+        "tooltip": {},
+        "series": [
+            {
+                "name": 'Zločin',
+                "type": 'pie',
+                "radius": ['40%', '70%'],
+                "avoidLabelOverlap": "false",
+
+                "data": [  # TODO here comes custom data
+                    {"value": 8, "name": 'Krádež'},
+                    {"value": 73, "name": 'Vlopání'},
+                    {"value": 58, "name": 'Nehoda'},
+                    {"value": 48, "name": 'únos'},
+                    {"value": 3, "name": 'Vražda'}
+                ]
+            }
+        ]
+    }
+
+    st_echarts(option, height="500px", key="echarts_donut")
+
+
+def render_ring_gauge_quality(sun, air, built):
+    # https://echarts.apache.org/examples/en/editor.html?c=gauge-ring
+    option = {
+        "title": [
+            {
+                "text": 'Kvalitativní data',
+                "left": 'center'
+            }
+        ],
+        "tooltip": {},
         "series": [
             {
                 "type": "gauge",
                 "startAngle": 90,
-                "endAngle": -270,
+                "endAngle": -250,
                 "pointer": {"show": False},
                 "progress": {
                     "show": True,
@@ -396,39 +522,90 @@ def render_ring_gauge(sun, air, built):
                 "axisLabel": {"show": False, "distance": 50},
                 "data": [
                     {
-                        "value": sun,
-                        "name": "🌞 Slunečnost",
+                        "value": air,
+                        "name": "🌪️ Kvalita vzduchu",
                         "title": {"offsetCenter": ["0%", "-30%"]},
                         "detail": {"offsetCenter": ["0%", "-20%"]},
                     },
                     {
                         "value": built,
-                        "name": "👫 Obydlenost",
+                        "name": "👫 Úroveň zastavěnosti",
                         "title": {"offsetCenter": ["0%", "0%"]},
                         "detail": {"offsetCenter": ["0%", "10%"]},
                     },
                     {
-                        "value": air,
-                        "name": "🌪️ Kvalita vzduchu",
+                        "value": sun,
+                        "name": "🌞 Kvalita oslunění",
                         "title": {"offsetCenter": ["0%", "30%"]},
                         "detail": {"offsetCenter": ["0%", "40%"]},
                     },
+
                 ],
-                "title": {"fontSize": 14},
+                "title": {"fontSize": 11},
                 "detail": {
-                    "width": 50,
-                    "height": 14,
-                    "fontSize": 14,
+                    "width": 100,
+                    "height": 6,
+                    "fontSize": 12,
                     "color": "auto",
                     "borderColor": "auto",
                     "borderRadius": 20,
                     "borderWidth": 1,
-                    "formatter": "{value}%",
+                    "formatter": streamlit_echarts.JsCode(
+                        'function lambda(a){return 20===a?"Velmi nizka":40===a?"Nizka":60===a?"Stredni":80===a?"Vysoka":100===a?"Velmi vysoka":"Data nedostupna"}').js_code,
                 },
             }
         ]
     }
-    st_echarts(option, height="500px", key="echarts")
+    st_echarts(option, height="500px", key="echarts_gauge")
+
+
+def render_bar_prediction(lower, mean, upper):
+    # https://echarts.apache.org/examples/en/editor.html?c=dataset-encode0
+    option = {
+        "title": [
+            {
+                "text": 'Odhad ceny bytu',
+                "left": 'center'
+            }
+        ],
+        "dataset": {
+            "source": [
+                ['score', 'amount', 'product'],
+                [lower, lower, '5% kvantil'],
+                [mean, mean, 'Predikce'],
+                [upper, upper, '95% kvantil'],
+
+            ]
+        },
+        "grid": {"containLabel": "true"},
+        "xAxis": {"name": 'Cena v Kč'},
+        "yAxis": {"type": 'category'},
+        "visualMap": {
+            "orient": 'horizontal',
+            "left": 'center',
+            "min": min(lower, mean),
+            "max": max(upper, mean),
+            "text": ['95% kvantil' if upper > mean else 'Predikce', '5% kvantil' if lower < mean else 'Predikce'],
+            "dimension": 0,
+            "inRange": {
+                "color": ['#65B581', '#FFCE34', '#FD665F']
+            }
+        },
+        "tooltip": {},
+        "series": [
+            {
+                "type": "bar",
+                "encode": {
+
+                    "x": "amount",
+
+                    "y": "product"
+                }
+            }
+        ]
+    }
+
+    st_echarts(option, height="500px", key="echarts_prediction")
 
 
 def prediction(handmade, url=''):
@@ -439,51 +616,49 @@ def prediction(handmade, url=''):
 
     if out['status'] == 'RANP':
         st.warning('Užitná plocha, zemepisna sirka a vyska su povinne atributy', icon="⚠️")
-        #st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
+        # st.write(f'Užitná plocha, zemepisna sirka a vyska su povinne atributy')
     elif out['status'] == 'EMPTY':
-        #st.write(f'Data nejsou k dispozici')
+        # st.write(f'Data nejsou k dispozici')
         st.warning('Data nejsou k dispozici', icon="⚠️")
     elif 'INTERNAL ERROR' in out['status']:
         st.error(f'Vyskytla sa interní chyba: {out["status"]}', icon="🚨")
     else:
         if out['status'] == 'OOPP':
             st.info('Predikce mimo Prahu muze byt nespolehliva', icon="ℹ️")
-            #st.write(f'Predikce mimo Prahu muze byt nespolehliva')
+            # st.write(f'Predikce mimo Prahu muze byt nespolehliva')
 
         model_path = 'models/fitted_gp_low'
         gp_model = get_gp(model_path)
 
         X = out['data'][['long', 'lat']].to_numpy()
         mean_price, std_price = gp_model.predict(X, return_std=True)
-        #price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
-        #std = (std_price * out['data']["usable_area"].to_numpy()).item()
+        # price_gp = (mean_price * out['data']["usable_area"].to_numpy()).item()
+        # std = (std_price * out['data']["usable_area"].to_numpy()).item()
 
         st.success('Predikce ceny Vaší nemovitosti :house: probehla úspešně')
 
         # OTHER MODELS
         model = Model(data=out['data'], inference=True, tune=False)
-        pred_lower, pred_mean, pred_upper = model()
+        pred_lower, pred_mean, pred_upper, shapy = model()
 
         locale.setlocale(locale.LC_ALL, '')
 
-        _, col, _ = st.columns(3)
-
-        #st.write(f':world_map: Průměrná cena bytu v okolí je {round(mean_price.item())} Kč/m2.')
+        # st.write(f':world_map: Průměrná cena bytu v okolí je {round(mean_price.item())} Kč/m2.')
         st.write(f':evergreen_tree: Predikovaná cena Vašeho bytu pomocí XGB je {round(pred_mean.item())}Kč. \n'
                  f'90% konfidencni interval je {(pred_lower.item(), pred_upper.item())} Kc')
 
-        labels = ["Nízký GP", "Průměr GP", "Vysoké GP", "XGBoost"]
-        values = [pred_lower.item(), pred_mean.item(), pred_upper.item()]
-        source = pd.DataFrame({'Cena (Kč)': values, 'Predikce': [ "Nízký XGB", "Průměr XGB", "Vysoké XGB"]})
-        bar_chart = alt.Chart(source).mark_bar().encode(x="Cena (Kč):Q", y=alt.Y("Predikce:N", sort="-x"))
-        st.altair_chart(bar_chart, use_container_width=True)
+        render_bar_prediction(round(pred_lower.item()), round(pred_mean.item()), round(pred_upper.item()))
 
+        price_per_m2_xgb = (pred_mean / out['data']['usable_area'].to_numpy()).item()
         gp_price = " ".join("{0:n}".format(round(mean_price.item())).split(','))
         gp_delta = " ".join(
-            "{0:n}".format(round((pred_mean / out['data']['usable_area'].to_numpy()).item() - mean_price.item())).split(
+            "{0:n}".format(round(price_per_m2_xgb - mean_price.item())).split(
                 ','))
 
-        col.metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2")
+        # fig = shap.plots.waterfall(shapy, show=False)
+        # st_shap(shap.plots.waterfall(shapy), height=1000, width=1300)
+
+        render_bar_plot_v2()
 
         # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
         st.write(' ')
@@ -491,30 +666,64 @@ def prediction(handmade, url=''):
         st.write(
             '----------------------------------------- Přidané informace o Vaší nemovitosti 🏠 -----------------------------------------')
 
+        col1, col2 = st.columns(2)
 
-        air_quality = (6 - float(out["quality_data"]["air_quality"].item())) * 20
-        built_quality = (6 - float(out["quality_data"]["built_density"].item())) * 20
-        sun_quality = (6 - float(out["quality_data"]["sun_glare"].item())) * 20
+        with col1:
 
-        render_ring_gauge(sun_quality,
-                          air_quality,
-                          built_quality)
+            air_quality = (6 - float(out["quality_data"]["air_quality"].item() if
+                                     out["quality_data"]["air_quality"].item() != 'unknown' else 6)) * 20
+            built_quality = (float(out["quality_data"]["built_density"].item() if
+                                   out["quality_data"]["built_density"].item() != 'unknown' else 0)) * 20
+            sun_quality = (6 - float(out["quality_data"]["sun_glare"].item() if
+                                     out["quality_data"]["sun_glare"].item() != 'unknown' else 6)) * 20
 
-        #st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
-        st.write(f':musical_note: Hlučnost: {out["quality_data"]["daily_noise"].item()} dB')
-        #st.write(f':couple: Obydlenost: {out["quality_data"]["built_density"].item()}')
-        st.write(f':knife: Kriminalita: ')
-        #st.write(f':tornado: Kvalita vzduchu: {out["quality_data"]["air_quality"].item()}')
+            render_ring_gauge_quality(sun_quality,
+                                      air_quality,
+                                      built_quality)
+
+        with col2:
+
+            render_donut_plot()
+
+        # st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
+        st.write(f':musical_note: Prumerna hlučnost v okoli: '
+                 f'{str(out["quality_data"]["daily_noise"].item()) + "dB" if out["quality_data"]["daily_noise"].item() != 0 else "Data nedostupna"}')
+
+        price_advertised = None
+
+        if not handmade and not out['data']['price_m2'].isna().any():
+            price_advertised = " ".join("{0:n}".format(round(out['data']['price'].item())).split(','))
+            price_xgb_delta = " ".join("{0:n}".format(round(pred_mean.item() -
+                                                            out['data']['price'].to_numpy().item())).split(
+                ','))
+
+        if price_advertised is not None:
+            col1, col2 = st.columns(2)
+            col1.metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2",
+                        help="Indikator zobrazuje prumernu cenu bytov za m2 v okoli. \n"
+                             "Nize je zobrazeny rozdil nase predikce oproti prumerne cene.")
+            col2.metric("Navrhovana cena bytu", f"{price_advertised} Kč", f"{price_xgb_delta} Kč",
+                        help="Indikator zobrazuje navrhovanou cenu bytu z uvedene url. \n"
+                             "Nize je zobrazeny rozdil nase predikce oproti navrhovane cene."
+                        )
+        else:
+            _, col, _ = st.columns(3)
+            col.metric("Průměrná cena bytu v okolí", f"{gp_price} Kč/m2", f"{gp_delta} Kč/m2",
+                       help="Indikator zobrazuje prumernu cenu bytov za m2 v okoli. \n"
+                            "Nize je zobrazeny rozdil nase predikce oproti prumerne cene"
+                       )
+
 
 selected = streamlit_menu(example=EXAMPLE_NO)
 
 ############## 1. stránka ##############
 if selected == "Domů":
     st.header(f"Real e-state")
-    st.markdown(":sparkles: Naše vize je pomoci lidem predikovat ceny nemovitostí (bytů v Praze). Predikovat lze pomocí zadaného "
-                 "URL, z sreality.cz nebo bezrealitky.cz, nebo pomocí ručně zadaných vlastností. Dále můžeme investorům pomoci detekovat, "
-              "jaké nemovitosti na trhu jsou podceněné nebo nadceněné a do kterých je lepší investovat. "
-              "Bonusem bude dodání dalších informací o nemovitosti.")
+    st.markdown(
+        ":sparkles: Naše vize je pomoci lidem predikovat ceny nemovitostí (bytů v Praze). Predikovat lze pomocí zadaného "
+        "URL, z sreality.cz nebo bezrealitky.cz, nebo pomocí ručně zadaných vlastností. Dále můžeme investorům pomoci detekovat, "
+        "jaké nemovitosti na trhu jsou podceněné nebo nadceněné a do kterých je lepší investovat. "
+        "Bonusem bude dodání dalších informací o nemovitosti.")
 
 ############## 2. stránka ##############
 if selected == "Predikce pomocí URL":
@@ -532,9 +741,7 @@ if selected == "Predikce pomocí URL":
     ############## MODELS ##############
     result_url = st.button('Predikuj!')
     if result_url:
-        
         prediction(handmade=False, url=url)
-
 
 if selected == "Predikce pomocí ručně zadaných příznaků":
     st.header(f"Predikce pomocí ručně zadaných příznaků")
@@ -550,18 +757,18 @@ if selected == "Predikce pomocí ručně zadaných příznaků":
 
         prediction(handmade=True)
 
-
 ############## 3. stránka ##############
 if selected == "Kontakt":
     st.header(f"Kontakt")
     st.markdown(":copyright: Zkoukněte náš [GitHub](https://github.com/Many98/real_estate) :sunglasses:")
+
 
 # background
 def add_bg_from_local(image_file):
     with open(image_file, "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read())
     st.markdown(
-    f"""
+        f"""
     <style>
     .stApp {{
         background-image: url(data:image/{"jpg"};base64,{encoded_string.decode()});
@@ -569,8 +776,10 @@ def add_bg_from_local(image_file):
     }}
     </style>
     """,
-    unsafe_allow_html=True
+        unsafe_allow_html=True
     )
+
+
 add_bg_from_local('../data/misc/houses0.jpg')
 
 # hide icon streamlit
@@ -582,4 +791,3 @@ hide_streamlit_style = """
             """
 
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
