@@ -157,6 +157,11 @@ class Enricher(object):
                                             crime_df.y,
                                        ),
                                        )
+        dist = 200
+        buffer = gdf_from_crime.buffer(dist)
+        buffer = buffer.to_crs(gdf.crs)
+        buf = gpd.GeoDataFrame(geometry=buffer)
+        pass
 
     def add_location(self, geojson: str):
         """
