@@ -95,12 +95,14 @@ def get_pos(lat, lng):
 
 def get_csv_handmade():
     # type
-    # TODO - None type for st.radio
     type = st.radio("Typ", (
-        '1+kk', '1+1', '2+kk', '2+1', '3+kk', '3+1', '4+kk', '4+1', '5+kk', '5+1', '6', '6+kk', 'atypické'))
+        'Žádný', '1+kk', '1+1', '2+kk', '2+1', '3+kk', '3+1', '4+kk', '4+1', '5+kk', '5+1', '6', '6+kk', 'atypické'), index=0)
     disposition_dict = None
     if type == '1+kk':
         disposition_dict = '1+kk'
+    elif type == 'Neznámé':
+        disposition_dict = None
+        # st.warning('Vyberte prosím typ bytu', icon="⚠️")
     elif type == '1+1':
         disposition_dict = '1+1'
     elif type == '2+kk':
@@ -133,7 +135,7 @@ def get_csv_handmade():
     usable_area = st.slider('Užitná plocha v m^2', 0, 1000)
     usable_area_dict = None
     if usable_area <= 0:
-        print('error usable area must be positive!')
+        st.error(f'Povinnný atribut (užitná plocha musí být větší než nula)!', icon="🚨")
         usable_area_dict = None
     else:
         usable_area_dict = usable_area  # využijeme text pro model
@@ -141,11 +143,14 @@ def get_csv_handmade():
     # energy eficiency
     energy = st.select_slider(
         'Energetická eficience',
-        options=['A', 'B', 'C', 'D', 'E', 'F', 'G'])
+        options=['Neznámá', 'A', 'B', 'C', 'D', 'E', 'F', 'G'], label_visibility="visible")
     # energy = st.radio("Energetická eficience", ('A', 'B', 'C', 'D', 'E', 'F', 'G'))
     energy_dict = None
     if energy == 'A':
         energy_dict = 'A'
+    elif energy == 'Neznámá':
+        energy_dict = None
+        # st.warning('Vyberte prosím energetickou eficienci', icon="⚠️")
     elif energy == 'B':
         energy_dict = 'B'
     elif energy == 'C':
@@ -163,20 +168,22 @@ def get_csv_handmade():
 
     # floor
     # floor = st.number_input('Patro', step=1)
-    floor = st.slider('Patro', -1, 20)
+    floor = st.slider('Patro (musí být vyšší než -1)', -2, 20)
     floor_dict = None
     if floor < -1:
-        print('error in floor! must be higher than -1')
+        st.warning('Patro musí být vyšší než -1', icon="⚠️")
         floor_dict = None
     else:
         floor_dict = floor  # využijeme text pro model
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        ownership = st.radio("Vlastnictví", ('Osobní', 'Státní/obecní', 'Družstevní'))
+        ownership = st.radio("Vlastnictví", ('Neznámé', 'Osobní', 'Státní/obecní', 'Družstevní'), index=0)
         ownership_dict = None
         if ownership == 'Osobní':
             ownership_dict = 'Osobní'
+        elif ownership == 'Žadné':
+            ownership_dict = None
         elif ownership == 'Státní/obecní':
             ownership_dict = 'Státní/obecní'
         elif ownership == 'Družstevní':
@@ -186,9 +193,11 @@ def get_csv_handmade():
 
     with col2:
         equipment_dict = None
-        equipment = st.radio("Vybavenost", ('Plně', 'Nevybaveno', 'Částečně'))
+        equipment = st.radio("Vybavenost", ('Neznámá', 'Plně', 'Nevybaveno', 'Částečně'), index=0)
         if equipment == 'Plně':
             equipment_dict = 'ano'
+        elif equipment == 'Neznámá':
+            equipment_dict = None
         elif equipment == 'Nevybaveno':
             equipment_dict = 'Nevybaveno'
         elif equipment == 'Částečně':
@@ -197,16 +206,18 @@ def get_csv_handmade():
             equipment_dict = np.NaN
 
     with col1:
-        state = st.radio("Stav", ('V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci', 'Nová budova',
-                                  'Velmi dobrý', 'Dobrý', 'Staví se', 'Projekt', 'Špatný'))
+        state = st.radio("Stav", ('Neznámý', 'V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci', 'Nová budova',
+                                  'Velmi dobrý', 'Dobrý', 'Staví se', 'Projekt', 'Špatný'), index=0)
     with col2:
         construction = st.radio("Konstrukce", (
-            'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická', 'Drevostavba'))
+            'Neznámá', 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická', 'Drevostavba'), index=0)
 
     # state
     state_dict = None
     if state == 'V rekonstrukci':
         state_dict = 'V rekonstrukci'
+    elif state == 'Neznámý':
+        state_dict = None
     elif state == 'Před rekonstrukcí':
         state_dict = 'Před rekonstrukcí'
     elif state == 'Po rekonstrukci':
@@ -230,6 +241,8 @@ def get_csv_handmade():
     construction_dict = None
     if construction == 'Cihlová':
         construction_dict = 'Cihlová'
+    elif construction == 'Neznámá':
+        construction_dict = None
     elif construction == 'Smíšená':
         construction_dict = 'Smíšená'
     elif construction == 'Panelová':
@@ -306,6 +319,7 @@ def get_csv_handmade():
     tooltip = "Liberty Bell"
     folium.Marker([x, y], tooltip=tooltip).add_to(m)
     print(x, y)
+    st.error(f'Povinný atribut, prosím vyberte místo na mapě!', icon="🚨")
 
     # save data
     out = {
