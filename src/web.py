@@ -392,6 +392,7 @@ def get_csv_handmade():
     map = st_folium(m, height=350, width=700)
     if map['last_clicked'] is None:
         lat, long = 55, 12
+        st.error(f'Povinný atribut, prosím vyberte místo na mapě!', icon="🚨")
     else:
         lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
     x = lat
@@ -400,8 +401,6 @@ def get_csv_handmade():
     # add marker for Liberty Bell
     tooltip = "Liberty Bell"
     folium.Marker([x, y], tooltip=tooltip).add_to(m)
-    print(x, y)
-    st.error(f'Povinný atribut, prosím vyberte místo na mapě!', icon="🚨")
 
     # save data
     out = {
