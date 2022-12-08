@@ -154,7 +154,7 @@ class Enricher(object):
         crime_df['disc_crime'] = discount_factor ** (np.floor(crime_df['years_past'])) * crime_df['crime_idx']
         # Now we have our data almost prepared
         # Below part taken from add_osm_data() below
-        gdf = osmnx_call(14.43809, 50.06851, 18000, 'tags')
+        gdf = osmnx_call(14.43809, 50.06851, 18000, {'tags': 'crime'})
         gdf_from_crime = gpd.GeoDataFrame(crime_df,
                                        geometry=gpd.points_from_xy(
                                             crime_df.x,
