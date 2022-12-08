@@ -40,6 +40,88 @@ st.set_page_config(page_title='Real e-state', page_icon="house_buildings", initi
 EXAMPLE_NO = 3
 
 
+def feature_names_mapping():
+    mapping = {'has_balcony': 'Má balkón', 'has_cellar': 'Ma sklep', 'has_garage': 'Ma garaz', 'has_lift': 'Ma vytah',
+               'has_loggia': 'Ma lodzi', 'has_parking': 'Ma parkovisko', 'has_garden': 'Ma zahradu',
+               'has_balcony_te': 'Má balkón', 'has_cellar_te': 'Ma sklep', 'has_garage_te': 'Ma garaz',
+               'has_lift_te': 'Ma vytah',
+               'has_loggia_te': 'Ma lodzi', 'has_parking_te': 'Ma parkovisko', 'has_garden_te': 'Ma zahradu',
+               'energy_effeciency': 'Energeticka efecience',
+               'ownership': 'Vlastnictvi', 'equipment': 'Vybaven', 'state': 'Stav', 'disposition': 'Dispozice',
+               'construction_type': 'Konstrukce', 'city_district': 'Mestska cast',
+               'atm_dist_te': 'Vzdalenost k bankomatu', 'bus_station_dist_te': 'Vzdalenost k autobusu',
+               'doctor_dist_te': 'Vzdalenost k doktorovi', 'kindergarten_dist_te': 'Vzdalenost k skolce',
+               'park_dist_te': 'Vzdalenost k parku', 'pharmacy_dist_te': 'Vzdalenost k lekarne',
+               'playground_dist_te': 'Vzdalenost k hristi', 'post_office_dist_te': 'Vzdalenost k poste',
+               'primary_school_dist_te': 'Vzdalenost k skole', 'restaurant_pub_dist_te': 'Vzdalenost k restauraci/baru',
+               'sports_field_dist_te': 'Vzdalenost k sportovisku', 'subway_station_dist_te': 'Vzdalenost k metru',
+               'supermarket_grocery_dist_te': 'Vzdalenost k obchodu',
+               'theatre_cinema_dist_te': 'Vzdalenost k divadlu/kinu',
+               'tram_station_dist_te': 'Vzdalenost k tramvaji', 'train_station_dist_te': 'Vzdalenost k vlakove stanici',
+               'vet_dist_te': 'Vzdalenost k veterinari', 'floor': 'Podlazi', 'usable_area': 'Uzitna plocha (m2)',
+               'gp': 'Prumerna cena bytu v okoli (Kc)',
+               'gp_ci_high_price': '97.5% kvantil ceny bytu v okoli (Kc/m2)',
+               'gp_ci_low_price': '2.5% kvantil ceny bytu v okoli (Kc/m2)',
+               'gp_mean_price': 'Prumerna cena bytu v okoli (Kc/m2)',
+               'gp_std_price': 'Standardni odchylka ceny bytu v okoli (Kc/m2)',
+               'long': 'Zeměpisná délka (°)', 'lat': 'Zeměpisná šířka (°)'
+               }
+
+    dist_mapping = {'atm_dist': 'Vzdalenost k bankomatu', 'bus_station_dist': 'Vzdalenost k autobusu',
+                    'doctor_dist': 'Vzdalenost k doktorovi', 'kindergarten_dist': 'Vzdalenost k skolce',
+                    'park_dist': 'Vzdalenost k parku', 'pharmacy_dist': 'Vzdalenost k lekarne',
+                    'playground_dist': 'Vzdalenost k hristi', 'post_office_dist': 'Vzdalenost k poste',
+                    'primary_school_dist': 'Vzdalenost k skole', 'restaurant_pub_dist': 'Vzdalenost k restauraci/baru',
+                    'sports_field_dist': 'Vzdalenost k sportovisku', 'subway_station_dist': 'Vzdalenost k metru',
+                    'supermarket_grocery_dist': 'Vzdalenost k obchodu',
+                    'theatre_cinema_dist': 'Vzdalenost k divadlu/kinu',
+                    'tram_station_dist': 'Vzdalenost k tramvaji', 'train_station_dist': 'Vzdalenost k vlakove stanici',
+                    'vet_dist': 'Vzdalenost k veterinari'}
+
+    return mapping, dist_mapping
+
+
+def format_shap(shapy_vals, num=9):
+    feature_names = shapy_vals.feature_names
+    feature_values = shapy_vals.data
+    shapy_values = shapy_vals.values
+    mean_value = shapy_vals.base_values
+
+    df_s = pd.DataFrame(data=np.vstack([shapy_values, feature_values]).T, index=np.array(feature_names),
+                        columns=['values', 'attributes'])
+    df_s['abs_val'] = df_s['values'].apply(lambda x: np.abs(x))
+
+    df_high = df_s.sort_values('abs_val', ascending=False).iloc[:num]
+    df_low = df_s.sort_values('abs_val', ascending=False).iloc[num:]
+
+    jj = df_low.xs(df_low.index[0])
+    jj[0] = np.sum(df_low['values'])
+    jj[1] = ''
+    jj.name = f'{df_low.shape[0]} dalsich atributu'
+
+    df_high = df_high.append(jj)
+
+    feature_names = df_high.index.to_list()
+    attributes = df_high['attributes'].to_list()
+
+    mapping, _ = feature_names_mapping()
+
+    attributes = ['ne' if i == False else 'ano' if i == True else round(i, 2) if isinstance(i, float) else i for i in
+                  attributes]
+
+    names = [mapping.get(n, n) + f': {v}' for n, v in zip(feature_names, attributes)]
+
+    return names, [round(i) for i in df_high['values'].to_list()]
+
+
+def format_dist_data(dist: pd.DataFrame):
+    dist.fillna(1500., inplace=True)
+
+    _, dist_mapping = feature_names_mapping()
+
+    return [dist_mapping[i] for i in list(dist.columns)], [int(i) for i in list(dist.values[0])]
+
+
 def streamlit_menu(example=1):
     if example == 1:
         # 1. as sidebar menu
@@ -381,11 +463,14 @@ def render_noise_gauge(noise):
     # https://echarts.apache.org/examples/en/editor.html?c=gauge-grade
 
 
-def render_bar_plot_v2():
+def render_bar_plot_v2(shapy):
     # https://echarts.apache.org/examples/en/editor.html?c=bar-negative2
+
+    names, shap_val = format_shap(shapy)
+
     option = {
         "title": {
-            "text": 'Efekty jednotlivých atributu bytu na cenu',
+            "text": 'Efekty jednotlivých atributu na cenu bytu',
             "left": 'center'
         },
         "tooltip": {
@@ -410,15 +495,7 @@ def render_bar_plot_v2():
         "yAxis": {
             "type": "category",
             "show": False,
-            "data": [  # TODO here comes the feature names + values
-                'Prumerna cena bytu v oblasti',
-                'Uzitna plocha: 55 m2',
-                'Standardni odchylka ceny bytu',
-                'disposition: 4+kk',
-                'Mestska cast: Praha 4',
-                '38 dalsich priznaku',
-
-            ]
+            "data": names[::-1]
         },
         "series": [
             {
@@ -427,22 +504,14 @@ def render_bar_plot_v2():
                 "stack": 'Total',
                 "label": {
                     "show": True,
-                    "textBorderColor": 'white',
+                    "textBorderColor": 'black',
                     "color": 'black',
-                    "textBorderWidth": 8,
-                    "formatter": '{c} Kč'
+                    "fontSize": 15,
+                    "textBorderWidth": 0.1,
+                    "formatter": '{c} Kč/m2'
                 }
                 ,
-                "data": [  # TODO here comes data about shap values
-
-                    -100000,
-                    140000,
-                    6000,
-                    7000,
-                    80000,
-                    25000,
-
-                ]
+                "data": shap_val[::-1]
             }
         ],
         "visualMap": {
@@ -562,6 +631,82 @@ def render_ring_gauge_quality(sun, air, built):
     st_echarts(option, height="500px", key="echarts_gauge")
 
 
+def render_dot_chart(categories, distances):
+    # https://echarts.apache.org/examples/en/editor.html?c=pictorialBar-dotted
+
+    option = {
+        "title": [
+            {
+                "text": 'Obcanska vybavenost',
+                "left": 'center'
+            }
+        ],
+        "backgroundColor": 'white',
+        "tooltip": {"formatter": '{b}: {c} m'
+                    },
+        "legend": {
+            "data": ['Vzdálenost'],
+            "textStyle": {
+                "color": '#ccc'
+            }
+        },
+        "grid": {"containLabel": "true"},
+        "xAxis": {
+            "data": categories,
+            "show": False,
+            "axisLine": {
+                "lineStyle": {
+                    "color": '#ccc'
+                }
+            }
+        },
+        "yAxis": {
+            "splitLine": {"show": False},
+            "show": True,
+            "axisLine": {
+                "lineStyle": {
+                    "color": 'black',
+                    "fontSize": 12
+                }
+            }
+        },
+        "visualMap": {
+            "orient": 'horizontal',
+            "left": 'center',
+            "min": 0,
+            "max": 1500,
+            "text": ['>1500m', ''],
+            "dimension": 1,
+            "inRange": {
+                "color": ['#65B581', '#FFCE34', '#FD665F']
+            }
+        },
+        "series": [
+            {
+                "type": 'line',
+                "show": False,
+                "smooth": True,
+                "showAllSymbol": True,
+                "symbol": 'emptyCircle',
+                "symbolSize": 15,
+                "data": distances
+            },
+
+            {
+
+                "type": 'bar',
+                "barGap": '-100%',
+                "barWidth": 10,
+                "color": "#14c8d4",
+
+                "data": distances
+            },
+
+        ]
+    }
+    st_echarts(option, height="500px", key="echarts_distance")
+
+
 def render_bar_prediction(lower, mean, upper):
     # https://echarts.apache.org/examples/en/editor.html?c=dataset-encode0
     option = {
@@ -647,10 +792,9 @@ def prediction(handmade, url=''):
 
         locale.setlocale(locale.LC_ALL, '')
         pred_cena = " ".join("{0:n}".format(round(pred_mean.item())).split(','))
-        st.subheader(f'🌲 Predikovaná cena Vašeho bytu je: {pred_cena}Kč.')
+        st.subheader(f'🌲 Predikovaná cena Vašeho bytu je: {pred_cena} Kč.')
 
         render_bar_prediction(round(pred_lower.item()), round(pred_mean.item()), round(pred_upper.item()))
-
 
         price_per_m2_xgb = (pred_mean / out['data']['usable_area'].to_numpy()).item()
         gp_price = " ".join("{0:n}".format(round(mean_price.item())).split(','))
@@ -662,10 +806,9 @@ def prediction(handmade, url=''):
             # fig = shap.plots.waterfall(shapy, show=False)
             # st_shap(shap.plots.waterfall(shapy), height=1000, width=1300)
 
-            st.info('Pro zobrazeni nazvu priznaku prilozte k prislusnemu slopci')
+            st.info('Pro zobrazeni nazvu atributu prilozte k prislusnemu sloupci')
 
-
-            render_bar_plot_v2()
+            render_bar_plot_v2(shapy)
 
         # https://streamlit-emoji-shortcodes-streamlit-app-gwckff.streamlit.app/
         with st.expander('                                                  Informace o okolí Vaší nemovitosti 🏠'
@@ -690,18 +833,25 @@ def prediction(handmade, url=''):
 
             # st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
             st.subheader(f':musical_note: Hlučnost v okoli: '
-                     f'{str(out["quality_data"]["daily_noise"].item()) + "dB" if out["quality_data"]["daily_noise"].item() != 0 else "Data nedostupna"}')
+                         f'{str(out["quality_data"]["daily_noise"].item()) + "dB" if out["quality_data"]["daily_noise"].item() != 0 else "Data nedostupna"}')
 
             image = Image.open('../data/misc/hluk.png')
             st.image(image)
 
-            price_advertised = None
+        price_advertised = None
 
-            if not handmade and not out['data']['price_m2'].isna().any():
-                price_advertised = " ".join("{0:n}".format(round(out['data']['price'].item())).split(','))
-                price_xgb_delta = " ".join("{0:n}".format(round(pred_mean.item() -
-                                                                out['data']['price'].to_numpy().item())).split(
-                    ','))
+        if not handmade and not out['data']['price_m2'].isna().any():
+            price_advertised = " ".join("{0:n}".format(round(out['data']['price'].item())).split(','))
+            price_xgb_delta = " ".join("{0:n}".format(round(pred_mean.item() -
+                                                            out['data']['price'].to_numpy().item())).split(
+                ','))
+
+        if price_advertised is None:
+            with st.expander('Obcanska vybavenost'):
+                st.info('Pro zobrazeni informaci prilozte k prislusnemu sloupci.')
+                #st.info('Objekty dale nez 1500 m su zobrazene ako 1500 m')
+
+                render_dot_chart(*format_dist_data(out['distance_data']))
 
         with st.expander('Rozdíly v cene'):
             if price_advertised is not None:
@@ -723,7 +873,7 @@ def prediction(handmade, url=''):
                               help="Indikator zobrazuje prumernu cenu bytov za m2 v dane oblasti. \n"
                                    "Nize je zobrazeny rozdil nase predikce oproti prumerne cene \n"
                                    "Zelena znamena ze nase predikce udava cenu vyssi, cervena naopak znamena ze \n "
-                                 "nase predikce zobrazuje nizsi cenu."
+                                   "nase predikce zobrazuje nizsi cenu."
                               )
 
 
@@ -770,7 +920,6 @@ if selected == "Predikce pomocí ručně zadaných příznaků":
         result = st.button('Predikuj!')
 
     if result:
-        print(type(out), out)
         df = pd.DataFrame(data={k: [v] for k, v in out.items()})
         df.to_csv('../data/predict_breality_scraped.csv', index=False)
 
@@ -810,4 +959,3 @@ hide_streamlit_style = """
             """
 
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
