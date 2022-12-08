@@ -499,8 +499,8 @@ class Model(object):
 
             shap_values.data = shap_values.data.astype(object)
             shap_values.data[0] = self.data[out_cols].to_numpy()[0]
-            shap_values.values[0] *= self.data['usable_area'].to_numpy()[0]
-            shap_values.base_values[0] *= self.data['usable_area'].to_numpy()[0]
+            #shap_values.values[0] *= self.data['usable_area'].to_numpy()[0]
+            #shap_values.base_values[0] *= self.data['usable_area'].to_numpy()[0]
 
             y_pred_mean = self.model_mean.predict(self.data[self.data.columns.difference(['price',
                                                                                           'price_m2'])])
