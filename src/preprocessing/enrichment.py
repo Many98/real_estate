@@ -109,9 +109,13 @@ class Enricher(object):
         -------
 
         """
-        # TODO firstly needs write scraper to get all geojsons from https://kriminalita.policie.cz/download
-        #  just needs easy loop using requests library on https://kriminalita.policie.cz/api/v2/downloads/201406.geojson
-        #   where will be used always another year and month ... there are data from 2012
+        # prealocation
+        self.df['theft_crime'] = 0
+        self.df['burglary_crime'] = 0
+        self.df['violence_crime'] = 0
+        self.df['accident_crime'] = 0
+        self.df['murder_crime'] = 0
+        self.df['hijack_crime'] = 0
         crime_df = pd.read_csv(path, sep=',', delimiter=None, encoding="utf8")
         crime_df['date'] = pd.to_datetime(crime_df['date'], utc=True)
         crime_df['date'] = pd.to_datetime(crime_df['date']).dt.date
@@ -153,28 +157,43 @@ class Enricher(object):
         discount_factor = 0.9
         crime_df['disc_crime'] = discount_factor ** (np.floor(crime_df['years_past'])) * crime_df['crime_idx']
         # Now we have our data almost prepared
-        # Below part taken from add_osm_data() below
-        gdf = osmnx_call(14.43809, 50.06851, 18000, {'tags': 'crime'})
         gdf_from_crime = gpd.GeoDataFrame(crime_df,
                                        geometry=gpd.points_from_xy(
                                             crime_df.x,
                                             crime_df.y,
                                        ),
-                                        crs=gdf.crs,
+                                        crs='epsg:4326',
                                        )
         dist = 150
         gdf_from_crime = gdf_from_crime.to_crs('epsg:32633')
+
+        gdf_from_df = gpd.GeoDataFrame(self.df,
+                                      geometry=gpd.points_from_xy(
+                                          self.df.long,
+                                          self.df.lat,
+                                      ),
+                                      crs='epsg:4326',
+                                      )
+        gdf_from_df = gdf_from_df.to_crs('epsg:32633')
         # create buffer of 150m
-        buffer = gdf_from_crime.buffer(dist)
-        buffer = buffer.to_crs(gdf.crs)
+        buffer = gdf_from_df.buffer(dist)
+        buffer = buffer.to_crs('epsg:4326')
         buf = gpd.GeoDataFrame(geometry=buffer)
 
         # perform spatial join
-        joined = gpd.sjoin(gdf, buf)
+        joined = gpd.sjoin(gdf_from_crime, buf)
 
-        # TODO: finishing this method
-        # add count_values() for 'types' for display
-        # sum() over buffered data to evaluate "criminality level" in the neighbour hood
+        for _, row in tqdm(self.df.iterrows(), total=self.df.shape[0], desc='Processing OSM data'):  #
+
+            relevant = joined.loc[joined.index_right == _, :]
+            df_group_crime = relevant.groupby('types', as_index=False).count()
+            self.df.at[_, 'theft_crime'] = df_group_crime[df_group_crime['types'] == 'krádež']['id']
+            self.df.at[_, 'burglary_crime'] = df_group_crime[df_group_crime['types'] == 'vloupání']['id']
+            self.df.at[_, 'violence_crime'] = df_group_crime[df_group_crime['types'] == 'násilí']['id']
+            self.df.at[_, 'accident_crime'] = df_group_crime[df_group_crime['types'] == 'dopravní nehody']['id']
+            self.df.at[_, 'murder_crime'] = df_group_crime[df_group_crime['types'] == 'vražda']['id']
+            self.df.at[_, 'hijack_crime'] = df_group_crime[df_group_crime['types'] == 'únos']['id']
+
 
     def add_location(self, geojson: str):
         """
