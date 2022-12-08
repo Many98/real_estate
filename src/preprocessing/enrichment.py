@@ -5,6 +5,8 @@ import warnings
 
 import geopandas as gpd
 import xarray as xr
+import datetime
+
 
 import requests
 from compress_fasttext.feature_extraction import FastTextTransformer
@@ -102,7 +104,7 @@ class Enricher(object):
         Parameters
         ----------
         path : str
-            Path to directory with criminality_data (data/csv/.7z)
+            Path to directory with criminality_data (data/criminality.csv)
         Returns
         -------
 
@@ -110,7 +112,51 @@ class Enricher(object):
         # TODO firstly needs write scraper to get all geojsons from https://kriminalita.policie.cz/download
         #  just needs easy loop using requests library on https://kriminalita.policie.cz/api/v2/downloads/201406.geojson
         #   where will be used always another year and month ... there are data from 2012
-        pass
+        crime_df = pd.read_csv(path, sep=',', delimiter=None, encoding="utf8")
+        crime_df['date'] = pd.to_datetime(crime_df['date'], utc=True)
+        crime_df['date'] = pd.to_datetime(crime_df['date']).dt.date
+        crime_df = crime_df[crime_df['date'] > datetime.date(2016, 1, 1)]
+        # list of all crimes ['krádeže na osobách' 'krádeže součástek aut' 'vloupání do prodejny'
+        #  'krádeže motorových vozidel (dvoustopových)' 'krádeže jízdních kol'
+        #  'loupež' 'vloupání do bytu' 'vydírání' 'úmyslné ublížení na zdraví'
+        #  'vloupání do rodinných domů' 'vloupání do ubytovacích objektů'
+        #  'dopravní nehody' 'výtržnictví' 'vloupání do restaurace'
+        #  'nebezpečné vyhrožování' 'omezování osobní svobody' 'obecné ohrožení'
+        #  'krádeže motorových vozidel (jednostopových)' 'nedovolené ozbrojování'
+        #  'útok proti výkonu pravomoci stát. orgánu' 'vražda' 'chladná zbraň'
+        #  'násilí proti skupině/jednotlivci' 'střelná zbraň' 'rvačka'
+        #  'obchod s lidmi' 'únos']
+        # We omit 'obchod s lidmi' and group types of crimes into several categories
+        nas = ['obecné ohrožení', 'omezování osobní svobody', 'nebezpečné vyhrožování',
+               'nedovolené ozbrojování', 'vydírání', 'rvačka', 'úmyslné ublížení na zdraví',
+               'výtržnictví', 'útok proti výkonu pravomoci stát. orgánu', 'chladná zbraň',
+               'střelná zbraň', 'násilí proti skupině/jednotlivci']
+        krd = ['krádeže na osobách', 'loupež', 'krádeže součástek aut', 'krádeže motorových vozidel (dvoustopových)',
+               'krádeže jízdních kol', 'krádeže motorových vozidel (jednostopových)']
+        vlp = ['vloupání do restaurace', 'vloupání do rodinných domů', 'vloupání do bytu',
+               'vloupání do prodejny', 'vloupání do ubytovacích objektů']
+        crime_df = crime_df[crime_df.types != 'obchod s lidmi']
+        crime_df[['types']] = crime_df[['types']].replace(dict.fromkeys(nas, 'násilí'))
+        crime_df[['types']] = crime_df[['types']].replace(dict.fromkeys(krd, 'krádež'))
+        crime_df[['types']] = crime_df[['types']].replace(dict.fromkeys(vlp, 'vloupání'))
+        # All crimes we have in our data
+        crime_list = ['krádež', 'vloupání', 'násilí', 'dopravní nehody', 'vražda', 'únos']
+        crime_w = [0.15, 0.2, 0.1, 0.05, 0.25, 0.25]
+        crime_df['crime_idx'] = 0
+        for x in range(len(crime_list)):
+            crime_df.loc[crime_df['types'] == crime_list[x], 'crime_idx'] = crime_w[x]
+
+        max_date = max(crime_df['date'])
+        crime_df['years_past'] = (max_date - crime_df['date']) / np.timedelta64(1, 'Y')
+        discount_factor = 0.9
+        crime_df['disc_crime'] = discount_factor ** (np.floor(crime_df['years_past'])) * crime_df['crime_idx']
+        # Now we have our data almost prepared
+        gdf_from_crime = gpd.GeoDataFrame(crime_df,
+                                       geometry=gpd.points_from_xy(
+                                            crime_df.x,
+                                            crime_df.y,
+                                       ),
+                                       )
 
     def add_location(self, geojson: str):
         """
