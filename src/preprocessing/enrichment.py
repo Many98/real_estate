@@ -173,6 +173,8 @@ class Enricher(object):
         joined = gpd.sjoin(gdf, buf)
 
         # TODO: finishing this method
+        # add count_values() for 'types' for display
+        # sum() over buffered data to evaluate "criminality level" in the neighbour hood
 
     def add_location(self, geojson: str):
         """
