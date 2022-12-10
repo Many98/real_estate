@@ -78,7 +78,10 @@ def feature_names_mapping():
                     'tram_station_dist': 'Vzdalenost k tramvaji', 'train_station_dist': 'Vzdalenost k vlakove stanici',
                     'vet_dist': 'Vzdalenost k veterinari'}
 
-    return mapping, dist_mapping
+    criminality_mapping = {'theft_crime': 'Krádež', 'burglary_crime': 'Vloupání', 'violence_crime': 'Násilí',
+                           'accident_crime': 'Dopravní nehody', 'murder_crime': 'Vražda', 'hijack_crime': 'Únos'}
+
+    return mapping, dist_mapping, criminality_mapping
 
 
 def format_shap(shapy_vals, num=9):
@@ -104,22 +107,27 @@ def format_shap(shapy_vals, num=9):
     feature_names = df_high.index.to_list()
     attributes = df_high['attributes'].to_list()
 
-    mapping, _ = feature_names_mapping()
+    mapping, _, _ = feature_names_mapping()
 
-    attributes = ['ne' if i == False else 'ano' if i == True else round(i, 2) if isinstance(i, float) else i for i in
+    attributes = ['ne' if i is False else 'ano' if i is True else round(i, 2) if isinstance(i, float) else i for i in
                   attributes]
 
     names = [mapping.get(n, n) + f': {v}' for n, v in zip(feature_names, attributes)]
-
     return names, [round(i) for i in df_high['values'].to_list()]
 
 
 def format_dist_data(dist: pd.DataFrame):
     dist.fillna(1500., inplace=True)
 
-    _, dist_mapping = feature_names_mapping()
+    _, dist_mapping, _ = feature_names_mapping()
 
     return [dist_mapping[i] for i in list(dist.columns)], [int(i) for i in list(dist.values[0])]
+
+
+def format_criminality_data(crime: pd.DataFrame):
+    _, _, criminality_mapping = feature_names_mapping()
+
+    return [criminality_mapping[i] for i in list(crime.columns)], [int(i) for i in list(crime.values[0])]
 
 
 def streamlit_menu(example=1):
@@ -151,7 +159,8 @@ def streamlit_menu(example=1):
         # 2. horizontal menu with custom style
         selected = option_menu(
             menu_title=None,  # required
-            options=["Domů", "Predikce pomocí URL", "Predikce pomocí ručně zadaných příznaků", "Kontakt"],  # required
+            options=["Domů", "Predikce pomocí URL", "Predikce pomocí ručně zadaných příznaků", "O aplikaci"],
+            # required
             icons=["house", "graph-down", "graph-up", "envelope"],  # optional
             menu_icon="cast",  # optional
             default_index=0,  # optional
@@ -176,9 +185,44 @@ def get_pos(lat, lng):
 
 
 def get_csv_handmade():
+    # TODO GPS - map: https://discuss.streamlit.io/t/ann-streamlit-folium-a-component-for-rendering-folium-maps/4367/4
+    # x = st.number_input('GPS N - lattitude')
+    # y = st.number_input('GPS E - longtitude')
+    # starting point
+    x = 50.0818633
+    y = 14.4255628
+    m = folium.Map(location=[x, y], zoom_start=10)
+
+    m.add_child(folium.LatLngPopup())
+    map = st_folium(m, height=350, width=700)
+    if map['last_clicked'] is None:
+        lat, long = 55, 12
+        st.error(f'Lokace bytu je povinný atribút. Prosím vyberte místo na mapě!')
+    else:
+        lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
+    x = lat
+    y = long
+
+    # add marker for Liberty Bell
+    tooltip = "Liberty Bell"
+    folium.Marker([x, y], tooltip=tooltip).add_to(m)
+
+    # usable area
+    # usable_area = st.number_input('Užitná plocha v m^2', step=1)
+    usable_area = st.slider('Užitná plocha', 0, 700, help='Zadejte uzitnu plochu bytu v m2')
+    usable_area_dict = None
+    if usable_area <= 0:
+        st.error(f'Užitná plocha je povinný atribút. Prosím zadejte užitnú plochu bytu!')
+        usable_area_dict = None
+    else:
+        usable_area_dict = usable_area  # využijeme text pro model
+
     # type
-    type = st.radio("Typ", (
-        'Žádný', '1+kk', '1+1', '2+kk', '2+1', '3+kk', '3+1', '4+kk', '4+1', '5+kk', '5+1', '6', '6+kk', 'atypické'), index=0)
+    type = st.radio("Dispozice", (
+        'Neurčeno', '1+kk', '1+1', '2+kk', '2+1', '3+kk', '3+1', '4+kk', '4+1', '5+kk', '5+1', '6', '6+kk', 'atypické'),
+                    index=0,
+                    horizontal=True,
+                    help='Zadejte dispozici bytu. Zadanim dispozice docilite spresneni predikce.')
     disposition_dict = None
     if type == '1+kk':
         disposition_dict = '1+kk'
@@ -212,27 +256,17 @@ def get_csv_handmade():
     else:
         disposition_dict = np.NaN
 
-    # usable area
-    # usable_area = st.number_input('Užitná plocha v m^2', step=1)
-    usable_area = st.slider('Užitná plocha v m^2', 0, 1000)
-    usable_area_dict = None
-    if usable_area <= 0:
-        st.error(f'Povinnný atribut (užitná plocha musí být větší než nula)!', icon="🚨")
-        usable_area_dict = None
-    else:
-        usable_area_dict = usable_area  # využijeme text pro model
-
     # energy eficiency
     energy = st.select_slider(
         'Energetická eficience',
-        options=['Neznámá', 'A', 'B', 'C', 'D', 'E', 'F', 'G'], label_visibility="visible")
+        options=['Neznámá', 'A', 'B', 'C', 'D', 'E', 'F', 'G'], label_visibility="visible",
+        help='Zadejte energeticku efeciency bytu. Zadanim tohoto atributu docilite spresneni predikce.')
     # energy = st.radio("Energetická eficience", ('A', 'B', 'C', 'D', 'E', 'F', 'G'))
     energy_dict = None
     if energy == 'A':
         energy_dict = 'A'
     elif energy == 'Neznámá':
-        energy_dict = None
-        # st.warning('Vyberte prosím energetickou eficienci', icon="⚠️")
+        energy_dict = np.NaN
     elif energy == 'B':
         energy_dict = 'B'
     elif energy == 'C':
@@ -249,57 +283,64 @@ def get_csv_handmade():
         energy_dict = np.NaN
 
     # floor
-    # floor = st.number_input('Patro', step=1)
-    floor = st.slider('Patro (musí být vyšší než -1)', -2, 20)
+    floor = st.number_input('Patro', step=1, help='Zadejte patro v kterem sa byt nachazi. '
+                                                  'Patro by melo být vyšší nebo rovno než -1.'
+                                                  ' V opacnem pripade nemusi byt predikce presna')
+    # floor = st.slider('Patro (musí být vyšší než -1)', -2, 20)
     floor_dict = None
     if floor < -1:
-        st.warning('Patro musí být vyšší než -1', icon="⚠️")
+        st.warning('Patro by melo být vyšší nebo rovno než -1. V opacnem pripade nemusi byt predikce presna')
         floor_dict = None
     else:
         floor_dict = floor  # využijeme text pro model
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        ownership = st.radio("Vlastnictví", ('Neznámé', 'Osobní', 'Státní/obecní', 'Družstevní'), index=0)
-        ownership_dict = None
-        if ownership == 'Osobní':
-            ownership_dict = 'Osobní'
-        elif ownership == 'Žadné':
-            ownership_dict = None
-        elif ownership == 'Státní/obecní':
-            ownership_dict = 'Státní/obecní'
-        elif ownership == 'Družstevní':
-            ownership_dict = 'Družstevní'
-        else:
-            ownership_dict = np.NaN
+    # col1, col2, col3 = st.columns(3)
+    # with col1:
+    ownership = st.radio("Vlastnictví", ('Neznámé', 'Osobní', 'Státní/obecní', 'Družstevní'), index=0, horizontal=True,
+                         help='Zadejte typ vlastnictvi. Zadanim tohoto atributu docilite spresneni predikce.')
+    ownership_dict = None
+    if ownership == 'Osobní':
+        ownership_dict = 'Osobní'
+    elif ownership == 'Žadné':
+        ownership_dict = np.NaN
+    elif ownership == 'Státní/obecní':
+        ownership_dict = 'Státní/obecní'
+    elif ownership == 'Družstevní':
+        ownership_dict = 'Družstevní'
+    else:
+        ownership_dict = np.NaN
 
-    with col2:
-        equipment_dict = None
-        equipment = st.radio("Vybavenost", ('Neznámá', 'Plně', 'Nevybaveno', 'Částečně'), index=0)
-        if equipment == 'Plně':
-            equipment_dict = 'ano'
-        elif equipment == 'Neznámá':
-            equipment_dict = None
-        elif equipment == 'Nevybaveno':
-            equipment_dict = 'Nevybaveno'
-        elif equipment == 'Částečně':
-            equipment_dict = 'ne'
-        else:
-            equipment_dict = np.NaN
+    # with col2:
+    equipment_dict = None
+    equipment = st.radio("Vybavenost", ('Neznámá', 'Plně', 'Nevybaveno', 'Částečně'), index=0, horizontal=True,
+                         help='Zadejte miru vybavenosti bytu. Zadanim tohoto atributu docilite spresneni predikce.')
+    if equipment == 'Plně':
+        equipment_dict = 'ano'
+    elif equipment == 'Neznámá':
+        equipment_dict = np.NaN
+    elif equipment == 'Nevybaveno':
+        equipment_dict = 'Nevybaveno'
+    elif equipment == 'Částečně':
+        equipment_dict = 'ne'
+    else:
+        equipment_dict = np.NaN
 
-    with col1:
-        state = st.radio("Stav", ('Neznámý', 'V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci', 'Nová budova',
-                                  'Velmi dobrý', 'Dobrý', 'Staví se', 'Projekt', 'Špatný'), index=0)
-    with col2:
-        construction = st.radio("Konstrukce", (
-            'Neznámá', 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická', 'Drevostavba'), index=0)
+    # with col1:
+    state = st.radio("Stav", ('Neznámý', 'V rekonstrukci', 'Před rekonstrukcí', 'Po rekonstrukci', 'Nová budova',
+                              'Velmi dobrý', 'Dobrý', 'Staví se', 'Projekt', 'Špatný'), index=0, horizontal=True,
+                     help='Zadejte stav bytu. Zadanim tohoto atributu docilite spresneni predikce.')
+    # with col2:
+    construction = st.radio("Konstrukce", (
+        'Neznámá', 'Cihlová', 'Smíšená', 'Panelová', 'Skeletová', 'Kamenná', 'Montovaná', 'Nízkoenergetická',
+        'Drevostavba'), index=0, horizontal=True, help='Zadejte typ konstrukce bytu. '
+                                                       'Zadanim tohoto atributu docilite spresneni predikce.')
 
     # state
     state_dict = None
     if state == 'V rekonstrukci':
         state_dict = 'V rekonstrukci'
     elif state == 'Neznámý':
-        state_dict = None
+        state_dict = np.NaN
     elif state == 'Před rekonstrukcí':
         state_dict = 'Před rekonstrukcí'
     elif state == 'Po rekonstrukci':
@@ -324,7 +365,7 @@ def get_csv_handmade():
     if construction == 'Cihlová':
         construction_dict = 'Cihlová'
     elif construction == 'Neznámá':
-        construction_dict = None
+        construction_dict = np.NaN
     elif construction == 'Smíšená':
         construction_dict = 'Smíšená'
     elif construction == 'Panelová':
@@ -379,28 +420,6 @@ def get_csv_handmade():
         garden_dict = False
         if garden:
             garden_dict = True
-
-    # TODO GPS - map: https://discuss.streamlit.io/t/ann-streamlit-folium-a-component-for-rendering-folium-maps/4367/4
-    # x = st.number_input('GPS N - lattitude')
-    # y = st.number_input('GPS E - longtitude')
-    # starting point
-    x = 50.0818633
-    y = 14.4255628
-    m = folium.Map(location=[x, y], zoom_start=10)
-
-    m.add_child(folium.LatLngPopup())
-    map = st_folium(m, height=350, width=700)
-    if map['last_clicked'] is None:
-        lat, long = 55, 12
-        st.error(f'Povinný atribut, prosím vyberte místo na mapě!', icon="🚨")
-    else:
-        lat, long = get_pos(map['last_clicked']['lat'], map['last_clicked']['lng'])
-    x = lat
-    y = long
-
-    # add marker for Liberty Bell
-    tooltip = "Liberty Bell"
-    folium.Marker([x, y], tooltip=tooltip).add_to(m)
 
     # save data
     out = {
@@ -544,8 +563,9 @@ def render_bar_plot_v2(shapy):
     st_echarts(option, height="700px", key="echarts_bar2")
 
 
-def render_donut_plot():
+def render_donut_plot(crime_data):
     # https://echarts.apache.org/examples/en/editor.html?c=pie-doughnut
+    crime_data = format_criminality_data(crime_data)
     option = {
         "title": {
             "text": 'Kriminalita v okolí',
@@ -556,20 +576,31 @@ def render_donut_plot():
             "top": '5%',
             "left": 'center'
         },
-        "tooltip": {},
+        "tooltip": {"trigger": 'item'},
         "series": [
             {
-                "name": 'Zločin',
+                "name": 'Počet trestních činu',
                 "type": 'pie',
                 "radius": ['40%', '70%'],
                 "avoidLabelOverlap": "false",
-
-                "data": [  # TODO here comes custom data
-                    {"value": 8, "name": 'Krádež'},
-                    {"value": 73, "name": 'Vlopání'},
-                    {"value": 58, "name": 'Nehoda'},
-                    {"value": 48, "name": 'únos'},
-                    {"value": 3, "name": 'Vražda'}
+                "label": {
+                    "show": False,
+                    "position": 'center'
+                },
+                "emphasis": {
+                    "label": {
+                        "show": True,
+                        "fontSize": 20,
+                        "fontWeight": 'bold'
+                    }
+                },
+                "data": [
+                    {"value": crime_data[1][0], "name": crime_data[0][0]},
+                    {"value": crime_data[1][1], "name": crime_data[0][1]},
+                    {"value": crime_data[1][2], "name": crime_data[0][2]},
+                    {"value": crime_data[1][3], "name": crime_data[0][3]},
+                    {"value": crime_data[1][4], "name": crime_data[0][4]},
+                    {"value": crime_data[1][5], "name": crime_data[0][5]}
                 ]
             }
         ]
@@ -842,7 +873,7 @@ def prediction(handmade, url=''):
                                           built_quality)
 
             with col2:
-                render_donut_plot()
+                render_donut_plot(out['criminality_data'])
 
             # st.write(f':sun_with_face: Slunečnost: {out["quality_data"]["sun_glare"].item()}')
             st.subheader(f':musical_note: Hlučnost v okoli: '
@@ -862,7 +893,7 @@ def prediction(handmade, url=''):
         if price_advertised is None:
             with st.expander('Obcanska vybavenost'):
                 st.info('Pro zobrazeni informaci prilozte k prislusnemu sloupci.')
-                #st.info('Objekty dale nez 1500 m su zobrazene ako 1500 m')
+                # st.info('Objekty dale nez 1500 m su zobrazene ako 1500 m')
 
                 render_dot_chart(*format_dist_data(out['distance_data']))
 
@@ -900,22 +931,27 @@ if selected == "Domů":
     st.markdown("       - zadaného URL z sreality.cz nebo bezrealitky.cz,")
     st.markdown("       - pomocí ručně zadaných vlastností bytu.")
     st.markdown(
-        ":sparkles: Dále můžeme investorům pomoci detekovat, jaké nemovitosti na trhu jsou podceněné nebo nadceněné a do kterých je lepší investovat.")
+        ":sparkles: Dále můžeme investorům pomoci detekovat, jaké nemovitosti na trhu jsou podceněné nebo nadceněné"
+        " a do kterých je lepší investovat.")
+    st.markdown(':sparkles: Pridanou hodnotou naše predikce je vysvetlení efektu jednolivých atributu bytu na'
+                ' finalni odhad ceny bytu.')
     st.markdown(
-        ":sparkles: Bonusem bude dodání dalších informací o nemovitosti jako například hlučnost, obydlenost apod.")
+        ":sparkles: Okrem vysvetlení efektu dodáme i další informace o okolí nemovitosti jako například míra hlučnosti,"
+        " míra kriminality a občanská vybavenost.")
 
 ############## 2. stránka ##############
 if selected == "Predikce pomocí URL":
     st.header("Predikce ceny nemovitosti pomocí URL")
     # url
-    url = st.text_input('URL nemovitosti (bytu v Praze) z sreality.cz or bezrealitky.cz')
+    url = st.text_input('Zadejte URL nemovitosti', help='Momentalne model rozumi len realitnimu trhu bytov v Praze. \n'
+                                                        'Odhady pre ine typy nemovitosti a lokaci budu nespolahlive. \n'
+                                                        'Validne su len url z sreality.cz nebo bezrealitky.cz')
     if url is None:
         pass
     else:
         url = str(url)
-        if ('bezrealitky' or 'sreality') and 'praha' in url:
-            with open('../data/predict_links.txt', 'w') as f:
-                f.write(url)
+        with open('../data/predict_links.txt', 'w') as f:
+            f.write(url)
 
     ############## MODELS ##############
     result_url = st.button('Predikuj!')
@@ -939,9 +975,10 @@ if selected == "Predikce pomocí ručně zadaných příznaků":
         prediction(handmade=True)
 
 ############## 3. stránka ##############
-if selected == "Kontakt":
-    st.header(f"Kontakt")
-    st.markdown(":copyright: Zkoukněte náš [GitHub](https://github.com/Many98/real_estate) :sunglasses:")
+if selected == "O aplikaci":
+    st.header(f"O aplikaci")
+    st.markdown(":copyright: Chcete-li vědět více o implementačních detailech zkoukněte náš"
+                " [GitHub](https://github.com/Many98/real_estate) :sunglasses:")
 
 
 # background
