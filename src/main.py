@@ -49,22 +49,21 @@ class ETL(object):
     Overall steps in ETL should be:
     --------------------------
     0. ?price map? optionaly scrape Atlas cen to get prices of already sold apartments (and also fit gaussian process)
-        this will be done asychronously with ETL  --> DONE (Emanuel)
+        this will be done asychronously with ETL
 
-    1. <crawl>  crawl sreality/bezrealitky (regularly every week or so)  --> DONE (Emanuel)
-                if links are not provided as input via web app  (partially DONE) --> TODO (Hanka)
+    1. <crawl>  crawl sreality/bezrealitky (regularly every week or so)
+                if links are not provided as input via web app
     2. [scrape] Scrape all relevant (tabular/textual) data from links provided by crawlers/ provided by user as url
         Optionally process (web app) "manual" input i.e. user provides textual description and basic "tabular info"
-                    like usable area, disposition, location etc.  --> DONE (Hanka & Adam)
-    3. [synchronize] Synchronize attributes from sreality and bezrealitky data sources  --> DONE (Adam, Emanuel)
+                    like usable area, disposition, location etc.
+    3. [synchronize] Synchronize attributes from sreality and bezrealitky data sources
     4. [enrich] Enrich records with additional features like noise levels, distance to nearest parks,
             level of criminality nearby, estimated price from gaussian process, embeddings for textual data etc.
-            --> DONE (Emanuel)
     5.  Feature engineering i.e.
-       [generate] a) generation of additional/aggregate features # TODO (Hanka)
-                        (requires research of e.g. econometrial methods)  # TODO reserch (Hanka)
+       [generate] a) generation of additional/aggregate features
+                        (requires research of e.g. econometrial methods)
        [preprocess] b) necessary preprocessing like handling missing values, one-hot encoding,
-                       scaling features (if necessary e.g. for linear regression model) etc. --> DONE (Emanuel)
+                       scaling features (if necessary e.g. for linear regression model) etc.
     ---------------------------------
 
     """
@@ -93,6 +92,7 @@ class ETL(object):
             else:
                 print('`scrape` parameter is set to False but not dataset found in \n'
                       '`../data/dataset.csv` therefore setting parameter scrape to True')
+                self.scrape = True
 
         # TODO make inits more consistent
         self.breality_crawler = KindOfCrawlerForBezRealitky(out_filename=crawled_links_filename,
