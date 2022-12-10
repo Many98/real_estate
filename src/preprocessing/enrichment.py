@@ -7,7 +7,6 @@ import geopandas as gpd
 import xarray as xr
 import datetime
 
-
 import requests
 from compress_fasttext.feature_extraction import FastTextTransformer
 from compress_fasttext.models import CompressedFastTextKeyedVectors
@@ -32,9 +31,9 @@ class Enricher(object):
             try:
                 self.add_gp('models/fitted_gp_low')
                 self.add_quality_data('../data/geodata/')
-                self.add_criminality_data('../data/criminality.csv')
                 self.add_location('../data/geodata/TMMESTSKECASTI_P.json')
                 self.add_osm_data()
+                self.add_criminality_data('../data/criminality.csv')
             except Exception as e:
                 if not inference:
                     print(e)
@@ -98,7 +97,7 @@ class Enricher(object):
         self.df['daily_noise'] = noise_day_query
         self.df['nightly_noise'] = noise_night_query
 
-    def add_criminality_data(self, path: str):
+    def add_criminality_data(self, path: str, dist=150):
         """
         method to add information about criminality in Prague
         Parameters
@@ -109,17 +108,13 @@ class Enricher(object):
         -------
 
         """
-        # prealocation
-        self.df['theft_crime'] = 0
-        self.df['burglary_crime'] = 0
-        self.df['violence_crime'] = 0
-        self.df['accident_crime'] = 0
-        self.df['murder_crime'] = 0
-        self.df['hijack_crime'] = 0
         crime_df = pd.read_csv(path, sep=',', delimiter=None, encoding="utf8")
+
         crime_df['date'] = pd.to_datetime(crime_df['date'], utc=True)
         crime_df['date'] = pd.to_datetime(crime_df['date']).dt.date
+
         crime_df = crime_df[crime_df['date'] > datetime.date(2016, 1, 1)]
+
         # list of all crimes ['krádeže na osobách' 'krádeže součástek aut' 'vloupání do prodejny'
         #  'krádeže motorových vozidel (dvoustopových)' 'krádeže jízdních kol'
         #  'loupež' 'vloupání do bytu' 'vydírání' 'úmyslné ublížení na zdraví'
@@ -130,25 +125,32 @@ class Enricher(object):
         #  'útok proti výkonu pravomoci stát. orgánu' 'vražda' 'chladná zbraň'
         #  'násilí proti skupině/jednotlivci' 'střelná zbraň' 'rvačka'
         #  'obchod s lidmi' 'únos']
+
         # We omit 'obchod s lidmi' and group types of crimes into several categories
         nasili = ['obecné ohrožení', 'omezování osobní svobody', 'nebezpečné vyhrožování',
-               'nedovolené ozbrojování', 'vydírání', 'rvačka', 'úmyslné ublížení na zdraví',
-               'výtržnictví', 'útok proti výkonu pravomoci stát. orgánu', 'chladná zbraň',
-               'střelná zbraň', 'násilí proti skupině/jednotlivci']
+                  'nedovolené ozbrojování', 'vydírání', 'rvačka', 'úmyslné ublížení na zdraví',
+                  'výtržnictví', 'útok proti výkonu pravomoci stát. orgánu', 'chladná zbraň',
+                  'střelná zbraň', 'násilí proti skupině/jednotlivci']
         kradez = ['krádeže na osobách', 'loupež', 'krádeže součástek aut', 'krádeže motorových vozidel (dvoustopových)',
-               'krádeže jízdních kol', 'krádeže motorových vozidel (jednostopových)']
+                  'krádeže jízdních kol', 'krádeže motorových vozidel (jednostopových)']
         vloupani = ['vloupání do restaurace', 'vloupání do rodinných domů', 'vloupání do bytu',
-               'vloupání do prodejny', 'vloupání do ubytovacích objektů']
+                    'vloupání do prodejny', 'vloupání do ubytovacích objektů']
+
         crime_df = crime_df[crime_df.types != 'obchod s lidmi']
         crime_df[['types']] = crime_df[['types']].replace(dict.fromkeys(nasili, 'násilí'))
         crime_df[['types']] = crime_df[['types']].replace(dict.fromkeys(kradez, 'krádež'))
         crime_df[['types']] = crime_df[['types']].replace(dict.fromkeys(vloupani, 'vloupání'))
+
         # All crimes we have in our data
         crime_list = ['krádež', 'vloupání', 'násilí', 'dopravní nehody', 'vražda', 'únos']
+
         # If we got any other type of crime, it is omitted here
-        crime_df = crime_df[crime_df.types not in crime_list]
-        crime_w = [0.15, 0.2, 0.1, 0.05, 0.25, 0.25]
+        crime_df = crime_df[crime_df['types'].isin(crime_list)]
+
+        # defines weights for crimes used later for sort (not normalized)
+        crime_w = [0.05, 0.057, 0.057, 0.045, 0.2, 0.07]
         crime_df['crime_idx'] = 0
+
         for x in range(len(crime_list)):
             crime_df.loc[crime_df['types'] == crime_list[x], 'crime_idx'] = crime_w[x]
 
@@ -156,26 +158,29 @@ class Enricher(object):
         crime_df['years_past'] = (max_date - crime_df['date']) / np.timedelta64(1, 'Y')
         discount_factor = 0.9
         crime_df['disc_crime'] = discount_factor ** (np.floor(crime_df['years_past'])) * crime_df['crime_idx']
+
+        # final filter now using weight based on seriousness of crime `crime_idx` and time passed
+        crime_df = crime_df[crime_df.disc_crime >= 0.045]
+
         # Now we have our data almost prepared
         gdf_from_crime = gpd.GeoDataFrame(crime_df,
-                                       geometry=gpd.points_from_xy(
-                                            crime_df.x,
-                                            crime_df.y,
-                                       ),
-                                        crs='epsg:4326',
-                                       )
-        dist = 150
-        gdf_from_crime = gdf_from_crime.to_crs('epsg:32633')
+                                          geometry=gpd.points_from_xy(
+                                              crime_df.x,
+                                              crime_df.y,
+                                          ),
+                                          crs='epsg:4326',
+                                          )
 
         gdf_from_df = gpd.GeoDataFrame(self.df,
-                                      geometry=gpd.points_from_xy(
-                                          self.df.long,
-                                          self.df.lat,
-                                      ),
-                                      crs='epsg:4326',
-                                      )
+                                       geometry=gpd.points_from_xy(
+                                           self.df.long,
+                                           self.df.lat,
+                                       ),
+                                       crs='epsg:4326',
+                                       )
+
         gdf_from_df = gdf_from_df.to_crs('epsg:32633')
-        # create buffer of 150m
+        # create buffer of `dist` m
         buffer = gdf_from_df.buffer(dist)
         buffer = buffer.to_crs('epsg:4326')
         buf = gpd.GeoDataFrame(geometry=buffer)
@@ -183,17 +188,28 @@ class Enricher(object):
         # perform spatial join
         joined = gpd.sjoin(gdf_from_crime, buf)
 
-        for _, row in tqdm(self.df.iterrows(), total=self.df.shape[0], desc='Processing OSM data'):  #
+        for _, row in tqdm(self.df.iterrows(), total=self.df.shape[0], desc='Processing criminality data'):
 
             relevant = joined.loc[joined.index_right == _, :]
-            df_group_crime = relevant.groupby('types', as_index=False).count()
-            self.df.at[_, 'theft_crime'] = df_group_crime[df_group_crime['types'] == 'krádež']['id']
-            self.df.at[_, 'burglary_crime'] = df_group_crime[df_group_crime['types'] == 'vloupání']['id']
-            self.df.at[_, 'violence_crime'] = df_group_crime[df_group_crime['types'] == 'násilí']['id']
-            self.df.at[_, 'accident_crime'] = df_group_crime[df_group_crime['types'] == 'dopravní nehody']['id']
-            self.df.at[_, 'murder_crime'] = df_group_crime[df_group_crime['types'] == 'vražda']['id']
-            self.df.at[_, 'hijack_crime'] = df_group_crime[df_group_crime['types'] == 'únos']['id']
 
+            if not relevant.empty:
+                df_group_crime = relevant.groupby('types', as_index=False).count()
+
+                self.df.at[_, 'theft_crime'] = df_group_crime[df_group_crime['types'] == 'krádež']['id'].item() if not \
+                    df_group_crime[df_group_crime['types'] == 'krádež']['id'].empty else 0
+                self.df.at[_, 'burglary_crime'] = df_group_crime[df_group_crime['types'] == 'vloupání']['id'].item() if not \
+                    df_group_crime[df_group_crime['types'] == 'vloupání']['id'].empty else 0
+                self.df.at[_, 'violence_crime'] = df_group_crime[df_group_crime['types'] == 'násilí']['id'].item() if not \
+                    df_group_crime[df_group_crime['types'] == 'násilí']['id'].empty else 0
+                self.df.at[_, 'accident_crime'] = df_group_crime[df_group_crime['types'] == 'dopravní nehody']['id'].item() if not \
+                    df_group_crime[df_group_crime['types'] == 'opravní nehody']['id'].empty else 0
+                self.df.at[_, 'murder_crime'] = df_group_crime[df_group_crime['types'] == 'vražda']['id'].item() if not \
+                    df_group_crime[df_group_crime['types'] == 'vražda']['id'].empty else 0
+                self.df.at[_, 'hijack_crime'] = df_group_crime[df_group_crime['types'] == 'únos']['id'].item() if not \
+                    df_group_crime[df_group_crime['types'] == 'únos']['id'].empty else 0
+
+        self.df[[i for i in self.df.columns if '_crime' in i]] = \
+            self.df[[i for i in self.df.columns if '_crime' in i]].fillna(0.)
 
     def add_location(self, geojson: str):
         """
@@ -283,21 +299,33 @@ class Enricher(object):
                     nearest = osmnx_nearest(gdf=relevant, long=row["long"], lat=row['lat'], dist=dist,
                                             dist_type='great_circle')
 
-                    self.df.at[_, 'bus_station_dist'] = float(nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
-                    self.df.at[_, 'train_station_dist'] = float(nearest[nearest.what.str.contains('train')]['dist'].min())
-                    self.df.at[_, 'subway_station_dist'] = float(nearest[nearest.what.str.contains('subway')]['dist'].min())
+                    self.df.at[_, 'bus_station_dist'] = float(
+                        nearest[nearest.what.str.contains('bus_stop')]['dist'].min())
+                    self.df.at[_, 'train_station_dist'] = float(
+                        nearest[nearest.what.str.contains('train')]['dist'].min())
+                    self.df.at[_, 'subway_station_dist'] = float(
+                        nearest[nearest.what.str.contains('subway')]['dist'].min())
                     self.df.at[_, 'tram_station_dist'] = float(nearest[nearest.what.str.contains('tram')]['dist'].min())
-                    self.df.at[_, 'post_office_dist'] = float(nearest[nearest.what.str.contains('post_off')]['dist'].min())
+                    self.df.at[_, 'post_office_dist'] = float(
+                        nearest[nearest.what.str.contains('post_off')]['dist'].min())
                     self.df.at[_, 'atm_dist'] = float(nearest[nearest.what.str.contains('atm')]['dist'].min())
-                    self.df.at[_, 'doctor_dist'] = float(nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
+                    self.df.at[_, 'doctor_dist'] = float(
+                        nearest[nearest.what.str.contains('hospital|clinic')]['dist'].min())
                     self.df.at[_, 'vet_dist'] = float(nearest[nearest.what.str.contains('veterinary')]['dist'].min())
-                    self.df.at[_, 'primary_school_dist'] = float(nearest[nearest.what.str.contains('school')]['dist'].min())
-                    self.df.at[_, 'kindergarten_dist'] = float(nearest[nearest.what.str.contains('kinder')]['dist'].min())
-                    self.df.at[_, 'supermarket_grocery_dist'] = float(nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
-                    self.df.at[_, 'restaurant_pub_dist'] = float(nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
-                    self.df.at[_, 'playground_dist'] = float(nearest[nearest.what.str.contains('playground')]['dist'].min())
-                    self.df.at[_, 'sports_field_dist'] = float(nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
-                    self.df.at[_, 'theatre_cinema_dist'] = float(nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
+                    self.df.at[_, 'primary_school_dist'] = float(
+                        nearest[nearest.what.str.contains('school')]['dist'].min())
+                    self.df.at[_, 'kindergarten_dist'] = float(
+                        nearest[nearest.what.str.contains('kinder')]['dist'].min())
+                    self.df.at[_, 'supermarket_grocery_dist'] = float(
+                        nearest[nearest.what.str.contains('supermarket|general|mall')]['dist'].min())
+                    self.df.at[_, 'restaurant_pub_dist'] = float(
+                        nearest[nearest.what.str.contains('restaurant|pub|cafe')]['dist'].min())
+                    self.df.at[_, 'playground_dist'] = float(
+                        nearest[nearest.what.str.contains('playground')]['dist'].min())
+                    self.df.at[_, 'sports_field_dist'] = float(
+                        nearest[nearest.what.str.contains('stadium|sports|fitness|swim')]['dist'].min())
+                    self.df.at[_, 'theatre_cinema_dist'] = float(
+                        nearest[nearest.what.str.contains('theatre|cinema')]['dist'].min())
                     self.df.at[_, 'pharmacy_dist'] = float(nearest[nearest.what.str.contains('pharmacy')]['dist'].min())
                     self.df.at[_, 'park_dist'] = float(nearest[nearest.what.str.contains('park')]['dist'].min())
                 else:
