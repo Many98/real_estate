@@ -25,7 +25,8 @@ class Preprocessor(object):
 
                 self.impute()  # impute in pandas-like way too lazy to overwrite
                 if self.status not in ['OK', 'OOPP']:
-                    return {'data': self.df, 'quality_data': None, 'distance_data': None, 'status': self.status}
+                    return {'data': self.df, 'quality_data': None, 'distance_data': None, 'criminality_data': None,
+                            'status': self.status}
 
                 self.categorize()
                 self.remove()
@@ -37,6 +38,7 @@ class Preprocessor(object):
                     return {'data': None,
                             'quality_data': None,
                             'distance_data': None,
+                            'criminality_data': None,
                             'status': 'INTERNAL ERROR (PREPROCESS)'}
 
         if self.df.empty:
@@ -47,6 +49,7 @@ class Preprocessor(object):
                 'quality_data': self.df[['air_quality', 'built_density', 'sun_glare',
                                          'daily_noise']],
                 'distance_data': self.df[[i for i in self.df.columns if 'dist' in i and '_te' not in i and 'city' not in i]],
+                'criminality_data': self.df[[i for i in self.df.columns if '_crime' in i]],
                 'status': self.status}
 
     def expand(self):
