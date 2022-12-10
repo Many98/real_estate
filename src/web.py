@@ -934,8 +934,8 @@ if selected == "Domů":
     st.markdown(
         ":sparkles: Dále můžeme investorům pomoci detekovat, jaké nemovitosti na trhu jsou podceněné nebo nadceněné"
         " a do kterých je lepší investovat.")
-    st.markdown(':sparkles: Přidanou hodnotou naší predikce je vysvětlení efektů jednolivých atributů bytu na'
-                ' finalní odhad ceny bytu.')
+    st.markdown(':sparkles: Přidanou hodnotou naší predikce je vysvětlení efektů jednotlivých atributů bytu na'
+                ' finální odhad ceny bytu.')
     st.markdown(
         ":sparkles: Kromě vysvětlení efektů dodáme i další informace o okolí nemovitosti jako například míra hlučnosti,"
         " míra kriminality a občanská vybavenost.")
