@@ -108,6 +108,13 @@ class Enricher(object):
         -------
 
         """
+        self.df['theft_crime'] = 0.
+        self.df['burglary_crime'] = 0.
+        self.df['violence_crime'] = 0.
+        self.df['accident_crime'] = 0.
+        self.df['murder_crime'] = 0.
+        self.df['hijack_crime'] = 0.
+
         crime_df = pd.read_csv(path, sep=',', delimiter=None, encoding="utf8")
 
         crime_df['date'] = pd.to_datetime(crime_df['date'], utc=True)
