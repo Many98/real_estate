@@ -7,6 +7,8 @@ import joblib
 import requests
 import py7zr
 
+from typing import Any
+
 import xgboost
 from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic
 from sklearn.metrics import mean_absolute_error, mean_squared_error
@@ -18,6 +20,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.compose import TransformedTargetRegressor
 
 from category_encoders import TargetEncoder, SummaryEncoder, QuantileEncoder
+
+import shap
 
 from preprocessing.enrichment import Enricher, Generator
 from preprocessing.preprocessing import Preprocessor
@@ -348,9 +352,10 @@ class Model(object):
         self.model_mean = None
         self.model_lower = None
         self.model_upper = None
+        self.explainer = None
 
     def __call__(self, *args, **kwargs) -> Union[tuple[Pipeline, Pipeline, Pipeline],
-                                                 tuple[np.ndarray, np.ndarray, np.ndarray]]:
+                                                 tuple[np.ndarray, np.ndarray, np.ndarray, Any]]:
         if not self.inference:
             # some theory https://www.kaggle.com/code/ryanholbrook/target-encoding/tutorial
             dist_cols = [i for i in self.data.columns if 'dist_te' in i]
@@ -455,6 +460,10 @@ class Model(object):
 
             self.model_mean.fit(X_train, y_train)
 
+            self.explainer = shap.Explainer(self.model_mean['model'], self.model_mean['prep'].transform(
+                self.data[self.data.columns.difference(['price',
+                                                        'price_m2'])]).astype(float))
+
             y_pred = self.model_mean.predict(X_test)
 
             print("The model training score is ", self.model_mean.score(X_train, y_train))
@@ -474,10 +483,24 @@ class Model(object):
             self.model_lower.fit(X_train, y_train)
             self.model_upper.fit(X_train, y_train)
 
-            # self.save_state()
+            self.save_state()
 
         else:
             self.load_state()
+
+            # TODO add more useful mapping to column/feature names
+            out_cols = [i.replace('tenc__', '') for i in self.model_mean['prep'].get_feature_names()]
+
+            shap_values = self.explainer(self.model_mean['prep'].transform(
+                self.data[self.data.columns.difference(['price',
+                                                        'price_m2'])]).astype(float)[:1])
+
+            shap_values.feature_names = out_cols
+
+            shap_values.data = shap_values.data.astype(object)
+            shap_values.data[0] = self.data[out_cols].to_numpy()[0]
+            #shap_values.values[0] *= self.data['usable_area'].to_numpy()[0]
+            #shap_values.base_values[0] *= self.data['usable_area'].to_numpy()[0]
 
             y_pred_mean = self.model_mean.predict(self.data[self.data.columns.difference(['price',
                                                                                           'price_m2'])])
@@ -495,7 +518,7 @@ class Model(object):
                 y_pred_lower2 = y_pred_lower
                 y_pred_upper2 = y_pred_upper
 
-            return y_pred_lower2, y_pred_mean2, y_pred_upper2
+            return y_pred_lower2, y_pred_mean2, y_pred_upper2, shap_values[0]
         # TODO we will need somehow deal with inconsistent predictions model_upper vs model_mean
 
     def load_state(self, path: str = None):
@@ -528,10 +551,11 @@ class Model(object):
         self.model_upper = state['model_upper']
         self.model_lower = state['model_lower']
         self.response = state['response']
+        self.explainer = state['explainer']
 
     def save_state(self):
         state = {'model_mean': self.model_mean, 'model_upper': self.model_upper, 'model_lower': self.model_lower,
-                 'response': self.response}
+                 'response': self.response, 'explainer': self.explainer}
 
         joblib.dump(state, os.path.join('models', 'model.pkl'), compress=1)
 
