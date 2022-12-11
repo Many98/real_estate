@@ -41,12 +41,12 @@ EXAMPLE_NO = 3
 
 
 def feature_names_mapping():
-    mapping = {'has_balcony': 'Má balkón', 'has_cellar': 'Má sklep', 'has_garage': 'Má garaz', 'has_lift': 'Má výtah',
+    mapping = {'has_balcony': 'Má balkón', 'has_cellar': 'Má sklep', 'has_garage': 'Má garáž', 'has_lift': 'Má výtah',
                'has_loggia': 'Má lodžie', 'has_parking': 'Má místo na parkování', 'has_garden': 'Má zahradu',
                'has_balcony_te': 'Má balkón', 'has_cellar_te': 'Má sklep', 'has_garage_te': 'Má garáž',
                'has_lift_te': 'Má výtah',
                'has_loggia_te': 'Má lodžie', 'has_parking_te': 'Má místo na parkování', 'has_garden_te': 'Má zahradu',
-               'energy_effeciency': 'Energetická efecience',
+               'energy_effeciency': 'Energetická náročnost',
                'ownership': 'Vlastnictví', 'equipment': 'Vybavení', 'state': 'Stav', 'disposition': 'Dispozice',
                'construction_type': 'Konstrukce', 'city_district': 'Městská část',
                'atm_dist_te': 'Vzdálenost k bankomatu', 'bus_station_dist_te': 'Vzdálenost k autobusu',
@@ -222,7 +222,7 @@ def get_csv_handmade():
         'Neurčeno', '1+kk', '1+1', '2+kk', '2+1', '3+kk', '3+1', '4+kk', '4+1', '5+kk', '5+1', '6', '6+kk', 'atypické'),
                     index=0,
                     horizontal=True,
-                    help='Zadejte dispozici bytu. Zadaním dispozice docílíte zpřesnění predikce.')
+                    help='Zadejte dispozici bytu. Zadáním dispozice docílíte zpřesnění predikce.')
     disposition_dict = None
     if type == '1+kk':
         disposition_dict = '1+kk'
@@ -258,9 +258,9 @@ def get_csv_handmade():
 
     # energy eficiency
     energy = st.select_slider(
-        'Energetická eficience',
+        'Energetická náročnost',
         options=['Neznámá', 'A', 'B', 'C', 'D', 'E', 'F', 'G'], label_visibility="visible",
-        help='Zadejte energetickou efecienci bytu. Zadáním tohoto atributu docílíte zpřesnění predikce.')
+        help='Zadejte energetickou náračnost bytu. Zadáním tohoto atributu docílíte zpřesnění predikce.')
     # energy = st.radio("Energetická eficience", ('A', 'B', 'C', 'D', 'E', 'F', 'G'))
     energy_dict = None
     if energy == 'A':
@@ -297,7 +297,7 @@ def get_csv_handmade():
     # col1, col2, col3 = st.columns(3)
     # with col1:
     ownership = st.radio("Vlastnictví", ('Neznámé', 'Osobní', 'Státní/obecní', 'Družstevní'), index=0, horizontal=True,
-                         help='Zadejte typ vlastnictví. Zadanim tohoto atributu docilite spresneni predikce.')
+                         help='Zadejte typ vlastnictví. Zadáním tohoto atributu docílíte zpřesnění predikce.')
     ownership_dict = None
     if ownership == 'Osobní':
         ownership_dict = 'Osobní'
