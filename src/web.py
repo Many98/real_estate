@@ -313,7 +313,7 @@ def get_csv_handmade():
     # with col2:
     equipment_dict = None
     equipment = st.radio("Vybavenost", ('Neznámá', 'Plně', 'Nevybaveno', 'Částečně'), index=0, horizontal=True,
-                         help='Zadejte miru vybavenosti bytu. Zadáním tohoto atributu docílíte zpřesnění predikce.')
+                         help='Zadejte míru vybavenosti bytu. Zadáním tohoto atributu docílíte zpřesnění predikce.')
     if equipment == 'Plně':
         equipment_dict = 'ano'
     elif equipment == 'Neznámá':
