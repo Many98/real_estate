@@ -260,7 +260,7 @@ def get_csv_handmade():
     energy = st.select_slider(
         'Energetická náročnost',
         options=['Neznámá', 'A', 'B', 'C', 'D', 'E', 'F', 'G'], label_visibility="visible",
-        help='Zadejte energetickou náračnost bytu. Zadáním tohoto atributu docílíte zpřesnění predikce.')
+        help='Zadejte energetickou náročnost bytu. Zadáním tohoto atributu docílíte zpřesnění predikce.')
     # energy = st.radio("Energetická eficience", ('A', 'B', 'C', 'D', 'E', 'F', 'G'))
     energy_dict = None
     if energy == 'A':
@@ -579,7 +579,7 @@ def render_donut_plot(crime_data):
         "tooltip": {"trigger": 'item'},
         "series": [
             {
-                "name": 'Počet trestních činu',
+                "name": 'Počet trestních činů',
                 "type": 'pie',
                 "radius": ['40%', '70%'],
                 "avoidLabelOverlap": "false",
@@ -667,7 +667,7 @@ def render_ring_gauge_quality(sun, air, built):
                     "borderRadius": 20,
                     "borderWidth": 1,
                     "formatter": streamlit_echarts.JsCode(
-                        'function lambda(a){return 20===a?"Velmi nizka":40===a?"Nizka":60===a?"Stredni":80===a?"Vysoka":100===a?"Velmi vysoka":"Data nedostupna"}').js_code,
+                        'function lambda(a){return 20===a?"Velmi nízká":40===a?"Nízká":60===a?"Střední":80===a?"Vysoká":100===a?"Velmi vysoká":"Data nedostupná"}').js_code,
                 },
             }
         ]
@@ -945,7 +945,7 @@ if selected == "Predikce pomocí URL":
     st.header("Predikce ceny nemovitosti pomocí URL")
     # url
     url = st.text_input('Zadejte URL nemovitosti', help='Momentálně model rozumí jen realitnímu trhu bytů v Praze. \n'
-                                                        'Odhady pro jiné typy nemovitosti a lokaci budou nespolehlivé. \n'
+                                                        'Odhady pro jiné typy nemovitostí a lokací budou nespolehlivé. \n'
                                                         'Validné jsou jen URL z sreality.cz nebo bezrealitky.cz.')
     if url is None:
         pass
