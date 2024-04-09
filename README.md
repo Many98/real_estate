@@ -21,8 +21,11 @@ Python Version: The codebase uses Python 3.10.6.
 #### 1. Command Line Interface (CLI)
 
 For detailed instructions, use: `python main.py --help`
-Examples:
+
+##### Examples:
+
 Hyperparameter Search: `python main.py --train --tune` (data loaded from `../data/dataset.csv`)
+
 Default Prediction: `python main.py` (runs prediction on data from ../data/dataset.csv and saves results in `../data/result.csv`)
 
 Training with New Data: `python main.py --train --scrape` (scrapes new data and performs training)
