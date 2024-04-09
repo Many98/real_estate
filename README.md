@@ -33,9 +33,6 @@ Training with New Data: `python main.py --train --scrape` (scrapes new data and 
 #### 2. Web Interface
 Run a local web server: `streamlit run web.py`
 
-  
-There is no jupyter notebook demo as we (or just Many98) do not like Jupyter notebooks :sunglasses:
-
 
 ## Processing logic
 
