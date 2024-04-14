@@ -56,33 +56,33 @@ The model is based on XGBoost.
 
 
 ## Web interface look
+![home](https://github.com/Many98/real_estate/assets/65658910/da1915a7-f243-46eb-bbfb-d7e420defc22)
 
-![home](https://github.com/Many98/real_estate/assets/65658910/345c92c4-762c-4618-b52a-c6be790e32da)
 
 ### Prediction using manually entered attributes
-![by_hand00](https://github.com/Many98/real_estate/assets/65658910/5dddd1c8-b59d-41c1-a728-713d2d7f5da0)
-![by_hand](https://github.com/Many98/real_estate/assets/65658910/1e19e335-37ad-4194-9b8d-2d0797424144)
+![by_hand00](https://github.com/Many98/real_estate/assets/65658910/a2219cd6-dd7e-41ba-95ea-64fb4c4d105e)
+![by_hand](https://github.com/Many98/real_estate/assets/65658910/f82d2de8-f214-40c6-9c2e-26223aaaa600)
 
-![prediction3](https://github.com/Many98/real_estate/assets/65658910/75128a6e-c515-4d17-8e76-53554d6be844)
+![prediction3](https://github.com/Many98/real_estate/assets/65658910/ba7ec5f1-2bf7-41b7-a34f-9c7f89bfd3bd)
+
 
 
 ### Prediction using url of sreality advertisement
-![sreality](https://github.com/Many98/real_estate/assets/65658910/8b7e7ac6-b044-4d89-a8a8-cdd1b62a44f3)
+![sreality](https://github.com/Many98/real_estate/assets/65658910/36d6c686-058b-48ee-bf76-e683167b9a76)
 
-![prediction_by_url](https://github.com/Many98/real_estate/assets/65658910/56293b34-3cb8-4f4e-bbee-8ea67aee3472)
+![prediction_by_url](https://github.com/Many98/real_estate/assets/65658910/9cea268c-e6e2-4cfe-b429-21bea2da548a)
 
 
 ### Effects of attributes on final price prediction
+![effects_by_url](https://github.com/Many98/real_estate/assets/65658910/e9eb67ee-ca82-4b10-9e0c-c823a6961fd6)
 
-![effects_by_url](https://github.com/Many98/real_estate/assets/65658910/eb8674f3-9600-4b82-976e-152cae085f4f)
+![effects_by_url2](https://github.com/Many98/real_estate/assets/65658910/58a0b5af-4d43-45ee-8010-6743a8053eb2)
 
-![effects_by_url2](https://github.com/Many98/real_estate/assets/65658910/a5e32c1b-bb88-4b0e-8be9-0f2ddf7dd051)
 
-### Additional information about apartments
+### Additional information about neighbourhoods apartments
+![add_by_url](https://github.com/Many98/real_estate/assets/65658910/6c45abc8-633b-44dd-b792-a7e21c78e84b)
 
-![add_by_url](https://github.com/Many98/real_estate/assets/65658910/8bb4f407-3a62-43e7-b210-3a6f3dcbcdb9)
-
-![dist3](https://github.com/Many98/real_estate/assets/65658910/e101e116-7ca6-43e2-ad91-b321c875051e)
+![dist3](https://github.com/Many98/real_estate/assets/65658910/dc388c9a-ff78-47c6-a97c-e4accdc55742)
 
 
 
