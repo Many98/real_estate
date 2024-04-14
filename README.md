@@ -79,7 +79,7 @@ The model is based on XGBoost.
 ![effects_by_url2](https://github.com/Many98/real_estate/assets/65658910/58a0b5af-4d43-45ee-8010-6743a8053eb2)
 
 
-### Additional information about neighbourhoods apartments
+### Additional information about neighbourhoods of apartments
 ![add_by_url](https://github.com/Many98/real_estate/assets/65658910/6c45abc8-633b-44dd-b792-a7e21c78e84b)
 
 ![dist3](https://github.com/Many98/real_estate/assets/65658910/dc388c9a-ff78-47c6-a97c-e4accdc55742)
